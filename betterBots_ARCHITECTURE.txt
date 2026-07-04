@@ -1,0 +1,19 @@
+* unlimited premoves
+* pgn copy button
+* UCI_ELO Button: add UCI_ELO 1320 - 3190 Bots (100er)
+* Bug fixen: entwickelte Dame wird als Pawn gedragt
+
+* add level 0-20 Bots
+( * add UCI_ELO 1320 -3190 Bots (10er)
+* add 20 Opening Reactions for White as Bot
+* add 20 (400) Opening Reactions for Black as Bot
+* add 6 (Fritz19 Personalities)
+* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
+
+* add restart game button
+* add "play from position" feature
+
+* mark as favorite Bot feature
+
+* counts the amount of trained games per Bot
+* counts the amount of won games per Bot
