@@ -1,5 +1,8 @@
 part of chess_board_controller;
 
+const String _defaultStartFen =
+    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
 void _controllerStart(ChessBoardController controller) {
   controller._engineSubscription ??= controller._engine.output.listen((line) {
     if (controller._isDisposed) {
@@ -29,20 +32,31 @@ Future<void> _controllerMakeBotMoveIfNeeded(
   var botMoved = false;
 
   try {
-    final bestMove = await controller._engine.getBestMoveFromFen(
-      fen: controller._game.fen,
-      skillLevel: controller._skillLevel,
-      useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-      uciElo: controller._uciElo,
-      moveTimeMs: 800,
-    );
+    final openingMove = _getForcedOpeningMove(controller);
 
-    if (controller._isDisposed ||
-        currentSearchGeneration != controller._searchGeneration) {
-      return;
+    if (openingMove != null) {
+      if (controller._isDisposed ||
+          currentSearchGeneration != controller._searchGeneration) {
+        return;
+      }
+
+      botMoved = _applyUciMove(controller, openingMove);
+    } else {
+      final bestMove = await controller._engine.getBestMoveFromFen(
+        fen: controller._game.fen,
+        skillLevel: controller._skillLevel,
+        useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+        uciElo: controller._uciElo,
+        moveTimeMs: 800,
+      );
+
+      if (controller._isDisposed ||
+          currentSearchGeneration != controller._searchGeneration) {
+        return;
+      }
+
+      botMoved = _applyUciMove(controller, bestMove);
     }
-
-    botMoved = _applyUciMove(controller, bestMove);
   } catch (e) {
     if (controller._isDisposed ||
         currentSearchGeneration != controller._searchGeneration) {
@@ -64,6 +78,62 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       botMoved) {
     await _tryPlayNextPremoveIfPossible(controller);
   }
+}
+
+String? _getForcedOpeningMove(ChessBoardController controller) {
+  if (!controller._openingLogicAllowed) {
+    return null;
+  }
+
+  if (controller._botOpeningMove == BotOpeningMove.none) {
+    controller._openingLogicAllowed = false;
+    return null;
+  }
+
+  final selectedOpening = _resolveSelectedOpening(controller);
+  final history = controller._game.history;
+
+  if (controller.playerSide == PlayerSide.black) {
+    if (history.isNotEmpty) {
+      controller._openingLogicAllowed = false;
+      return null;
+    }
+
+    if (controller._game.fen != _defaultStartFen) {
+      controller._openingLogicAllowed = false;
+      return null;
+    }
+
+    controller._openingLogicAllowed = false;
+    return selectedOpening.whiteUci;
+  }
+
+  if (controller.playerSide == PlayerSide.white) {
+    if (history.length != 1) {
+      return null;
+    }
+
+    controller._openingLogicAllowed = false;
+    return selectedOpening.blackUci;
+  }
+
+  return null;
+}
+
+BotOpeningMove _resolveSelectedOpening(ChessBoardController controller) {
+  if (controller._botOpeningMove != BotOpeningMove.random) {
+    return controller._botOpeningMove;
+  }
+
+  controller._resolvedRandomOpeningMove ??= _randomOpeningMove();
+
+  return controller._resolvedRandomOpeningMove!;
+}
+
+BotOpeningMove _randomOpeningMove() {
+  final openings = List<BotOpeningMove>.from(BotOpeningMove.realOpenings);
+  openings.shuffle();
+  return openings.first;
 }
 
 bool _applyUciMove(ChessBoardController controller, String uciMove) {

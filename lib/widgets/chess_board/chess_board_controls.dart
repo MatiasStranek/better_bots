@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/bot_opening_move.dart';
 import '../../models/engine_strength_mode.dart';
 import '../../models/player_side.dart';
 
@@ -8,18 +9,21 @@ class ChessBoardControls extends StatelessWidget {
     required this.skillLevel,
     required this.uciElo,
     required this.strengthMode,
+    required this.botOpeningMove,
     required this.isBotThinking,
     required this.onNewGame,
     required this.onRestart,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onStrengthModeChanged,
+    required this.onBotOpeningMoveChanged,
     super.key,
   });
 
   final int skillLevel;
   final int uciElo;
   final EngineStrengthMode strengthMode;
+  final BotOpeningMove botOpeningMove;
   final bool isBotThinking;
 
   final ValueChanged<PlayerSide> onNewGame;
@@ -28,6 +32,7 @@ class ChessBoardControls extends StatelessWidget {
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
+  final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
 
   String get _buttonText {
     if (strengthMode == EngineStrengthMode.level) {
@@ -118,6 +123,28 @@ class ChessBoardControls extends StatelessWidget {
     );
   }
 
+  Future<void> _showOpeningDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return SimpleDialog(
+          title: const Text('Eröffnung auswählen'),
+          children: BotOpeningMove.values
+              .map(
+                (move) => SimpleDialogOption(
+                  onPressed: () {
+                    onBotOpeningMoveChanged(move);
+                    Navigator.pop(context);
+                  },
+                  child: Text(move.label),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -139,9 +166,23 @@ class ChessBoardControls extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: isBotThinking ? null : () => _showStrengthDialog(context),
-          child: Text(_buttonText),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ElevatedButton(
+              onPressed: isBotThinking
+                  ? null
+                  : () => _showStrengthDialog(context),
+              child: Text(_buttonText),
+            ),
+            ElevatedButton(
+              onPressed: isBotThinking
+                  ? null
+                  : () => _showOpeningDialog(context),
+              child: Text(botOpeningMove.label),
+            ),
+          ],
         ),
       ],
     );

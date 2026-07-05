@@ -9,6 +9,7 @@ import '../engine/chess_engine.dart';
 import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
+import '../models/bot_opening_move.dart';
 import '../models/engine_strength_mode.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
@@ -52,6 +53,10 @@ class ChessBoardController extends ChangeNotifier {
   int _skillLevel = 0;
   EngineStrengthMode _strengthMode = EngineStrengthMode.level;
   int _uciElo = 1320;
+  BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
+
+  bool _openingLogicAllowed = true;
+  BotOpeningMove? _resolvedRandomOpeningMove;
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
@@ -68,6 +73,8 @@ class ChessBoardController extends ChangeNotifier {
   EngineStrengthMode get strengthMode => _strengthMode;
 
   int get uciElo => _uciElo;
+
+  BotOpeningMove get botOpeningMove => _botOpeningMove;
 
   bool get isBotThinking => _isBotThinking;
 
@@ -117,7 +124,11 @@ class ChessBoardController extends ChangeNotifier {
     super.dispose();
   }
 
-  void newGame(PlayerSide side) => _controllerNewGame(this, side);
+  void newGame(PlayerSide side) {
+    _openingLogicAllowed = true;
+    _resolvedRandomOpeningMove = null;
+    _controllerNewGame(this, side);
+  }
 
   void restartGame() => newGame(_playerSide);
 
@@ -128,6 +139,12 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void setUciElo(int elo) => _controllerSetUciElo(this, elo);
+
+  void setBotOpeningMove(BotOpeningMove move) {
+    _botOpeningMove = move;
+    _resolvedRandomOpeningMove = null;
+    notifyListeners();
+  }
 
   void selectSquare(String square) => _controllerSelectSquare(this, square);
 
@@ -173,6 +190,8 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   Future<bool> loadFenPosition(String fenInput) {
+    _openingLogicAllowed = false;
+    _resolvedRandomOpeningMove = null;
     return _controllerLoadFenPosition(this, fenInput);
   }
 }

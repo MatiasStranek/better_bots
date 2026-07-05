@@ -1,18 +1,19 @@
-* smaller size: lib/controllers/chess_board_controller.dart
+* add 20 Opening Reactions for White as Bot
+* add 20 (400) Opening Reactions for Black as Bot
+* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
+* add 6 (Fritz19 Personalities)
 
-* pgn copy button
-* UCI_ELO Button: add UCI_ELO 1320 - 3190 Bots (100er)
+* add multiple selection for Openings and Personalities
+
 * Bug fixen: entwickelte Dame wird als Pawn gedragt
 * bigger Pieces
 * Schlagschatten auf Figuren
 * hitbox on complete field
+* better UserInterface
 
-* add level 0-20 Bots
 ( * add UCI_ELO 1320 -3190 Bots (10er)
-* add 20 Opening Reactions for White as Bot
-* add 20 (400) Opening Reactions for Black as Bot
-* add 6 (Fritz19 Personalities)
-* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
+
+* adding winning and loosing animation-particles
 
 * add restart game button
 * add "play from position" feature
