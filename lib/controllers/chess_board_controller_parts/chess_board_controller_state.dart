@@ -140,7 +140,7 @@ void _controllerSetPersonaCandidateCount(
     return;
   }
 
-  controller._personaCandidateCount = candidateCount.clamp(4, 16);
+  controller._personaCandidateCount = candidateCount.clamp(4, 128);
   _safeNotify(controller);
 }
 

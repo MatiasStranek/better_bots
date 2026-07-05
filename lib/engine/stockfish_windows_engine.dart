@@ -85,7 +85,7 @@ class StockfishWindowsEngine implements ChessEngine {
   }
 
   Future<void> setMultiPv(int value) async {
-    final safeValue = value.clamp(1, 16);
+    final safeValue = value.clamp(1, 128);
 
     _sendCommand('setoption name MultiPV value $safeValue');
 
@@ -163,7 +163,7 @@ class StockfishWindowsEngine implements ChessEngine {
       await setSkillLevel(skillLevel);
     }
 
-    final safeCandidateCount = candidateCount.clamp(4, 16);
+    final safeCandidateCount = candidateCount.clamp(4, 128);
 
     await setMultiPv(safeCandidateCount);
 

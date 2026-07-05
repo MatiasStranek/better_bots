@@ -73,7 +73,20 @@ class ChessBoardControls extends StatelessWidget {
   ];
 
   List<int> get _candidateValues {
-    return List.generate(13, (index) => index + 4);
+    return List.generate(32, (index) => 4 + index * 4);
+  }
+
+  List<List<int>> get _candidateColumns {
+    const entriesPerColumn = 10;
+    final values = _candidateValues;
+    final columns = <List<int>>[];
+
+    for (var i = 0; i < values.length; i += entriesPerColumn) {
+      final end = (i + entriesPerColumn).clamp(0, values.length);
+      columns.add(values.sublist(i, end));
+    }
+
+    return columns;
   }
 
   Future<void> _showStrengthDialog(BuildContext context) async {
@@ -202,19 +215,49 @@ class ChessBoardControls extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (_) {
-        return SimpleDialog(
+        return AlertDialog(
           title: const Text('Kandidatenzüge auswählen'),
-          children: _candidateValues
-              .map(
-                (candidateCount) => SimpleDialogOption(
-                  onPressed: () {
-                    onPersonaCandidateCountChanged(candidateCount);
-                    Navigator.pop(context);
-                  },
-                  child: Text('$candidateCount Kandidaten'),
-                ),
-              )
-              .toList(),
+          content: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _candidateColumns.map((columnValues) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: SizedBox(
+                    width: 130,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: columnValues.map((candidateCount) {
+                        final isSelected =
+                            candidateCount == personaCandidateCount;
+
+                        return TextButton(
+                          onPressed: () {
+                            onPersonaCandidateCountChanged(candidateCount);
+                            Navigator.pop(context);
+                          },
+                          style: TextButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: Text(
+                            isSelected
+                                ? '✓ $candidateCount Kandidaten'
+                                : '$candidateCount Kandidaten',
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         );
       },
     );
