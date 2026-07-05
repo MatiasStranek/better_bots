@@ -193,10 +193,14 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             const SizedBox(height: 12),
             ChessBoardControls(
               skillLevel: _controller.skillLevel,
+              uciElo: _controller.uciElo,
+              strengthMode: _controller.strengthMode,
               isBotThinking: _controller.isBotThinking,
               onNewGame: _controller.newGame,
               onRestart: _controller.restartGame,
               onSkillLevelChanged: _controller.setSkillLevel,
+              onUciEloChanged: _controller.setUciElo,
+              onStrengthModeChanged: _controller.setStrengthMode,
             ),
             const SizedBox(height: 16),
             ChessBoardGrid(

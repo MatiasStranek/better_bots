@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../engine/chess_engine.dart';
 import '../engine/stockfish_windows_engine.dart';
+import '../models/engine_strength_mode.dart';
 
 class StockfishTestPage extends StatefulWidget {
   const StockfishTestPage({super.key});
@@ -22,7 +23,16 @@ class _StockfishTestPageState extends State<StockfishTestPage> {
   String _bestMove = '-';
 
   int _skillLevel = 0;
+  int _uciElo = 1320;
+  EngineStrengthMode _strengthMode = EngineStrengthMode.level;
+
   bool _isBusy = false;
+
+  List<int> get _eloValues => [
+    1320,
+    ...List.generate(18, (index) => 1400 + index * 100),
+    3190,
+  ];
 
   @override
   void initState() {
@@ -73,6 +83,8 @@ class _StockfishTestPageState extends State<StockfishTestPage> {
     try {
       final move = await _engine.getBestMoveFromStartPosition(
         skillLevel: _skillLevel,
+        useUciElo: _strengthMode == EngineStrengthMode.uciElo,
+        uciElo: _uciElo,
         moveTimeMs: 800,
       );
 
@@ -137,60 +149,91 @@ class _StockfishTestPageState extends State<StockfishTestPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Status: $_status'),
-
             const SizedBox(height: 16),
-
             ElevatedButton(
               onPressed: _isBusy ? null : _startStockfish,
               child: const Text('Stockfish starten'),
             ),
-
             const SizedBox(height: 8),
-
             ElevatedButton(
               onPressed: _isBusy ? null : _stopStockfish,
               child: const Text('Stockfish stoppen'),
             ),
-
             const SizedBox(height: 24),
-
-            const Text('Skill Level'),
-            DropdownButton<int>(
-              value: _skillLevel,
-              items: levels.map((level) {
-                return DropdownMenuItem<int>(
-                  value: level,
-                  child: Text('Level $level'),
-                );
-              }).toList(),
+            const Text('Stärkentyp'),
+            DropdownButton<EngineStrengthMode>(
+              value: _strengthMode,
+              items: const [
+                DropdownMenuItem(
+                  value: EngineStrengthMode.level,
+                  child: Text('Level'),
+                ),
+                DropdownMenuItem(
+                  value: EngineStrengthMode.uciElo,
+                  child: Text('UCI_ELO'),
+                ),
+              ],
               onChanged: _isBusy
                   ? null
                   : (value) {
                       if (value == null) return;
 
                       setState(() {
-                        _skillLevel = value;
+                        _strengthMode = value;
                       });
                     },
             ),
-
             const SizedBox(height: 16),
+            if (_strengthMode == EngineStrengthMode.level) ...[
+              const Text('Skill Level'),
+              DropdownButton<int>(
+                value: _skillLevel,
+                items: levels.map((level) {
+                  return DropdownMenuItem<int>(
+                    value: level,
+                    child: Text('Level $level'),
+                  );
+                }).toList(),
+                onChanged: _isBusy
+                    ? null
+                    : (value) {
+                        if (value == null) return;
 
+                        setState(() {
+                          _skillLevel = value;
+                        });
+                      },
+              ),
+            ] else ...[
+              const Text('UCI_ELO'),
+              DropdownButton<int>(
+                value: _uciElo,
+                items: _eloValues.map((elo) {
+                  return DropdownMenuItem<int>(value: elo, child: Text('$elo'));
+                }).toList(),
+                onChanged: _isBusy
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+
+                        setState(() {
+                          _uciElo = value;
+                        });
+                      },
+              ),
+            ],
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _isBusy ? null : _calculateMove,
               child: const Text('Bot-Zug aus Startposition berechnen'),
             ),
-
             const SizedBox(height: 24),
-
             Text('Bot-Zug:', style: Theme.of(context).textTheme.titleMedium),
             SelectableText(
               _bestMove,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-
             const SizedBox(height: 24),
-
             const Text('Letzte Engine-Ausgabe:'),
             const SizedBox(height: 8),
             SelectableText(_lastOutput),

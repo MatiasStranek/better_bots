@@ -9,6 +9,7 @@ import '../engine/chess_engine.dart';
 import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
+import '../models/engine_strength_mode.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
 
@@ -49,6 +50,9 @@ class ChessBoardController extends ChangeNotifier {
   final PremoveQueue _premoves = PremoveQueue();
 
   int _skillLevel = 0;
+  EngineStrengthMode _strengthMode = EngineStrengthMode.level;
+  int _uciElo = 1320;
+
   bool _isBotThinking = false;
   String _engineOutput = '-';
 
@@ -60,6 +64,10 @@ class ChessBoardController extends ChangeNotifier {
   PlayerSide get playerSide => _playerSide;
 
   int get skillLevel => _skillLevel;
+
+  EngineStrengthMode get strengthMode => _strengthMode;
+
+  int get uciElo => _uciElo;
 
   bool get isBotThinking => _isBotThinking;
 
@@ -114,6 +122,12 @@ class ChessBoardController extends ChangeNotifier {
   void restartGame() => newGame(_playerSide);
 
   void setSkillLevel(int level) => _controllerSetSkillLevel(this, level);
+
+  void setStrengthMode(EngineStrengthMode mode) {
+    return _controllerSetStrengthMode(this, mode);
+  }
+
+  void setUciElo(int elo) => _controllerSetUciElo(this, elo);
 
   void selectSquare(String square) => _controllerSelectSquare(this, square);
 

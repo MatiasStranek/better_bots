@@ -65,7 +65,17 @@ class StockfishWindowsEngine implements ChessEngine {
   Future<void> setSkillLevel(int level) async {
     final safeLevel = level.clamp(0, 20);
 
+    _sendCommand('setoption name UCI_LimitStrength value false');
     _sendCommand('setoption name Skill Level value $safeLevel');
+
+    await _waitUntilReady();
+  }
+
+  Future<void> setUciElo(int elo) async {
+    final safeElo = elo.clamp(1320, 3190);
+
+    _sendCommand('setoption name UCI_LimitStrength value true');
+    _sendCommand('setoption name UCI_Elo value $safeElo');
 
     await _waitUntilReady();
   }
@@ -73,11 +83,15 @@ class StockfishWindowsEngine implements ChessEngine {
   @override
   Future<String> getBestMoveFromStartPosition({
     required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
     int moveTimeMs = 800,
   }) async {
     return getBestMoveFromFen(
       fen: 'startpos',
       skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
       moveTimeMs: moveTimeMs,
     );
   }
@@ -86,13 +100,19 @@ class StockfishWindowsEngine implements ChessEngine {
   Future<String> getBestMoveFromFen({
     required String fen,
     required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
     int moveTimeMs = 800,
   }) async {
     if (_process == null) {
       await start();
     }
 
-    await setSkillLevel(skillLevel);
+    if (useUciElo) {
+      await setUciElo(uciElo);
+    } else {
+      await setSkillLevel(skillLevel);
+    }
 
     _bestMoveCompleter = Completer<String>();
 

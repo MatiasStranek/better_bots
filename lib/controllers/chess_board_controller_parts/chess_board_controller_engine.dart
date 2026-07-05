@@ -32,6 +32,8 @@ Future<void> _controllerMakeBotMoveIfNeeded(
     final bestMove = await controller._engine.getBestMoveFromFen(
       fen: controller._game.fen,
       skillLevel: controller._skillLevel,
+      useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+      uciElo: controller._uciElo,
       moveTimeMs: 800,
     );
 
@@ -83,8 +85,7 @@ bool _applyUciMove(ChessBoardController controller, String uciMove) {
 
   if (!moved) {
     controller._engineOutput =
-        'Bot-Zug konnte nicht ausgeführt werden: '
-        '$uciMove';
+        'Bot-Zug konnte nicht ausgeführt werden: $uciMove';
     _safeNotify(controller);
     return false;
   }

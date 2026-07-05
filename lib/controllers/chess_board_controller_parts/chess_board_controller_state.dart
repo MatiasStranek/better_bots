@@ -65,6 +65,7 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
   controller._lastFrom = null;
   controller._lastTo = null;
   controller._premoves.clear();
+
   controller._isBotThinking = false;
   controller._engineOutput = '-';
 
@@ -81,6 +82,27 @@ void _controllerSetSkillLevel(ChessBoardController controller, int level) {
   }
 
   controller._skillLevel = level;
+  _safeNotify(controller);
+}
+
+void _controllerSetStrengthMode(
+  ChessBoardController controller,
+  EngineStrengthMode mode,
+) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  controller._strengthMode = mode;
+  _safeNotify(controller);
+}
+
+void _controllerSetUciElo(ChessBoardController controller, int elo) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  controller._uciElo = elo.clamp(1320, 3190);
   _safeNotify(controller);
 }
 
