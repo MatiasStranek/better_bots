@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'pages/chess_board_page.dart';
 import 'ui/mobile/pages/mobile_chess_board_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
   runApp(const BetterBotsApp());
 }
 

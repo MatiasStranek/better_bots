@@ -1,8 +1,14 @@
+* removing statusbar and navigationbar
+
 * Strength Selection Button with 3 Tabs
-* adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative)
+* adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative) as Button (standard: 11)
+
+* descending from move1 to move10, after it engine continues
 
 * Restart Aufgeben Button (counts looses)
 * View for Won, Lost and Remis
+
+* creating own bots with names
 
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64

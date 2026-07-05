@@ -6,9 +6,9 @@ import 'package:chess/chess.dart' as chess;
 import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
+import '../engine/chess_engine_factory.dart';
 import '../engine/personality/cp_loss_move_selector.dart';
 import '../engine/personality/persona_move_selector.dart';
-import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
 import '../models/bot_opening_move.dart';
@@ -36,7 +36,7 @@ class ChessBoardController extends ChangeNotifier {
   ChessBoardController({
     ChessEngine? engine,
     PromotionChoiceCallback? onPromotionChoiceRequested,
-  }) : _engine = engine ?? StockfishWindowsEngine(),
+  }) : _engine = engine ?? ChessEngineFactory.createMobileEngine(),
        _onPromotionChoiceRequested = onPromotionChoiceRequested;
 
   final chess.Chess _game = chess.Chess();

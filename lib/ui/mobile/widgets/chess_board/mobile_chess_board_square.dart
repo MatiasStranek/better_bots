@@ -14,8 +14,12 @@ class MobileChessBoardSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final squareColor = isLightSquare
+        ? const Color(0x99F0D9B5)
+        : const Color(0x99946F51);
+
     return ColoredBox(
-      color: isLightSquare ? const Color(0x99F0D9B5) : const Color(0x99946F51),
+      color: squareColor,
       child: pieceCode == null
           ? const SizedBox.expand()
           : MobileChessPiece(pieceCode: pieceCode!),
