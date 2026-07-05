@@ -1,8 +1,8 @@
-* Engineering: UCI_ELO 0 - 1300 (with cp borders)
-	* higher chance: playing the exact rating
-	* middle chance: playig the lower rating
-	* lower chance: playering the higher rating
-* UCI_ELO 1320 - 3190 edit_engineering (like with the cp borders in UCI_ELO 0 - 1300)
+* Strength Selection Button with 3 Tabs
+* adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative)
+
+* Restart Aufgeben Button (counts looses)
+* View for Won, Lost and Remis
 
 * adding premoves with taking pieces
 
@@ -28,6 +28,8 @@
 		* analysis gets deleted
 		* continue playing from actual position
 	* arrows with right click hold
+
+(* adding stronger intelligence for 0-1200? With the function to increase intelligence after each step Move1-5, move 6-10 etc.)
 
 * generator for personality moves (counting all moves which got played)
 

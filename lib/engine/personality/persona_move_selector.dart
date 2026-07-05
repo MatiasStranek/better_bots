@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../../models/bot_personality.dart';
+import 'cp_loss_move_selector.dart';
 import 'persona_move_candidate.dart';
 
 class PersonaMoveSelector {
@@ -14,16 +15,7 @@ class PersonaMoveSelector {
     required bool useUciElo,
     required int uciElo,
   }) {
-    final validCandidates =
-        candidates.where((candidate) => candidate.isValidMove).toList()
-          ..sort((a, b) {
-            final byMultiPv = a.multiPv.compareTo(b.multiPv);
-            if (byMultiPv != 0) {
-              return byMultiPv;
-            }
-
-            return b.scoreCp.compareTo(a.scoreCp);
-          });
+    final validCandidates = _sortedValidCandidates(candidates);
 
     if (validCandidates.isEmpty) {
       return '(none)';
@@ -50,6 +42,79 @@ class PersonaMoveSelector {
         ? <PersonaMoveCandidate>[bestCandidate]
         : playableCandidates;
 
+    return _selectMoveFromPreparedCandidates(
+      fen: fen,
+      candidates: selectionPool,
+      bestCandidate: bestCandidate,
+      personality: personality,
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+      allowForceBestMove: true,
+    );
+  }
+
+  String selectMoveFromCpLossPool({
+    required String fen,
+    required CpLossCandidatePool pool,
+    required BotPersonality personality,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+  }) {
+    final validCandidates = _sortedValidCandidates(pool.candidates);
+
+    if (validCandidates.isEmpty) {
+      return '(none)';
+    }
+
+    if (personality == BotPersonality.none ||
+        personality == BotPersonality.random) {
+      return validCandidates.first.uciMove;
+    }
+
+    final bestCandidate = pool.bestCandidate ?? validCandidates.first;
+
+    return _selectMoveFromPreparedCandidates(
+      fen: fen,
+      candidates: validCandidates,
+      bestCandidate: bestCandidate,
+      personality: personality,
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+      allowForceBestMove: false,
+    );
+  }
+
+  List<PersonaMoveCandidate> _sortedValidCandidates(
+    List<PersonaMoveCandidate> candidates,
+  ) {
+    return candidates.where((candidate) => candidate.isValidMove).toList()
+      ..sort((a, b) {
+        final byMultiPv = a.multiPv.compareTo(b.multiPv);
+        if (byMultiPv != 0) {
+          return byMultiPv;
+        }
+
+        return b.scoreCp.compareTo(a.scoreCp);
+      });
+  }
+
+  String _selectMoveFromPreparedCandidates({
+    required String fen,
+    required List<PersonaMoveCandidate> candidates,
+    required PersonaMoveCandidate bestCandidate,
+    required BotPersonality personality,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+    required bool allowForceBestMove,
+  }) {
+    if (candidates.isEmpty) {
+      return bestCandidate.uciMove;
+    }
+
     final boardBefore = _MiniBoard.fromFen(fen);
     final botColor = boardBefore.sideToMove;
 
@@ -60,7 +125,7 @@ class PersonaMoveSelector {
 
     final scores = <_ScoredPersonaMove>[];
 
-    for (final candidate in selectionPool) {
+    for (final candidate in candidates) {
       final boardAfter = boardBefore.afterUciMove(candidate.uciMove);
 
       final afterFeatures = _PositionFeatures.fromBoard(
@@ -79,7 +144,10 @@ class PersonaMoveSelector {
         delta: featureDelta,
       );
 
-      final enginePenalty = candidate.centipawnLossComparedTo(bestCandidate);
+      final enginePenalty = max(
+        0,
+        candidate.centipawnLossComparedTo(bestCandidate),
+      );
 
       final finalScore =
           styleScore -
@@ -110,13 +178,14 @@ class PersonaMoveSelector {
       return scores.first.candidate.uciMove;
     }
 
-    if (_shouldForceEngineBestMove(
-      scores: scores,
-      bestCandidate: bestCandidate,
-      skillLevel: skillLevel,
-      useUciElo: useUciElo,
-      uciElo: uciElo,
-    )) {
+    if (allowForceBestMove &&
+        _shouldForceEngineBestMove(
+          scores: scores,
+          bestCandidate: bestCandidate,
+          skillLevel: skillLevel,
+          useUciElo: useUciElo,
+          uciElo: uciElo,
+        )) {
       return bestCandidate.uciMove;
     }
 
@@ -276,7 +345,7 @@ class PersonaMoveSelector {
 
   int _maxVariationPoolSize(double strength) {
     final poolSize = (8 - strength * 5).round();
-    return poolSize.clamp(3, 8);
+    return poolSize.clamp(3, 8).toInt();
   }
 
   int _forceBestMoveGap(double strength) {
@@ -325,10 +394,10 @@ class PersonaMoveSelector {
     required int uciElo,
   }) {
     if (!useUciElo) {
-      return skillLevel.clamp(0, 20) / 20.0;
+      return skillLevel.clamp(0, 20).toInt() / 20.0;
     }
 
-    final safeElo = uciElo.clamp(1320, 3190);
+    final safeElo = uciElo.clamp(1320, 3190).toInt();
     return (((safeElo - 1320) / (3190 - 1320)).clamp(0.0, 1.0)).toDouble();
   }
 
@@ -414,7 +483,7 @@ class PersonaMoveSelector {
     );
 
     final personaSpread = maxKnownScore - minKnownScore;
-    final engineLoss = candidate.centipawnLossComparedTo(bestCandidate);
+    final engineLoss = max(0, candidate.centipawnLossComparedTo(bestCandidate));
 
     final antiPersonaScore =
         -maxKnownScore * 1.05 -

@@ -59,13 +59,39 @@ Future<void> _controllerMakeBotMoveIfNeeded(
           moveTimeMs: 800,
         );
 
-        final selection = const CpLossMoveSelector().selectMove(
+        const cpLossSelector = CpLossMoveSelector();
+
+        final cpLossPool = cpLossSelector.buildCandidatePool(
           candidates: candidates,
           cpLossElo: controller._cpLossElo,
         );
 
-        botMove = selection.uciMove;
-        controller._engineOutput = selection.debugText;
+        if (effectivePersonality == BotPersonality.none) {
+          final selection = cpLossSelector.selectMoveFromPool(pool: cpLossPool);
+
+          botMove = selection.uciMove;
+          controller._engineOutput = selection.debugText;
+        } else {
+          botMove = const PersonaMoveSelector().selectMoveFromCpLossPool(
+            fen: currentFen,
+            pool: cpLossPool,
+            personality: effectivePersonality,
+            skillLevel: 20,
+            useUciElo: false,
+            uciElo: controller._uciElo,
+          );
+
+          final chosenCpLoss = cpLossSelector.cpLossForMoveInPool(
+            pool: cpLossPool,
+            uciMove: botMove,
+          );
+
+          controller._engineOutput =
+              '${cpLossPool.debugPrefix} | '
+              'Persona: ${effectivePersonality.label} | '
+              'Gewählt: $chosenCpLoss cp | '
+              'Zug: $botMove';
+        }
       } else if (effectivePersonality == BotPersonality.none) {
         botMove = await controller._engine.getBestMoveFromFen(
           fen: currentFen,
