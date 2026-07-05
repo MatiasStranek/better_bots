@@ -42,20 +42,52 @@ Future<void> _controllerMakeBotMoveIfNeeded(
 
       botMoved = _applyUciMove(controller, openingMove);
     } else {
-      final bestMove = await controller._engine.getBestMoveFromFen(
-        fen: controller._game.fen,
-        skillLevel: controller._skillLevel,
-        useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-        uciElo: controller._uciElo,
-        moveTimeMs: 800,
+      final currentFen = controller._game.fen;
+      final effectivePersonality = _controllerEffectiveBotPersonality(
+        controller,
       );
+
+      String botMove;
+
+      if (effectivePersonality == BotPersonality.none) {
+        botMove = await controller._engine.getBestMoveFromFen(
+          fen: currentFen,
+          skillLevel: controller._skillLevel,
+          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+          uciElo: controller._uciElo,
+          moveTimeMs: 800,
+        );
+      } else {
+        final candidates = await controller._engine.getMoveCandidatesFromFen(
+          fen: currentFen,
+          skillLevel: controller._skillLevel,
+          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+          uciElo: controller._uciElo,
+          candidateCount: controller._personaCandidateCount,
+          moveTimeMs: 800,
+        );
+
+        botMove = const PersonaMoveSelector().selectMove(
+          fen: currentFen,
+          candidates: candidates,
+          personality: effectivePersonality,
+          skillLevel: controller._skillLevel,
+          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+          uciElo: controller._uciElo,
+        );
+
+        controller._engineOutput =
+            'Persona: ${effectivePersonality.label} | '
+            'Kandidaten: ${controller._personaCandidateCount} | '
+            'Zug: $botMove';
+      }
 
       if (controller._isDisposed ||
           currentSearchGeneration != controller._searchGeneration) {
         return;
       }
 
-      botMoved = _applyUciMove(controller, bestMove);
+      botMoved = _applyUciMove(controller, botMove);
     }
   } catch (e) {
     if (controller._isDisposed ||

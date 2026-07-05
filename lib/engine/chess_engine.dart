@@ -1,3 +1,5 @@
+import 'personality/persona_move_candidate.dart';
+
 abstract class ChessEngine {
   Stream<String> get output;
 
@@ -19,6 +21,15 @@ abstract class ChessEngine {
     required int skillLevel,
     required bool useUciElo,
     required int uciElo,
+    int moveTimeMs = 800,
+  });
+
+  Future<List<PersonaMoveCandidate>> getMoveCandidatesFromFen({
+    required String fen,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+    required int candidateCount,
     int moveTimeMs = 800,
   });
 

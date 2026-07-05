@@ -1,7 +1,12 @@
-* add 20 Opening Reactions for White as Bot
-* add 20 (400) Opening Reactions for Black as Bot
+* responsible for android
+
+* resizing: persona_move_selector.dart
+* Kandidatenzüge mathematisch effizienter und qualitativer für die Kreativität ensetzen: z.B. 30 Kanditatenzüge mit Zug 2 und dann absteigend z.B. 25 Kandidatenzüge nach Zug 2
+
 * add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
 * add 6 (Fritz19 Personalities)
+
+* adding feedback for random functions
 
 * add multiple selection for Openings and Personalities
 

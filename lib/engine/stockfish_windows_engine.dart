@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'chess_engine.dart';
+import 'personality/persona_move_candidate.dart';
 
 class StockfishWindowsEngine implements ChessEngine {
   Process? _process;
@@ -16,6 +17,9 @@ class StockfishWindowsEngine implements ChessEngine {
   Completer<void>? _uciOkCompleter;
   Completer<void>? _readyOkCompleter;
   Completer<String>? _bestMoveCompleter;
+  Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
+
+  final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
 
   @override
   Stream<String> get output => _outputController.stream;
@@ -80,6 +84,14 @@ class StockfishWindowsEngine implements ChessEngine {
     await _waitUntilReady();
   }
 
+  Future<void> setMultiPv(int value) async {
+    final safeValue = value.clamp(1, 16);
+
+    _sendCommand('setoption name MultiPV value $safeValue');
+
+    await _waitUntilReady();
+  }
+
   @override
   Future<String> getBestMoveFromStartPosition({
     required int skillLevel,
@@ -114,22 +126,70 @@ class StockfishWindowsEngine implements ChessEngine {
       await setSkillLevel(skillLevel);
     }
 
+    await setMultiPv(1);
+
     _bestMoveCompleter = Completer<String>();
+    _candidateCompleter = null;
+    _latestCandidatesByMultiPv.clear();
 
-    if (fen == 'startpos') {
-      _sendCommand('position startpos');
-    } else {
-      _sendCommand('position fen $fen');
-    }
-
+    _setPosition(fen);
     _sendCommand('go movetime $moveTimeMs');
 
     return _bestMoveCompleter!.future.timeout(
       const Duration(seconds: 10),
       onTimeout: () {
+        _bestMoveCompleter = null;
         throw Exception('Stockfish hat keinen bestmove geliefert.');
       },
     );
+  }
+
+  @override
+  Future<List<PersonaMoveCandidate>> getMoveCandidatesFromFen({
+    required String fen,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+    required int candidateCount,
+    int moveTimeMs = 800,
+  }) async {
+    if (_process == null) {
+      await start();
+    }
+
+    if (useUciElo) {
+      await setUciElo(uciElo);
+    } else {
+      await setSkillLevel(skillLevel);
+    }
+
+    final safeCandidateCount = candidateCount.clamp(4, 16);
+
+    await setMultiPv(safeCandidateCount);
+
+    _bestMoveCompleter = null;
+    _candidateCompleter = Completer<List<PersonaMoveCandidate>>();
+    _latestCandidatesByMultiPv.clear();
+
+    _setPosition(fen);
+    _sendCommand('go movetime $moveTimeMs');
+
+    return _candidateCompleter!.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _candidateCompleter = null;
+        _latestCandidatesByMultiPv.clear();
+        throw Exception('Stockfish hat keine Kandidatenzüge geliefert.');
+      },
+    );
+  }
+
+  void _setPosition(String fen) {
+    if (fen == 'startpos') {
+      _sendCommand('position startpos');
+    } else {
+      _sendCommand('position fen $fen');
+    }
   }
 
   Future<void> _waitUntilReady() async {
@@ -166,18 +226,137 @@ class StockfishWindowsEngine implements ChessEngine {
       return;
     }
 
+    if (trimmedLine.startsWith('info ')) {
+      _handleInfoLine(trimmedLine);
+      return;
+    }
+
     if (trimmedLine.startsWith('bestmove')) {
-      final parts = trimmedLine.split(' ');
+      _handleBestMoveLine(trimmedLine);
+    }
+  }
 
-      if (parts.length >= 2) {
-        final bestMove = parts[1];
+  void _handleInfoLine(String line) {
+    if (_candidateCompleter == null) {
+      return;
+    }
 
-        if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
-          _bestMoveCompleter!.complete(bestMove);
-        }
+    final candidate = _parseCandidateFromInfoLine(line);
 
-        _bestMoveCompleter = null;
+    if (candidate == null || !candidate.isValidMove) {
+      return;
+    }
+
+    final existing = _latestCandidatesByMultiPv[candidate.multiPv];
+
+    if (existing == null || candidate.depth >= existing.depth) {
+      _latestCandidatesByMultiPv[candidate.multiPv] = candidate;
+    }
+  }
+
+  PersonaMoveCandidate? _parseCandidateFromInfoLine(String line) {
+    final parts = line.split(RegExp(r'\s+'));
+
+    final pvIndex = parts.indexOf('pv');
+
+    if (pvIndex < 0 || pvIndex + 1 >= parts.length) {
+      return null;
+    }
+
+    final pv = parts.sublist(pvIndex + 1);
+
+    if (pv.isEmpty) {
+      return null;
+    }
+
+    final uciMove = pv.first;
+
+    var depth = 0;
+    final depthIndex = parts.indexOf('depth');
+    if (depthIndex >= 0 && depthIndex + 1 < parts.length) {
+      depth = int.tryParse(parts[depthIndex + 1]) ?? 0;
+    }
+
+    var multiPv = 1;
+    final multiPvIndex = parts.indexOf('multipv');
+    if (multiPvIndex >= 0 && multiPvIndex + 1 < parts.length) {
+      multiPv = int.tryParse(parts[multiPvIndex + 1]) ?? 1;
+    }
+
+    var scoreCp = 0;
+    final scoreIndex = parts.indexOf('score');
+    if (scoreIndex >= 0 && scoreIndex + 2 < parts.length) {
+      final scoreType = parts[scoreIndex + 1];
+      final scoreValue = int.tryParse(parts[scoreIndex + 2]) ?? 0;
+
+      if (scoreType == 'cp') {
+        scoreCp = scoreValue;
+      } else if (scoreType == 'mate') {
+        scoreCp = _mateScoreToCentipawns(scoreValue);
       }
+    }
+
+    return PersonaMoveCandidate(
+      uciMove: uciMove,
+      multiPv: multiPv,
+      scoreCp: scoreCp,
+      depth: depth,
+      pv: pv,
+    );
+  }
+
+  int _mateScoreToCentipawns(int mateScore) {
+    if (mateScore > 0) {
+      return 100000 - mateScore.abs();
+    }
+
+    if (mateScore < 0) {
+      return -100000 + mateScore.abs();
+    }
+
+    return 0;
+  }
+
+  void _handleBestMoveLine(String line) {
+    final parts = line.split(RegExp(r'\s+'));
+
+    if (parts.length < 2) {
+      return;
+    }
+
+    final bestMove = parts[1];
+
+    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
+      _bestMoveCompleter!.complete(bestMove);
+      _bestMoveCompleter = null;
+    }
+
+    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
+      final candidates = _latestCandidatesByMultiPv.values.toList()
+        ..sort((a, b) {
+          final byMultiPv = a.multiPv.compareTo(b.multiPv);
+          if (byMultiPv != 0) {
+            return byMultiPv;
+          }
+
+          return b.scoreCp.compareTo(a.scoreCp);
+        });
+
+      if (candidates.isEmpty && bestMove != '(none)') {
+        candidates.add(
+          PersonaMoveCandidate(
+            uciMove: bestMove,
+            multiPv: 1,
+            scoreCp: 0,
+            depth: 0,
+            pv: [bestMove],
+          ),
+        );
+      }
+
+      _candidateCompleter!.complete(candidates);
+      _candidateCompleter = null;
+      _latestCandidatesByMultiPv.clear();
     }
   }
 

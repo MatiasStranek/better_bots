@@ -196,6 +196,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
               uciElo: _controller.uciElo,
               strengthMode: _controller.strengthMode,
               botOpeningMove: _controller.botOpeningMove,
+              botPersonality: _controller.botPersonality,
+              effectiveBotPersonality: _controller.effectiveBotPersonality,
+              personaCandidateCount: _controller.personaCandidateCount,
               isBotThinking: _controller.isBotThinking,
               onNewGame: _controller.newGame,
               onRestart: _controller.restartGame,
@@ -203,6 +206,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
               onUciEloChanged: _controller.setUciElo,
               onStrengthModeChanged: _controller.setStrengthMode,
               onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+              onBotPersonalityChanged: _controller.setBotPersonality,
+              onPersonaCandidateCountChanged:
+                  _controller.setPersonaCandidateCount,
             ),
             const SizedBox(height: 16),
             ChessBoardGrid(

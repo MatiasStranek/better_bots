@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/bot_opening_move.dart';
+import '../../models/bot_personality.dart';
 import '../../models/engine_strength_mode.dart';
 import '../../models/player_side.dart';
 
@@ -10,6 +11,9 @@ class ChessBoardControls extends StatelessWidget {
     required this.uciElo,
     required this.strengthMode,
     required this.botOpeningMove,
+    required this.botPersonality,
+    required this.effectiveBotPersonality,
+    required this.personaCandidateCount,
     required this.isBotThinking,
     required this.onNewGame,
     required this.onRestart,
@@ -17,6 +21,8 @@ class ChessBoardControls extends StatelessWidget {
     required this.onUciEloChanged,
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
+    required this.onBotPersonalityChanged,
+    required this.onPersonaCandidateCountChanged,
     super.key,
   });
 
@@ -24,6 +30,9 @@ class ChessBoardControls extends StatelessWidget {
   final int uciElo;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
+  final BotPersonality botPersonality;
+  final BotPersonality effectiveBotPersonality;
+  final int personaCandidateCount;
   final bool isBotThinking;
 
   final ValueChanged<PlayerSide> onNewGame;
@@ -33,8 +42,10 @@ class ChessBoardControls extends StatelessWidget {
   final ValueChanged<int> onUciEloChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
+  final ValueChanged<BotPersonality> onBotPersonalityChanged;
+  final ValueChanged<int> onPersonaCandidateCountChanged;
 
-  String get _buttonText {
+  String get _strengthButtonText {
     if (strengthMode == EngineStrengthMode.level) {
       return 'Level $skillLevel';
     }
@@ -42,11 +53,28 @@ class ChessBoardControls extends StatelessWidget {
     return 'UCI_ELO $uciElo';
   }
 
+  String get _personalityButtonText {
+    if (botPersonality == BotPersonality.random &&
+        effectiveBotPersonality.isConcretePersonality) {
+      return 'Zufällig: ${effectiveBotPersonality.label}';
+    }
+
+    return botPersonality.label;
+  }
+
+  String get _candidateButtonText {
+    return 'Kandidaten: $personaCandidateCount';
+  }
+
   List<int> get _eloValues => [
     1320,
     ...List.generate(18, (i) => 1400 + i * 100),
     3190,
   ];
+
+  List<int> get _candidateValues {
+    return List.generate(13, (index) => index + 4);
+  }
 
   Future<void> _showStrengthDialog(BuildContext context) async {
     await showDialog<void>(
@@ -145,8 +173,57 @@ class ChessBoardControls extends StatelessWidget {
     );
   }
 
+  Future<void> _showPersonalityDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return SimpleDialog(
+          title: const Text('Persönlichkeit auswählen'),
+          children: BotPersonality.values
+              .map(
+                (personality) => SimpleDialogOption(
+                  onPressed: () {
+                    onBotPersonalityChanged(personality);
+                    Navigator.pop(context);
+                  },
+                  child: _PersonalityDialogLabel(
+                    personality: personality,
+                    effectiveBotPersonality: effectiveBotPersonality,
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCandidateDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return SimpleDialog(
+          title: const Text('Kandidatenzüge auswählen'),
+          children: _candidateValues
+              .map(
+                (candidateCount) => SimpleDialogOption(
+                  onPressed: () {
+                    onPersonaCandidateCountChanged(candidateCount);
+                    Navigator.pop(context);
+                  },
+                  child: Text('$candidateCount Kandidaten'),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final personalityEnabled = botPersonality != BotPersonality.none;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -174,7 +251,7 @@ class ChessBoardControls extends StatelessWidget {
               onPressed: isBotThinking
                   ? null
                   : () => _showStrengthDialog(context),
-              child: Text(_buttonText),
+              child: Text(_strengthButtonText),
             ),
             ElevatedButton(
               onPressed: isBotThinking
@@ -182,9 +259,41 @@ class ChessBoardControls extends StatelessWidget {
                   : () => _showOpeningDialog(context),
               child: Text(botOpeningMove.label),
             ),
+            ElevatedButton(
+              onPressed: isBotThinking
+                  ? null
+                  : () => _showPersonalityDialog(context),
+              child: Text(_personalityButtonText),
+            ),
+            ElevatedButton(
+              onPressed: isBotThinking || !personalityEnabled
+                  ? null
+                  : () => _showCandidateDialog(context),
+              child: Text(_candidateButtonText),
+            ),
           ],
         ),
       ],
     );
+  }
+}
+
+class _PersonalityDialogLabel extends StatelessWidget {
+  const _PersonalityDialogLabel({
+    required this.personality,
+    required this.effectiveBotPersonality,
+  });
+
+  final BotPersonality personality;
+  final BotPersonality effectiveBotPersonality;
+
+  @override
+  Widget build(BuildContext context) {
+    if (personality == BotPersonality.random &&
+        effectiveBotPersonality.isConcretePersonality) {
+      return Text('${personality.label} (${effectiveBotPersonality.label})');
+    }
+
+    return Text(personality.label);
   }
 }

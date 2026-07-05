@@ -6,10 +6,12 @@ import 'package:chess/chess.dart' as chess;
 import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
+import '../engine/personality/persona_move_selector.dart';
 import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
 import '../models/bot_opening_move.dart';
+import '../models/bot_personality.dart';
 import '../models/engine_strength_mode.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
@@ -53,10 +55,14 @@ class ChessBoardController extends ChangeNotifier {
   int _skillLevel = 0;
   EngineStrengthMode _strengthMode = EngineStrengthMode.level;
   int _uciElo = 1320;
-  BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
 
+  BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
   bool _openingLogicAllowed = true;
   BotOpeningMove? _resolvedRandomOpeningMove;
+
+  BotPersonality _botPersonality = BotPersonality.none;
+  BotPersonality? _resolvedRandomPersonality;
+  int _personaCandidateCount = 12;
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
@@ -75,6 +81,14 @@ class ChessBoardController extends ChangeNotifier {
   int get uciElo => _uciElo;
 
   BotOpeningMove get botOpeningMove => _botOpeningMove;
+
+  BotPersonality get botPersonality => _botPersonality;
+
+  BotPersonality get effectiveBotPersonality {
+    return _controllerEffectiveBotPersonality(this);
+  }
+
+  int get personaCandidateCount => _personaCandidateCount;
 
   bool get isBotThinking => _isBotThinking;
 
@@ -127,6 +141,7 @@ class ChessBoardController extends ChangeNotifier {
   void newGame(PlayerSide side) {
     _openingLogicAllowed = true;
     _resolvedRandomOpeningMove = null;
+    _resolvedRandomPersonality = null;
     _controllerNewGame(this, side);
   }
 
@@ -141,9 +156,21 @@ class ChessBoardController extends ChangeNotifier {
   void setUciElo(int elo) => _controllerSetUciElo(this, elo);
 
   void setBotOpeningMove(BotOpeningMove move) {
+    if (_isBotThinking) {
+      return;
+    }
+
     _botOpeningMove = move;
     _resolvedRandomOpeningMove = null;
     notifyListeners();
+  }
+
+  void setBotPersonality(BotPersonality personality) {
+    return _controllerSetBotPersonality(this, personality);
+  }
+
+  void setPersonaCandidateCount(int candidateCount) {
+    return _controllerSetPersonaCandidateCount(this, candidateCount);
   }
 
   void selectSquare(String square) => _controllerSelectSquare(this, square);
@@ -192,6 +219,7 @@ class ChessBoardController extends ChangeNotifier {
   Future<bool> loadFenPosition(String fenInput) {
     _openingLogicAllowed = false;
     _resolvedRandomOpeningMove = null;
+    _resolvedRandomPersonality = null;
     return _controllerLoadFenPosition(this, fenInput);
   }
 }

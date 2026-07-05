@@ -69,6 +69,14 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
   controller._isBotThinking = false;
   controller._engineOutput = '-';
 
+  controller._openingLogicAllowed = true;
+  controller._resolvedRandomOpeningMove = null;
+
+  controller._resolvedRandomPersonality = null;
+  if (controller._botPersonality == BotPersonality.random) {
+    controller._resolvedRandomPersonality = _randomBotPersonality();
+  }
+
   _safeNotify(controller);
 
   if (controller._playerSide == PlayerSide.black) {
@@ -104,6 +112,57 @@ void _controllerSetUciElo(ChessBoardController controller, int elo) {
 
   controller._uciElo = elo.clamp(1320, 3190);
   _safeNotify(controller);
+}
+
+void _controllerSetBotPersonality(
+  ChessBoardController controller,
+  BotPersonality personality,
+) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  controller._botPersonality = personality;
+  controller._resolvedRandomPersonality = null;
+
+  if (personality == BotPersonality.random) {
+    controller._resolvedRandomPersonality = _randomBotPersonality();
+  }
+
+  _safeNotify(controller);
+}
+
+void _controllerSetPersonaCandidateCount(
+  ChessBoardController controller,
+  int candidateCount,
+) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  controller._personaCandidateCount = candidateCount.clamp(4, 16);
+  _safeNotify(controller);
+}
+
+BotPersonality _controllerEffectiveBotPersonality(
+  ChessBoardController controller,
+) {
+  if (controller._botPersonality == BotPersonality.random) {
+    controller._resolvedRandomPersonality ??= _randomBotPersonality();
+    return controller._resolvedRandomPersonality!;
+  }
+
+  return controller._botPersonality;
+}
+
+BotPersonality _randomBotPersonality() {
+  final personalities = List<BotPersonality>.from(
+    BotPersonality.concretePersonalities,
+  );
+
+  personalities.shuffle();
+
+  return personalities.first;
 }
 
 void _controllerSelectSquare(ChessBoardController controller, String square) {
