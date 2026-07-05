@@ -1,1 +1,1 @@
-enum EngineStrengthMode { level, uciElo }
+enum EngineStrengthMode { level, uciElo, cpLossElo }

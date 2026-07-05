@@ -110,7 +110,17 @@ void _controllerSetUciElo(ChessBoardController controller, int elo) {
     return;
   }
 
-  controller._uciElo = elo.clamp(1320, 3190);
+  controller._uciElo = elo.clamp(1320, 3190).toInt();
+  _safeNotify(controller);
+}
+
+void _controllerSetCpLossElo(ChessBoardController controller, int elo) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  final rounded = (elo / 100).round() * 100;
+  controller._cpLossElo = rounded.clamp(0, 4000).toInt();
   _safeNotify(controller);
 }
 
@@ -140,7 +150,7 @@ void _controllerSetPersonaCandidateCount(
     return;
   }
 
-  controller._personaCandidateCount = candidateCount.clamp(4, 128);
+  controller._personaCandidateCount = candidateCount.clamp(4, 128).toInt();
   _safeNotify(controller);
 }
 

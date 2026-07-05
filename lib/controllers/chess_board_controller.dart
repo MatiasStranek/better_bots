@@ -6,6 +6,7 @@ import 'package:chess/chess.dart' as chess;
 import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
+import '../engine/personality/cp_loss_move_selector.dart';
 import '../engine/personality/persona_move_selector.dart';
 import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
@@ -55,6 +56,7 @@ class ChessBoardController extends ChangeNotifier {
   int _skillLevel = 0;
   EngineStrengthMode _strengthMode = EngineStrengthMode.level;
   int _uciElo = 1320;
+  int _cpLossElo = 1300;
 
   BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
   bool _openingLogicAllowed = true;
@@ -79,6 +81,8 @@ class ChessBoardController extends ChangeNotifier {
   EngineStrengthMode get strengthMode => _strengthMode;
 
   int get uciElo => _uciElo;
+
+  int get cpLossElo => _cpLossElo;
 
   BotOpeningMove get botOpeningMove => _botOpeningMove;
 
@@ -154,6 +158,8 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void setUciElo(int elo) => _controllerSetUciElo(this, elo);
+
+  void setCpLossElo(int elo) => _controllerSetCpLossElo(this, elo);
 
   void setBotOpeningMove(BotOpeningMove move) {
     if (_isBotThinking) {

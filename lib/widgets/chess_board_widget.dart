@@ -194,6 +194,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             ChessBoardControls(
               skillLevel: _controller.skillLevel,
               uciElo: _controller.uciElo,
+              cpLossElo: _controller.cpLossElo,
               strengthMode: _controller.strengthMode,
               botOpeningMove: _controller.botOpeningMove,
               botPersonality: _controller.botPersonality,
@@ -204,6 +205,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
               onRestart: _controller.restartGame,
               onSkillLevelChanged: _controller.setSkillLevel,
               onUciEloChanged: _controller.setUciElo,
+              onCpLossEloChanged: _controller.setCpLossElo,
               onStrengthModeChanged: _controller.setStrengthMode,
               onBotOpeningMoveChanged: _controller.setBotOpeningMove,
               onBotPersonalityChanged: _controller.setBotPersonality,

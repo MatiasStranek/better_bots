@@ -49,7 +49,24 @@ Future<void> _controllerMakeBotMoveIfNeeded(
 
       String botMove;
 
-      if (effectivePersonality == BotPersonality.none) {
+      if (controller._strengthMode == EngineStrengthMode.cpLossElo) {
+        final candidates = await controller._engine.getMoveCandidatesFromFen(
+          fen: currentFen,
+          skillLevel: 20,
+          useUciElo: false,
+          uciElo: controller._uciElo,
+          candidateCount: controller._personaCandidateCount,
+          moveTimeMs: 800,
+        );
+
+        final selection = const CpLossMoveSelector().selectMove(
+          candidates: candidates,
+          cpLossElo: controller._cpLossElo,
+        );
+
+        botMove = selection.uciMove;
+        controller._engineOutput = selection.debugText;
+      } else if (effectivePersonality == BotPersonality.none) {
         botMove = await controller._engine.getBestMoveFromFen(
           fen: currentFen,
           skillLevel: controller._skillLevel,

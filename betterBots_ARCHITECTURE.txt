@@ -1,13 +1,44 @@
-* responsible for android
+* Engineering: UCI_ELO 0 - 1300 (with cp borders)
+	* higher chance: playing the exact rating
+	* middle chance: playig the lower rating
+	* lower chance: playering the higher rating
+* UCI_ELO 1320 - 3190 edit_engineering (like with the cp borders in UCI_ELO 0 - 1300)
+
+* adding premoves with taking pieces
+
+* -1 Elo Bot plays Random
+
+* responsible for android (UserInterface Directory)
 * adding database (hive or objectivebox)
+
+* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
+* add 6 (Fritz19 Personalities)
+
+* Opening & Personality Button:
+	* multiple selection
+	* random selection (random amount)
+	* random amount selection
+	* renaming "Ohne ..." with "Ohne ... / Auswahl entfernen"
+
+* Analysis Button:
+	* analysis from the pgn
+	* analysis in actual position
+	* arrows for getting back and forth (alls moves are seperated from the game)
+	* switching from analysis to game again:
+		* analysis gets deleted
+		* continue playing from actual position
+	* arrows with right click hold
+
+* generator for personality moves (counting all moves which got played)
+
+
+* challengeModes: timestamps (bullet, blitz, rapid, classic)
+* funnyModes: kingchessNoBorder, botIllegalMoves
 
 * calculating all possible bots including ELO from 1320 to 3190 (100er, 10er and 1er)
 
 * resizing: persona_move_selector.dart
 * Kandidatenzüge mathematisch effizienter und qualitativer für die Kreativität ensetzen: z.B. 30 Kanditatenzüge mit Zug 2 und dann absteigend z.B. 25 Kandidatenzüge nach Zug 2
-
-* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
-* add 6 (Fritz19 Personalities)
 
 * adding feedback for random functions
 
@@ -23,7 +54,7 @@
 
 * adding winning and loosing animation-particles
 
-* add restart game button
+* add restart-count game button
 * add "play from position" feature
 
 * mark as favorite Bot feature

@@ -9,6 +9,7 @@ class ChessBoardControls extends StatelessWidget {
   const ChessBoardControls({
     required this.skillLevel,
     required this.uciElo,
+    required this.cpLossElo,
     required this.strengthMode,
     required this.botOpeningMove,
     required this.botPersonality,
@@ -19,6 +20,7 @@ class ChessBoardControls extends StatelessWidget {
     required this.onRestart,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
+    required this.onCpLossEloChanged,
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
@@ -28,6 +30,7 @@ class ChessBoardControls extends StatelessWidget {
 
   final int skillLevel;
   final int uciElo;
+  final int cpLossElo;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotPersonality botPersonality;
@@ -40,17 +43,21 @@ class ChessBoardControls extends StatelessWidget {
 
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
+  final ValueChanged<int> onCpLossEloChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
 
   String get _strengthButtonText {
-    if (strengthMode == EngineStrengthMode.level) {
-      return 'Level $skillLevel';
+    switch (strengthMode) {
+      case EngineStrengthMode.level:
+        return 'Level $skillLevel';
+      case EngineStrengthMode.uciElo:
+        return 'UCI_ELO $uciElo';
+      case EngineStrengthMode.cpLossElo:
+        return 'CP_Loss_ELO $cpLossElo';
     }
-
-    return 'UCI_ELO $uciElo';
   }
 
   String get _personalityButtonText {
@@ -72,6 +79,23 @@ class ChessBoardControls extends StatelessWidget {
     3190,
   ];
 
+  List<int> get _cpLossEloValues {
+    return List.generate(41, (index) => index * 100);
+  }
+
+  List<List<int>> get _cpLossEloColumns {
+    const entriesPerColumn = 10;
+    final values = _cpLossEloValues;
+    final columns = <List<int>>[];
+
+    for (var i = 0; i < values.length; i += entriesPerColumn) {
+      final end = (i + entriesPerColumn).clamp(0, values.length).toInt();
+      columns.add(values.sublist(i, end));
+    }
+
+    return columns;
+  }
+
   List<int> get _candidateValues {
     return List.generate(32, (index) => 4 + index * 4);
   }
@@ -82,7 +106,7 @@ class ChessBoardControls extends StatelessWidget {
     final columns = <List<int>>[];
 
     for (var i = 0; i < values.length; i += entriesPerColumn) {
-      final end = (i + entriesPerColumn).clamp(0, values.length);
+      final end = (i + entriesPerColumn).clamp(0, values.length).toInt();
       columns.add(values.sublist(i, end));
     }
 
@@ -110,6 +134,14 @@ class ChessBoardControls extends StatelessWidget {
                 Navigator.pop(context);
                 onStrengthModeChanged(EngineStrengthMode.uciElo);
                 _showEloDialog(context);
+              },
+            ),
+            SimpleDialogOption(
+              child: const Text('CP_Loss_ELO'),
+              onPressed: () {
+                Navigator.pop(context);
+                onStrengthModeChanged(EngineStrengthMode.cpLossElo);
+                _showCpLossEloDialog(context);
               },
             ),
           ],
@@ -159,6 +191,53 @@ class ChessBoardControls extends StatelessWidget {
                 ),
               )
               .toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCpLossEloDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('CP_Loss_ELO auswählen'),
+          content: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _cpLossEloColumns.map((columnValues) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: SizedBox(
+                    width: 120,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: columnValues.map((elo) {
+                        final isSelected = elo == cpLossElo;
+
+                        return TextButton(
+                          onPressed: () {
+                            onCpLossEloChanged(elo);
+                            Navigator.pop(context);
+                          },
+                          style: TextButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: Text(isSelected ? '✓ $elo' : '$elo'),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         );
       },
     );
@@ -266,6 +345,9 @@ class ChessBoardControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final personalityEnabled = botPersonality != BotPersonality.none;
+    final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
+    final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
+
     final personalityButtonColor = effectiveBotPersonality.isAbstract
         ? Colors.orange
         : null;
@@ -315,7 +397,7 @@ class ChessBoardControls extends StatelessWidget {
               ),
             ),
             ElevatedButton(
-              onPressed: isBotThinking || !personalityEnabled
+              onPressed: isBotThinking || !candidatesEnabled
                   ? null
                   : () => _showCandidateDialog(context),
               child: Text(_candidateButtonText),
