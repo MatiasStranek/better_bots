@@ -102,7 +102,188 @@ class PersonaMoveSelector {
 
     scores.sort((a, b) => b.score.compareTo(a.score));
 
-    return scores.first.candidate.uciMove;
+    if (scores.isEmpty) {
+      return bestCandidate.uciMove;
+    }
+
+    if (scores.length == 1) {
+      return scores.first.candidate.uciMove;
+    }
+
+    if (_shouldForceEngineBestMove(
+      scores: scores,
+      bestCandidate: bestCandidate,
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+    )) {
+      return bestCandidate.uciMove;
+    }
+
+    return _selectHumanLikeMove(
+      scores: scores,
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+    );
+  }
+
+  String _selectHumanLikeMove({
+    required List<_ScoredPersonaMove> scores,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+  }) {
+    final strength = _strength01(
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+    );
+
+    final bestCombinedScore = scores.first.score;
+    final bestStyleScore = scores.map((score) => score.styleScore).reduce(max);
+
+    final combinedTolerance = _combinedScoreTolerance(strength);
+    final styleTolerance = _styleScoreTolerance(strength);
+
+    var acceptableMoves = scores.where((score) {
+      final closeEnoughOverall =
+          score.score >= bestCombinedScore - combinedTolerance;
+      final styleRequirementMet =
+          score.styleScore >= bestStyleScore - styleTolerance;
+
+      return closeEnoughOverall && styleRequirementMet;
+    }).toList();
+
+    if (acceptableMoves.length < 2) {
+      acceptableMoves = scores.where((score) {
+        final closeEnoughOverall =
+            score.score >= bestCombinedScore - combinedTolerance * 1.6;
+        final styleRequirementMet =
+            score.styleScore >= bestStyleScore - styleTolerance * 1.6;
+
+        return closeEnoughOverall && styleRequirementMet;
+      }).toList();
+    }
+
+    acceptableMoves.sort((a, b) => b.score.compareTo(a.score));
+
+    final maxPoolSize = _maxVariationPoolSize(strength);
+    if (acceptableMoves.length > maxPoolSize) {
+      acceptableMoves = acceptableMoves.take(maxPoolSize).toList();
+    }
+
+    if (acceptableMoves.isEmpty) {
+      return scores.first.candidate.uciMove;
+    }
+
+    if (acceptableMoves.length == 1) {
+      return acceptableMoves.first.candidate.uciMove;
+    }
+
+    return _weightedRandomMove(moves: acceptableMoves, strength: strength);
+  }
+
+  String _weightedRandomMove({
+    required List<_ScoredPersonaMove> moves,
+    required double strength,
+  }) {
+    final random = Random();
+    final bestScore = moves.first.score;
+    final temperature = _randomTemperature(strength);
+
+    var totalWeight = 0.0;
+    final weights = <double>[];
+
+    for (final move in moves) {
+      final relativeScore = move.score - bestScore;
+      final weight = exp(relativeScore / temperature).clamp(0.0001, 1.0);
+
+      weights.add(weight.toDouble());
+      totalWeight += weight;
+    }
+
+    var roll = random.nextDouble() * totalWeight;
+
+    for (var i = 0; i < moves.length; i++) {
+      roll -= weights[i];
+
+      if (roll <= 0) {
+        return moves[i].candidate.uciMove;
+      }
+    }
+
+    return moves.first.candidate.uciMove;
+  }
+
+  bool _shouldForceEngineBestMove({
+    required List<_ScoredPersonaMove> scores,
+    required PersonaMoveCandidate bestCandidate,
+    required int skillLevel,
+    required bool useUciElo,
+    required int uciElo,
+  }) {
+    if (scores.length < 2) {
+      return false;
+    }
+
+    if (bestCandidate.scoreCp.abs() >= 90000) {
+      return true;
+    }
+
+    final strength = _strength01(
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
+    );
+
+    final byEngine = List<_ScoredPersonaMove>.from(scores)
+      ..sort((a, b) => a.enginePenalty.compareTo(b.enginePenalty));
+
+    if (byEngine.length < 2) {
+      return false;
+    }
+
+    final secondBestEngineLoss = byEngine[1].enginePenalty;
+    final forceBestGap = _forceBestMoveGap(strength);
+
+    return secondBestEngineLoss >= forceBestGap;
+  }
+
+  double _combinedScoreTolerance(double strength) {
+    const weakestTolerance = 80.0;
+    const strongestTolerance = 22.0;
+
+    return weakestTolerance -
+        (weakestTolerance - strongestTolerance) * strength;
+  }
+
+  double _styleScoreTolerance(double strength) {
+    const weakestTolerance = 90.0;
+    const strongestTolerance = 28.0;
+
+    return weakestTolerance -
+        (weakestTolerance - strongestTolerance) * strength;
+  }
+
+  double _randomTemperature(double strength) {
+    const weakestTemperature = 65.0;
+    const strongestTemperature = 16.0;
+
+    return weakestTemperature -
+        (weakestTemperature - strongestTemperature) * strength;
+  }
+
+  int _maxVariationPoolSize(double strength) {
+    final poolSize = (8 - strength * 5).round();
+    return poolSize.clamp(3, 8);
+  }
+
+  int _forceBestMoveGap(double strength) {
+    const weakestGap = 320.0;
+    const strongestGap = 140.0;
+
+    return (weakestGap - (weakestGap - strongestGap) * strength).round();
   }
 
   int _allowedCentipawnLoss({

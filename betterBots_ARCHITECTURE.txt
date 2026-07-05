@@ -1,4 +1,5 @@
 * responsible for android
+* adding database (hive or objectivebox)
 
 * resizing: persona_move_selector.dart
 * Kandidatenzüge mathematisch effizienter und qualitativer für die Kreativität ensetzen: z.B. 30 Kanditatenzüge mit Zug 2 und dann absteigend z.B. 25 Kandidatenzüge nach Zug 2
