@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../controllers/chess_board_controller.dart';
 import 'chess_board/chess_board_controls.dart';
@@ -26,6 +27,33 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _copyPgnToClipboard() async {
+    final pgn = _controller.pgn;
+
+    if (pgn == '-') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Noch keine PGN vorhanden.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: pgn));
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PGN wurde kopiert.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -64,6 +92,12 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
               fen: _controller.fen,
               pgn: _controller.pgn,
               engineOutput: _controller.engineOutput,
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _copyPgnToClipboard,
+              icon: const Icon(Icons.copy),
+              label: const Text('PGN kopieren'),
             ),
           ],
         );

@@ -1,7 +1,8 @@
-* unlimited premoves
 * pgn copy button
 * UCI_ELO Button: add UCI_ELO 1320 - 3190 Bots (100er)
 * Bug fixen: entwickelte Dame wird als Pawn gedragt
+* bigger Pieces
+* Schlagschatten auf Figuren
 
 * add level 0-20 Bots
 ( * add UCI_ELO 1320 -3190 Bots (10er)
