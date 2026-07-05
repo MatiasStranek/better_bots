@@ -28,8 +28,14 @@ class ChessBoardSquare extends StatelessWidget {
   final bool Function({required String from, required String to}) canMoveTo;
   final List<String> Function(String fromSquare) legalTargetsFromSquare;
   final Future<void> Function(String square) onSquareTap;
-  final Future<bool> Function({required String from, required String to})
+
+  final Future<bool> Function({
+    required String from,
+    required String to,
+    String? promotion,
+  })
   onMove;
+
   final ValueChanged<String> onPieceDragStarted;
   final VoidCallback onPieceDragEnded;
 

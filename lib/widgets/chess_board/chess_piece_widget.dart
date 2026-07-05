@@ -23,10 +23,15 @@ class ChessPieceWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final assetPath = pieceAsset(piece);
+    final keyValue = '$square-${piece.color}-${piece.type}-$assetPath';
 
     final pieceImage = Padding(
       padding: const EdgeInsets.all(6),
-      child: SvgPicture.asset(assetPath, fit: BoxFit.contain),
+      child: SvgPicture.asset(
+        assetPath,
+        key: ValueKey(keyValue),
+        fit: BoxFit.contain,
+      ),
     );
 
     if (!canDrag) {
@@ -40,7 +45,11 @@ class ChessPieceWidget extends StatelessWidget {
         height: 72,
         child: Material(
           color: Colors.transparent,
-          child: SvgPicture.asset(assetPath, fit: BoxFit.contain),
+          child: SvgPicture.asset(
+            assetPath,
+            key: ValueKey('feedback-$keyValue'),
+            fit: BoxFit.contain,
+          ),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.25, child: pieceImage),

@@ -51,7 +51,7 @@ class PremoveQueue {
       return '-';
     }
 
-    return _moves.map((move) => '${move.from}-${move.to}').join(', ');
+    return _moves.map(_moveDisplayText).join(', ');
   }
 
   void add(BoardMove move) {
@@ -90,6 +90,16 @@ class PremoveQueue {
 
   void clear() {
     _moves.clear();
+  }
+
+  String _moveDisplayText(BoardMove move) {
+    final promotion = move.promotion;
+
+    if (promotion == null || promotion.isEmpty) {
+      return '${move.from}-${move.to}';
+    }
+
+    return '${move.from}-${move.to}=${promotion.toUpperCase()}';
   }
 
   @override

@@ -10,12 +10,23 @@ import '../models/board_move.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
 
+typedef PromotionChoiceCallback =
+    Future<String?> Function({
+      required String from,
+      required String to,
+      required PlayerSide playerSide,
+    });
+
 class ChessBoardController extends ChangeNotifier {
-  ChessBoardController({ChessEngine? engine})
-    : _engine = engine ?? StockfishWindowsEngine();
+  ChessBoardController({
+    ChessEngine? engine,
+    PromotionChoiceCallback? onPromotionChoiceRequested,
+  }) : _engine = engine ?? StockfishWindowsEngine(),
+       _onPromotionChoiceRequested = onPromotionChoiceRequested;
 
   final chess.Chess _game = chess.Chess();
   final ChessEngine _engine;
+  final PromotionChoiceCallback? _onPromotionChoiceRequested;
 
   StreamSubscription<String>? _engineSubscription;
 
@@ -334,16 +345,38 @@ class ChessBoardController extends ChangeNotifier {
     clearSelectedSquare();
   }
 
-  Future<bool> tryHumanMove({required String from, required String to}) async {
+  Future<bool> tryHumanMove({
+    required String from,
+    required String to,
+    String? promotion,
+  }) async {
     if (isGameOver) {
       return false;
     }
 
     if (!isPlayersTurn || _isBotThinking) {
-      return _addPremove(from: from, to: to);
+      return _addPremove(from: from, to: to, promotion: promotion);
     }
 
-    final moved = _game.move({'from': from, 'to': to, 'promotion': 'q'});
+    final selectedPromotion = await _promotionForMoveIfNeeded(
+      from: from,
+      to: to,
+      promotion: promotion,
+      useVirtualBoard: false,
+    );
+
+    if (selectedPromotion == null) {
+      clearSelectedSquare();
+      return false;
+    }
+
+    final moveData = <String, String>{'from': from, 'to': to};
+
+    if (selectedPromotion.isNotEmpty) {
+      moveData['promotion'] = selectedPromotion;
+    }
+
+    final moved = _game.move(moveData);
 
     if (!moved) {
       return false;
@@ -409,6 +442,58 @@ class ChessBoardController extends ChangeNotifier {
     }
   }
 
+  Future<bool> loadFenPosition(String fenInput) async {
+    final fen = fenInput.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+    if (fen.isEmpty) {
+      _engineOutput = 'FEN ist leer.';
+      _safeNotify();
+      return false;
+    }
+
+    final testGame = chess.Chess();
+    bool loaded;
+
+    try {
+      loaded = testGame.load(fen);
+    } catch (e) {
+      _engineOutput = 'Ungültige FEN: $e';
+      _safeNotify();
+      return false;
+    }
+
+    if (!loaded) {
+      _engineOutput = 'Ungültige FEN.';
+      _safeNotify();
+      return false;
+    }
+
+    _searchGeneration++;
+
+    final realLoaded = _game.load(fen);
+
+    if (!realLoaded) {
+      _engineOutput = 'FEN konnte nicht geladen werden.';
+      _safeNotify();
+      return false;
+    }
+
+    _selectedSquare = null;
+    _lastFrom = null;
+    _lastTo = null;
+    _premoves.clear();
+    _isBotThinking = false;
+    _engineOutput = 'FEN geladen.';
+
+    _safeNotify();
+
+    if (!isGameOver && !isPlayersTurn) {
+      unawaited(makeBotMoveIfNeeded());
+    }
+
+    return true;
+  }
+
   Future<void> _onPremoveSquareTap(String square) async {
     final piece = _virtualPieceAt(square);
 
@@ -436,10 +521,14 @@ class ChessBoardController extends ChangeNotifier {
       return;
     }
 
-    _addPremove(from: _selectedSquare!, to: square);
+    await _addPremove(from: _selectedSquare!, to: square);
   }
 
-  bool _addPremove({required String from, required String to}) {
+  Future<bool> _addPremove({
+    required String from,
+    required String to,
+    String? promotion,
+  }) async {
     if (from == to || isGameOver) {
       return false;
     }
@@ -460,7 +549,26 @@ class ChessBoardController extends ChangeNotifier {
       return false;
     }
 
-    _premoves.add(BoardMove(from: from, to: to, promotion: 'q'));
+    final selectedPromotion = await _promotionForMoveIfNeeded(
+      from: from,
+      to: to,
+      promotion: promotion,
+      useVirtualBoard: true,
+    );
+
+    if (selectedPromotion == null) {
+      clearSelectedSquare();
+      return false;
+    }
+
+    _premoves.add(
+      BoardMove(
+        from: from,
+        to: to,
+        promotion: selectedPromotion.isEmpty ? null : selectedPromotion,
+      ),
+    );
+
     _selectedSquare = null;
 
     _safeNotify();
@@ -495,11 +603,13 @@ class ChessBoardController extends ChangeNotifier {
       return;
     }
 
-    final moved = _game.move({
-      'from': premove.from,
-      'to': premove.to,
-      'promotion': premove.promotion ?? 'q',
-    });
+    final moveData = <String, String>{'from': premove.from, 'to': premove.to};
+
+    if (premove.promotion != null && premove.promotion!.isNotEmpty) {
+      moveData['promotion'] = premove.promotion!;
+    }
+
+    final moved = _game.move(moveData);
 
     if (!moved) {
       _premoves.clear();
@@ -526,9 +636,15 @@ class ChessBoardController extends ChangeNotifier {
 
     final from = uciMove.substring(0, 2);
     final to = uciMove.substring(2, 4);
-    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : 'q';
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
 
-    final moved = _game.move({'from': from, 'to': to, 'promotion': promotion});
+    final moveData = <String, String>{'from': from, 'to': to};
+
+    if (promotion.isNotEmpty) {
+      moveData['promotion'] = promotion;
+    }
+
+    final moved = _game.move(moveData);
 
     if (!moved) {
       _engineOutput = 'Bot-Zug konnte nicht ausgeführt werden: $uciMove';
@@ -543,6 +659,86 @@ class ChessBoardController extends ChangeNotifier {
     _safeNotify();
 
     return true;
+  }
+
+  Future<String?> _promotionForMoveIfNeeded({
+    required String from,
+    required String to,
+    required bool useVirtualBoard,
+    String? promotion,
+  }) async {
+    if (!_isPromotionMove(
+      from: from,
+      to: to,
+      useVirtualBoard: useVirtualBoard,
+    )) {
+      return '';
+    }
+
+    if (promotion != null && promotion.isNotEmpty) {
+      return _normalizePromotion(promotion);
+    }
+
+    if (_onPromotionChoiceRequested == null) {
+      return 'q';
+    }
+
+    final choice = await _onPromotionChoiceRequested!(
+      from: from,
+      to: to,
+      playerSide: _playerSide,
+    );
+
+    if (choice == null || choice.isEmpty) {
+      return null;
+    }
+
+    return _normalizePromotion(choice);
+  }
+
+  bool _isPromotionMove({
+    required String from,
+    required String to,
+    required bool useVirtualBoard,
+  }) {
+    final piece = useVirtualBoard ? _virtualPieceAt(from) : _game.get(from);
+
+    if (piece == null) {
+      return false;
+    }
+
+    if (!_isPawn(piece)) {
+      return false;
+    }
+
+    final targetRank = to.substring(1, 2);
+
+    if (piece.color == chess.Color.WHITE) {
+      return targetRank == '8';
+    }
+
+    return targetRank == '1';
+  }
+
+  bool _isPawn(chess.Piece piece) {
+    final typeText = piece.type.toString().toLowerCase();
+
+    return typeText == 'p' ||
+        typeText.endsWith('.p') ||
+        typeText.contains('pawn');
+  }
+
+  String _normalizePromotion(String promotion) {
+    final normalized = promotion.toLowerCase();
+
+    if (normalized == 'q' ||
+        normalized == 'r' ||
+        normalized == 'b' ||
+        normalized == 'n') {
+      return normalized;
+    }
+
+    return 'q';
   }
 
   chess.Piece? _virtualPieceAt(String square) {
@@ -571,10 +767,43 @@ class ChessBoardController extends ChangeNotifier {
         break;
       }
 
-      board[move.to] = piece;
+      board[move.to] = _pieceAfterVirtualMove(piece: piece, move: move);
     }
 
     return board;
+  }
+
+  chess.Piece _pieceAfterVirtualMove({
+    required chess.Piece piece,
+    required BoardMove move,
+  }) {
+    final promotion = move.promotion;
+
+    if (promotion == null || promotion.isEmpty) {
+      return piece;
+    }
+
+    if (!_isPawn(piece)) {
+      return piece;
+    }
+
+    return chess.Piece(_pieceTypeForPromotion(promotion), piece.color);
+  }
+
+  chess.PieceType _pieceTypeForPromotion(String promotion) {
+    final normalized = _normalizePromotion(promotion);
+
+    switch (normalized) {
+      case 'r':
+        return chess.PieceType.ROOK;
+      case 'b':
+        return chess.PieceType.BISHOP;
+      case 'n':
+        return chess.PieceType.KNIGHT;
+      case 'q':
+      default:
+        return chess.PieceType.QUEEN;
+    }
   }
 
   List<String> _allSquares() {
