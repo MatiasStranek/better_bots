@@ -266,6 +266,9 @@ class ChessBoardControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final personalityEnabled = botPersonality != BotPersonality.none;
+    final personalityButtonColor = effectiveBotPersonality.isAbstract
+        ? Colors.orange
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +309,10 @@ class ChessBoardControls extends StatelessWidget {
               onPressed: isBotThinking
                   ? null
                   : () => _showPersonalityDialog(context),
-              child: Text(_personalityButtonText),
+              child: Text(
+                _personalityButtonText,
+                style: TextStyle(color: personalityButtonColor),
+              ),
             ),
             ElevatedButton(
               onPressed: isBotThinking || !personalityEnabled
@@ -332,11 +338,23 @@ class _PersonalityDialogLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAbstract = personality.isAbstract;
+    final style = isAbstract ? const TextStyle(color: Colors.orange) : null;
+
     if (personality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
-      return Text('${personality.label} (${effectiveBotPersonality.label})');
+      final effectiveText = effectiveBotPersonality.isAbstract
+          ? '${personality.label} (${effectiveBotPersonality.label})'
+          : '${personality.label} (${effectiveBotPersonality.label})';
+
+      return Text(
+        effectiveText,
+        style: effectiveBotPersonality.isAbstract
+            ? const TextStyle(color: Colors.orange)
+            : null,
+      );
     }
 
-    return Text(personality.label);
+    return Text(personality.label, style: style);
   }
 }

@@ -340,6 +340,16 @@ class PersonaMoveSelector {
     required _PositionFeatures after,
     required _FeatureDelta delta,
   }) {
+    if (personality.isAbstract) {
+      return _abstractStyleScore(
+        candidate: candidate,
+        bestCandidate: bestCandidate,
+        before: before,
+        after: after,
+        delta: delta,
+      );
+    }
+
     if (personality == BotPersonality.mediator) {
       return _mediatorStyleScore(
         candidate: candidate,
@@ -350,6 +360,13 @@ class PersonaMoveSelector {
       );
     }
 
+    return _axisStyleScore(personality: personality, delta: delta);
+  }
+
+  double _axisStyleScore({
+    required BotPersonality personality,
+    required _FeatureDelta delta,
+  }) {
     final aggressionScore = delta.aggression;
     final complexityScore = delta.complexity;
 
@@ -372,6 +389,157 @@ class PersonaMoveSelector {
         aggressionAxis * initiativeScore * 0.90 -
         defensiveAxis.abs() * riskScore * 0.75 -
         max(0.0, aggressionAxis) * riskScore * 0.35;
+  }
+
+  double _abstractStyleScore({
+    required PersonaMoveCandidate candidate,
+    required PersonaMoveCandidate bestCandidate,
+    required _PositionFeatures before,
+    required _PositionFeatures after,
+    required _FeatureDelta delta,
+  }) {
+    final knownPersonaScores = _knownPersonaScores(
+      candidate: candidate,
+      bestCandidate: bestCandidate,
+      before: before,
+      after: after,
+      delta: delta,
+    );
+
+    final maxKnownScore = knownPersonaScores.reduce(max);
+    final minKnownScore = knownPersonaScores.reduce(min);
+    final averageKnownScore = _average(knownPersonaScores);
+    final averagePositiveKnownScore = _average(
+      knownPersonaScores.map((score) => max(0.0, score)).toList(),
+    );
+
+    final personaSpread = maxKnownScore - minKnownScore;
+    final engineLoss = candidate.centipawnLossComparedTo(bestCandidate);
+
+    final antiPersonaScore =
+        -maxKnownScore * 1.05 -
+        averagePositiveKnownScore * 0.45 -
+        averageKnownScore * 0.15;
+
+    final hardToClassifyBonus = max(0.0, 70.0 - personaSpread) * 0.35;
+
+    final noveltyBonus = min(34.0, log(candidate.multiPv + 1) * 10.0);
+
+    final nonBestMoveBonus = min(engineLoss.toDouble(), 120.0) * 0.16;
+
+    final quietParadoxBonus = _quietParadoxBonus(delta);
+
+    final unusualBalanceBonus = _unusualBalanceBonus(delta);
+
+    final tacticalSafetyPenalty = max(0.0, delta.risk) * 0.55;
+
+    final tooObviousPenalty = _tooObviousPenalty(
+      delta: delta,
+      maxKnownScore: maxKnownScore,
+    );
+
+    return antiPersonaScore +
+        hardToClassifyBonus +
+        noveltyBonus +
+        nonBestMoveBonus +
+        quietParadoxBonus +
+        unusualBalanceBonus -
+        tacticalSafetyPenalty -
+        tooObviousPenalty;
+  }
+
+  List<double> _knownPersonaScores({
+    required PersonaMoveCandidate candidate,
+    required PersonaMoveCandidate bestCandidate,
+    required _PositionFeatures before,
+    required _PositionFeatures after,
+    required _FeatureDelta delta,
+  }) {
+    return BotPersonality.normalPersonalities.map((personality) {
+      if (personality == BotPersonality.mediator) {
+        return _mediatorStyleScore(
+          candidate: candidate,
+          bestCandidate: bestCandidate,
+          before: before,
+          after: after,
+          delta: delta,
+        );
+      }
+
+      return _axisStyleScore(personality: personality, delta: delta);
+    }).toList();
+  }
+
+  double _quietParadoxBonus(_FeatureDelta delta) {
+    final aggressionChanged = delta.aggression.abs();
+    final complexityChanged = delta.complexity.abs();
+    final simplificationChanged = delta.simplification.abs();
+    final initiativeChanged = delta.initiative.abs();
+
+    final isNotClearlyAggressive = aggressionChanged < 35.0;
+    final isNotClearlySimplifying = simplificationChanged < 35.0;
+    final isNotClearlyComplicating = complexityChanged < 35.0;
+
+    if (isNotClearlyAggressive &&
+        isNotClearlySimplifying &&
+        isNotClearlyComplicating) {
+      return 18.0 + min(12.0, initiativeChanged * 0.12);
+    }
+
+    return 0.0;
+  }
+
+  double _unusualBalanceBonus(_FeatureDelta delta) {
+    final aggression = delta.aggression;
+    final safety = delta.safety;
+    final simplification = delta.simplification;
+    final complexity = delta.complexity;
+
+    final attackAndSafety = min(aggression.abs(), safety.abs());
+    final simplifyAndComplicate = min(simplification.abs(), complexity.abs());
+
+    final balancedContradiction =
+        min(20.0, attackAndSafety * 0.16) +
+        min(20.0, simplifyAndComplicate * 0.16);
+
+    final lowIdentity =
+        max(0.0, 30.0 - aggression.abs()) * 0.10 +
+        max(0.0, 30.0 - safety.abs()) * 0.10 +
+        max(0.0, 30.0 - simplification.abs()) * 0.10 +
+        max(0.0, 30.0 - complexity.abs()) * 0.10;
+
+    return balancedContradiction + lowIdentity;
+  }
+
+  double _tooObviousPenalty({
+    required _FeatureDelta delta,
+    required double maxKnownScore,
+  }) {
+    final obviousAttack =
+        max(0.0, delta.aggression - 45.0) + max(0.0, delta.initiative - 45.0);
+
+    final obviousDefense =
+        max(0.0, delta.safety - 45.0) + max(0.0, -delta.risk - 20.0);
+
+    final obviousSimplification = max(0.0, delta.simplification - 45.0);
+
+    final obviousComplication = max(0.0, delta.complexity - 45.0);
+
+    final obviousPersonaFit = max(0.0, maxKnownScore - 55.0);
+
+    return obviousAttack * 0.18 +
+        obviousDefense * 0.15 +
+        obviousSimplification * 0.16 +
+        obviousComplication * 0.16 +
+        obviousPersonaFit * 0.45;
+  }
+
+  double _average(List<double> values) {
+    if (values.isEmpty) {
+      return 0.0;
+    }
+
+    return values.reduce((a, b) => a + b) / values.length;
   }
 
   double _mediatorStyleScore({

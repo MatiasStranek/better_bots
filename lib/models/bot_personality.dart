@@ -11,7 +11,9 @@ enum BotPersonality {
 
   observer(label: 'Observer', aggression: -1.0, complexity: 1.0),
 
-  mediator(label: 'Mediator', aggression: 0.0, complexity: 0.0);
+  mediator(label: 'Mediator', aggression: 0.0, complexity: 0.0),
+
+  abstract(label: 'Abstract', aggression: 0.0, complexity: 0.0);
 
   const BotPersonality({
     required this.label,
@@ -35,7 +37,19 @@ enum BotPersonality {
 
   bool get isRandom => this == BotPersonality.random;
 
+  bool get isAbstract => this == BotPersonality.abstract;
+
   bool get isConcretePersonality => !isNone && !isRandom;
+
+  static List<BotPersonality> get normalPersonalities {
+    return const [
+      BotPersonality.hunter,
+      BotPersonality.guardian,
+      BotPersonality.savage,
+      BotPersonality.observer,
+      BotPersonality.mediator,
+    ];
+  }
 
   static List<BotPersonality> get concretePersonalities {
     return const [
@@ -44,6 +58,7 @@ enum BotPersonality {
       BotPersonality.savage,
       BotPersonality.observer,
       BotPersonality.mediator,
+      BotPersonality.abstract,
     ];
   }
 }
