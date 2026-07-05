@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 import '../engine/chess_engine.dart';
 import '../engine/stockfish_windows_engine.dart';
 import '../models/board_highlights.dart';
+import '../models/board_move.dart';
 import '../models/player_side.dart';
+import '../models/premove_queue.dart';
 
 class ChessBoardController extends ChangeNotifier {
   ChessBoardController({ChessEngine? engine})
@@ -22,6 +24,8 @@ class ChessBoardController extends ChangeNotifier {
   String? _selectedSquare;
   String? _lastFrom;
   String? _lastTo;
+
+  final PremoveQueue _premoves = PremoveQueue();
 
   int _skillLevel = 0;
   bool _isBotThinking = false;
@@ -49,6 +53,10 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get playerIsWhite => _playerSide == PlayerSide.white;
 
+  bool get hasPremoves => _premoves.isNotEmpty;
+
+  String get premoveText => _premoves.displayText;
+
   bool get isPlayersTurn {
     final whiteToMove = _game.turn == chess.Color.WHITE;
 
@@ -71,12 +79,17 @@ class ChessBoardController extends ChangeNotifier {
       selectedSquare: _selectedSquare,
       lastFrom: _lastFrom,
       lastTo: _lastTo,
+      premoveSquares: _premoves.highlightedSquares,
       legalTargets: legalTargetsForSelectedSquare(),
     );
   }
 
   String get statusText {
     if (_isBotThinking) {
+      if (_premoves.isNotEmpty) {
+        return 'Bot denkt... Premoves gesetzt: ${_premoves.displayText}';
+      }
+
       return 'Bot denkt...';
     }
 
@@ -104,6 +117,10 @@ class ChessBoardController extends ChangeNotifier {
 
     if (isPlayersTurn) {
       return '$sideToMove am Zug — du bist dran';
+    }
+
+    if (_premoves.isNotEmpty) {
+      return '$sideToMove am Zug — Bot ist dran. Premoves: ${_premoves.displayText}';
     }
 
     return '$sideToMove am Zug — Bot ist dran';
@@ -134,6 +151,7 @@ class ChessBoardController extends ChangeNotifier {
     _selectedSquare = null;
     _lastFrom = null;
     _lastTo = null;
+    _premoves.clear();
     _isBotThinking = false;
     _engineOutput = '-';
 
@@ -168,25 +186,83 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   chess.Piece? pieceAt(String square) {
+    if (!isPlayersTurn && _premoves.isNotEmpty) {
+      return _virtualPieceAt(square);
+    }
+
     return _game.get(square);
   }
 
   bool canHumanMovePiece(String square) {
-    if (_isBotThinking || !isPlayersTurn || isGameOver) {
+    if (isGameOver) {
       return false;
     }
 
-    final piece = pieceAt(square);
+    if (isPlayersTurn && !_isBotThinking) {
+      final piece = _game.get(square);
 
-    if (piece == null) {
+      if (piece == null) {
+        return false;
+      }
+
+      return _isOwnPiece(piece);
+    }
+
+    if (!isPlayersTurn) {
+      final piece = _virtualPieceAt(square);
+
+      if (piece == null) {
+        return false;
+      }
+
+      return _isPlayerPiece(piece);
+    }
+
+    return false;
+  }
+
+  bool canMoveTo({required String from, required String to}) {
+    if (isGameOver) {
       return false;
     }
 
-    return _isOwnPiece(piece);
+    if (from == to) {
+      return false;
+    }
+
+    if (isPlayersTurn && !_isBotThinking) {
+      return legalTargetsFromSquare(from).contains(to);
+    }
+
+    if (!isPlayersTurn) {
+      final piece = _virtualPieceAt(from);
+
+      if (piece == null) {
+        return false;
+      }
+
+      if (!_isPlayerPiece(piece)) {
+        return false;
+      }
+
+      final targetPiece = _virtualPieceAt(to);
+
+      if (targetPiece != null && _isPlayerPiece(targetPiece)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    return false;
   }
 
   List<String> legalTargetsForSelectedSquare() {
     if (_selectedSquare == null) {
+      return [];
+    }
+
+    if (!isPlayersTurn) {
       return [];
     }
 
@@ -210,11 +286,20 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   Future<void> onSquareTap(String square) async {
-    if (_isBotThinking || !isPlayersTurn || isGameOver) {
+    if (isGameOver) {
       return;
     }
 
-    final piece = pieceAt(square);
+    if (!isPlayersTurn) {
+      await _onPremoveSquareTap(square);
+      return;
+    }
+
+    if (_isBotThinking) {
+      return;
+    }
+
+    final piece = _game.get(square);
 
     if (_selectedSquare == null) {
       if (piece == null) {
@@ -250,6 +335,14 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   Future<bool> tryHumanMove({required String from, required String to}) async {
+    if (isGameOver) {
+      return false;
+    }
+
+    if (!isPlayersTurn || _isBotThinking) {
+      return _addPremove(from: from, to: to);
+    }
+
     final moved = _game.move({'from': from, 'to': to, 'promotion': 'q'});
 
     if (!moved) {
@@ -259,6 +352,7 @@ class ChessBoardController extends ChangeNotifier {
     _lastFrom = from;
     _lastTo = to;
     _selectedSquare = null;
+    _premoves.clear();
 
     _safeNotify();
 
@@ -280,6 +374,7 @@ class ChessBoardController extends ChangeNotifier {
     _safeNotify();
 
     final currentSearchGeneration = ++_searchGeneration;
+    var botMoved = false;
 
     try {
       final bestMove = await _engine.getBestMoveFromFen(
@@ -292,7 +387,7 @@ class ChessBoardController extends ChangeNotifier {
         return;
       }
 
-      _applyUciMove(bestMove);
+      botMoved = _applyUciMove(bestMove);
     } catch (e) {
       if (_isDisposed || currentSearchGeneration != _searchGeneration) {
         return;
@@ -306,15 +401,127 @@ class ChessBoardController extends ChangeNotifier {
         _safeNotify();
       }
     }
+
+    if (!_isDisposed &&
+        currentSearchGeneration == _searchGeneration &&
+        botMoved) {
+      await _tryPlayNextPremoveIfPossible();
+    }
   }
 
-  bool _isOwnPiece(chess.Piece piece) {
-    return piece.color == _game.turn;
-  }
+  Future<void> _onPremoveSquareTap(String square) async {
+    final piece = _virtualPieceAt(square);
 
-  void _applyUciMove(String uciMove) {
-    if (uciMove.length < 4 || uciMove == '(none)') {
+    if (_selectedSquare == null) {
+      if (piece == null) {
+        _clearPremoves();
+        return;
+      }
+
+      if (!_isPlayerPiece(piece)) {
+        return;
+      }
+
+      selectSquare(square);
       return;
+    }
+
+    if (_selectedSquare == square) {
+      clearSelectedSquare();
+      return;
+    }
+
+    if (piece != null && _isPlayerPiece(piece)) {
+      selectSquare(square);
+      return;
+    }
+
+    _addPremove(from: _selectedSquare!, to: square);
+  }
+
+  bool _addPremove({required String from, required String to}) {
+    if (from == to || isGameOver) {
+      return false;
+    }
+
+    final piece = _virtualPieceAt(from);
+
+    if (piece == null) {
+      return false;
+    }
+
+    if (!_isPlayerPiece(piece)) {
+      return false;
+    }
+
+    final targetPiece = _virtualPieceAt(to);
+
+    if (targetPiece != null && _isPlayerPiece(targetPiece)) {
+      return false;
+    }
+
+    _premoves.add(BoardMove(from: from, to: to, promotion: 'q'));
+    _selectedSquare = null;
+
+    _safeNotify();
+
+    return true;
+  }
+
+  void _clearPremoves() {
+    if (_premoves.isEmpty && _selectedSquare == null) {
+      return;
+    }
+
+    _premoves.clear();
+    _selectedSquare = null;
+
+    _safeNotify();
+  }
+
+  Future<void> _tryPlayNextPremoveIfPossible() async {
+    if (_premoves.isEmpty) {
+      return;
+    }
+
+    if (isGameOver || !isPlayersTurn) {
+      _safeNotify();
+      return;
+    }
+
+    final premove = _premoves.popFirst();
+
+    if (premove == null) {
+      return;
+    }
+
+    final moved = _game.move({
+      'from': premove.from,
+      'to': premove.to,
+      'promotion': premove.promotion ?? 'q',
+    });
+
+    if (!moved) {
+      _premoves.clear();
+      _selectedSquare = null;
+      _engineOutput =
+          'Premove ungültig: ${premove.from}-${premove.to}. Weitere Premoves gelöscht.';
+      _safeNotify();
+      return;
+    }
+
+    _lastFrom = premove.from;
+    _lastTo = premove.to;
+    _selectedSquare = null;
+
+    _safeNotify();
+
+    await makeBotMoveIfNeeded();
+  }
+
+  bool _applyUciMove(String uciMove) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return false;
     }
 
     final from = uciMove.substring(0, 2);
@@ -326,7 +533,7 @@ class ChessBoardController extends ChangeNotifier {
     if (!moved) {
       _engineOutput = 'Bot-Zug konnte nicht ausgeführt werden: $uciMove';
       _safeNotify();
-      return;
+      return false;
     }
 
     _lastFrom = from;
@@ -334,6 +541,64 @@ class ChessBoardController extends ChangeNotifier {
     _selectedSquare = null;
 
     _safeNotify();
+
+    return true;
+  }
+
+  chess.Piece? _virtualPieceAt(String square) {
+    return _virtualBoardAfterPremoves()[square];
+  }
+
+  Map<String, chess.Piece> _virtualBoardAfterPremoves() {
+    final board = <String, chess.Piece>{};
+
+    for (final square in _allSquares()) {
+      final piece = _game.get(square);
+
+      if (piece != null) {
+        board[square] = piece;
+      }
+    }
+
+    for (final move in _premoves.moves) {
+      final piece = board.remove(move.from);
+
+      if (piece == null) {
+        break;
+      }
+
+      if (!_isPlayerPiece(piece)) {
+        break;
+      }
+
+      board[move.to] = piece;
+    }
+
+    return board;
+  }
+
+  List<String> _allSquares() {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
+    final squares = <String>[];
+
+    for (final file in files) {
+      for (final rank in ranks) {
+        squares.add('$file$rank');
+      }
+    }
+
+    return squares;
+  }
+
+  bool _isOwnPiece(chess.Piece piece) {
+    return piece.color == _game.turn;
+  }
+
+  bool _isPlayerPiece(chess.Piece piece) {
+    final playerColor = playerIsWhite ? chess.Color.WHITE : chess.Color.BLACK;
+    return piece.color == playerColor;
   }
 
   void _safeNotify() {

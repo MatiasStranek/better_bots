@@ -11,6 +11,7 @@ class ChessBoardSquare extends StatelessWidget {
     required this.isLightSquare,
     required this.highlights,
     required this.canHumanMovePiece,
+    required this.canMoveTo,
     required this.legalTargetsFromSquare,
     required this.onSquareTap,
     required this.onMove,
@@ -24,6 +25,7 @@ class ChessBoardSquare extends StatelessWidget {
   final bool isLightSquare;
   final BoardHighlights highlights;
   final bool canHumanMovePiece;
+  final bool Function({required String from, required String to}) canMoveTo;
   final List<String> Function(String fromSquare) legalTargetsFromSquare;
   final Future<void> Function(String square) onSquareTap;
   final Future<bool> Function({required String from, required String to})
@@ -41,7 +43,7 @@ class ChessBoardSquare extends StatelessWidget {
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) {
         final from = details.data;
-        return legalTargetsFromSquare(from).contains(square);
+        return canMoveTo(from: from, to: square);
       },
       onAcceptWithDetails: (details) async {
         final from = details.data;
@@ -91,6 +93,19 @@ class ChessBoardSquare extends StatelessWidget {
                         width: 4,
                       ),
                       shape: BoxShape.circle,
+                    ),
+                  ),
+                if (isPremove)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurpleAccent.withAlpha(220),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 if (piece != null)

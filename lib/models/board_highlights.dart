@@ -3,32 +3,31 @@ class BoardHighlights {
     this.selectedSquare,
     this.lastFrom,
     this.lastTo,
+    this.premoveSquares = const {},
     this.legalTargets = const [],
-    this.premoveFrom,
-    this.premoveTo,
   });
 
   final String? selectedSquare;
   final String? lastFrom;
   final String? lastTo;
+
+  final Set<String> premoveSquares;
+
   final List<String> legalTargets;
 
-  final String? premoveFrom;
-  final String? premoveTo;
-
   bool isSelected(String square) {
-    return square == selectedSquare;
+    return selectedSquare == square;
   }
 
   bool isLastMove(String square) {
     return square == lastFrom || square == lastTo;
   }
 
-  bool isLegalTarget(String square) {
-    return legalTargets.contains(square);
+  bool isPremove(String square) {
+    return premoveSquares.contains(square);
   }
 
-  bool isPremove(String square) {
-    return square == premoveFrom || square == premoveTo;
+  bool isLegalTarget(String square) {
+    return legalTargets.contains(square);
   }
 }

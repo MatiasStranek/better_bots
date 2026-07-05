@@ -51,6 +51,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
               highlights: _controller.highlights,
               pieceAt: _controller.pieceAt,
               canHumanMovePiece: _controller.canHumanMovePiece,
+              canMoveTo: _controller.canMoveTo,
               legalTargetsFromSquare: _controller.legalTargetsFromSquare,
               onSquareTap: _controller.onSquareTap,
               onMove: _controller.tryHumanMove,

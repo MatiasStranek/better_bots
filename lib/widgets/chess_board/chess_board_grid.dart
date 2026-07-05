@@ -11,6 +11,7 @@ class ChessBoardGrid extends StatelessWidget {
     required this.highlights,
     required this.pieceAt,
     required this.canHumanMovePiece,
+    required this.canMoveTo,
     required this.legalTargetsFromSquare,
     required this.onSquareTap,
     required this.onMove,
@@ -23,6 +24,7 @@ class ChessBoardGrid extends StatelessWidget {
   final BoardHighlights highlights;
   final chess.Piece? Function(String square) pieceAt;
   final bool Function(String square) canHumanMovePiece;
+  final bool Function({required String from, required String to}) canMoveTo;
   final List<String> Function(String fromSquare) legalTargetsFromSquare;
   final Future<void> Function(String square) onSquareTap;
   final Future<bool> Function({required String from, required String to})
@@ -60,6 +62,7 @@ class ChessBoardGrid extends StatelessWidget {
                   isLightSquare: isLightSquareFromIndex(index),
                   highlights: highlights,
                   canHumanMovePiece: canHumanMovePiece(square),
+                  canMoveTo: canMoveTo,
                   legalTargetsFromSquare: legalTargetsFromSquare,
                   onSquareTap: onSquareTap,
                   onMove: onMove,
