@@ -5,8 +5,7 @@
 * View for Won, Lost and Remis
 
 * adding premoves with taking pieces
-
-* -1 Elo Bot plays Random
+* setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
 
 * responsible for android (UserInterface Directory)
 * adding database (hive or objectivebox)
@@ -33,7 +32,6 @@
 
 * generator for personality moves (counting all moves which got played)
 
-
 * challengeModes: timestamps (bullet, blitz, rapid, classic)
 * funnyModes: kingchessNoBorder, botIllegalMoves
 
@@ -53,6 +51,7 @@
 * better UserInterface
 
 ( * add UCI_ELO 1320 -3190 Bots (10er)
+* -1 Elo Bot plays Random
 
 * adding winning and loosing animation-particles
 
@@ -60,6 +59,7 @@
 * add "play from position" feature
 
 * mark as favorite Bot feature
+
 
 * counts the amount of trained games per Bot
 * counts the amount of won games per Bot
