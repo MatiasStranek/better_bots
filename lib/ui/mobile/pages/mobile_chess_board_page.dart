@@ -49,6 +49,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
 
               playerIsWhite: _controller.playerIsWhite,
               pieceAt: _controller.pieceAt,
+              highlights: _controller.highlights,
 
               canHumanMovePiece: _controller.canHumanMovePiece,
               canMoveTo: _controller.canMoveTo,

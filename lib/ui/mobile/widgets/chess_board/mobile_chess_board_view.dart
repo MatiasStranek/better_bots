@@ -1,6 +1,7 @@
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 
+import '../../../../models/board_highlights.dart';
 import 'mobile_chess_board_square.dart';
 
 class MobileChessBoardView extends StatelessWidget {
@@ -8,6 +9,7 @@ class MobileChessBoardView extends StatelessWidget {
     super.key,
     required this.playerIsWhite,
     required this.pieceAt,
+    required this.highlights,
     required this.canHumanMovePiece,
     required this.canMoveTo,
     required this.onSquareTap,
@@ -18,8 +20,12 @@ class MobileChessBoardView extends StatelessWidget {
 
   final bool playerIsWhite;
   final chess.Piece? Function(String square) pieceAt;
+
+  final BoardHighlights highlights;
+
   final bool Function(String square) canHumanMovePiece;
   final bool Function({required String from, required String to}) canMoveTo;
+
   final Future<void> Function(String square) onSquareTap;
 
   final Future<bool> Function({
@@ -136,6 +142,7 @@ class MobileChessBoardView extends StatelessWidget {
               square: square,
               isLightSquare: _isLightSquare(square),
               pieceCode: pieceCode,
+              highlights: highlights,
               canDrag: canHumanMovePiece(square),
               canMoveTo: canMoveTo,
               onSquareTap: _handleSquareTap,
