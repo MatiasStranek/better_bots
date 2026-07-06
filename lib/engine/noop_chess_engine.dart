@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
 import 'personality/persona_move_candidate.dart';
 
@@ -70,11 +71,29 @@ class NoopChessEngine implements ChessEngine {
   }
 
   @override
+  Future<List<EngineAnalysisLine>> analyzePositionFromFen({
+    required String fen,
+    int multiPv = 5,
+    int depth = 20,
+  }) async {
+    _outputController.add('NoopChessEngine: Keine Analyse-Linien verfügbar.');
+
+    return const [];
+  }
+
+  @override
   Future<void> stop() async {
     _isRunning = false;
 
     if (!_outputController.isClosed) {
       _outputController.add('NoopChessEngine gestoppt.');
+    }
+  }
+
+  Future<void> dispose() async {
+    await stop();
+
+    if (!_outputController.isClosed) {
       await _outputController.close();
     }
   }

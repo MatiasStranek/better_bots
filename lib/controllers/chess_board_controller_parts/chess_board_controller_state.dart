@@ -1,6 +1,17 @@
 part of chess_board_controller;
 
 BoardHighlights _controllerHighlights(ChessBoardController controller) {
+  final analysisSession = controller._analysisSession;
+
+  if (analysisSession != null) {
+    return BoardHighlights(
+      selectedSquare: controller._selectedSquare,
+      lastFrom: analysisSession.lastFrom,
+      lastTo: analysisSession.lastTo,
+      legalTargets: _controllerLegalTargetsForSelectedSquare(controller),
+    );
+  }
+
   return BoardHighlights(
     selectedSquare: controller._selectedSquare,
     lastFrom: controller._lastFrom,
@@ -11,6 +22,40 @@ BoardHighlights _controllerHighlights(ChessBoardController controller) {
 }
 
 String _controllerStatusText(ChessBoardController controller) {
+  final analysisSession = controller._analysisSession;
+
+  if (analysisSession != null) {
+    if (analysisSession.isAnalyzing) {
+      return 'Analyse läuft... ${analysisSession.sideToMoveText} am Zug.';
+    }
+
+    if (analysisSession.analysisGame.in_checkmate) {
+      return analysisSession.analysisGame.turn == chess.Color.WHITE
+          ? 'Analyse: Schachmatt. Schwarz gewinnt.'
+          : 'Analyse: Schachmatt. Weiß gewinnt.';
+    }
+
+    if (analysisSession.analysisGame.in_stalemate) {
+      return 'Analyse: Patt.';
+    }
+
+    if (analysisSession.analysisGame.in_draw) {
+      return 'Analyse: Remis.';
+    }
+
+    if (analysisSession.analysisGame.in_check) {
+      return analysisSession.analysisGame.turn == chess.Color.WHITE
+          ? 'Analyse: Weiß ist im Schach.'
+          : 'Analyse: Schwarz ist im Schach.';
+    }
+
+    if (analysisSession.statusText.isNotEmpty) {
+      return analysisSession.statusText;
+    }
+
+    return 'Analysemodus — ${analysisSession.sideToMoveText} am Zug.';
+  }
+
   if (controller._isBotThinking) {
     if (controller._premoves.isNotEmpty) {
       return 'Bot denkt... Premoves gesetzt: '
@@ -57,6 +102,10 @@ String _controllerStatusText(ChessBoardController controller) {
 }
 
 void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
+  if (controller.isAnalysisMode) {
+    return;
+  }
+
   controller._searchGeneration++;
 
   controller._playerSide = side;
@@ -85,7 +134,7 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
 }
 
 void _controllerSetSkillLevel(ChessBoardController controller, int level) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -97,7 +146,7 @@ void _controllerSetStrengthMode(
   ChessBoardController controller,
   EngineStrengthMode mode,
 ) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -106,7 +155,7 @@ void _controllerSetStrengthMode(
 }
 
 void _controllerSetUciElo(ChessBoardController controller, int elo) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -115,7 +164,7 @@ void _controllerSetUciElo(ChessBoardController controller, int elo) {
 }
 
 void _controllerSetCpLossElo(ChessBoardController controller, int elo) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -128,7 +177,7 @@ void _controllerSetCpLossUciSwitchFullMoveNumber(
   ChessBoardController controller,
   int fullMoveNumber,
 ) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -146,7 +195,7 @@ void _controllerSetBotPersonality(
   ChessBoardController controller,
   BotPersonality personality,
 ) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -164,7 +213,7 @@ void _controllerSetPersonaCandidateCount(
   ChessBoardController controller,
   int candidateCount,
 ) {
-  if (controller._isBotThinking) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
     return;
   }
 
@@ -204,6 +253,12 @@ void _controllerClearSelectedSquare(ChessBoardController controller) {
 }
 
 bool _isOwnPiece(ChessBoardController controller, chess.Piece piece) {
+  final analysisSession = controller._analysisSession;
+
+  if (analysisSession != null) {
+    return piece.color == analysisSession.analysisGame.turn;
+  }
+
   return piece.color == controller._game.turn;
 }
 

@@ -4,6 +4,11 @@ Future<void> _controllerOnSquareTap(
   ChessBoardController controller,
   String square,
 ) async {
+  if (controller.isAnalysisMode) {
+    await _controllerOnAnalysisSquareTap(controller, square);
+    return;
+  }
+
   if (controller.isGameOver) {
     return;
   }
@@ -62,6 +67,15 @@ Future<bool> _controllerTryHumanMove(
   required String to,
   String? promotion,
 }) async {
+  if (controller.isAnalysisMode) {
+    return _controllerTryAnalysisMove(
+      controller,
+      from: from,
+      to: to,
+      promotion: promotion,
+    );
+  }
+
   if (controller.isGameOver) {
     return false;
   }
@@ -111,6 +125,10 @@ Future<bool> _controllerLoadFenPosition(
   ChessBoardController controller,
   String fenInput,
 ) async {
+  if (controller.isAnalysisMode) {
+    return false;
+  }
+
   final fen = fenInput.trim().replaceAll(RegExp(r'\s+'), ' ');
 
   if (fen.isEmpty) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:multistockfish/multistockfish.dart';
 
+import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
 import 'personality/persona_move_candidate.dart';
 
@@ -21,8 +22,10 @@ class StockfishPluginEngine implements ChessEngine {
   Completer<void>? _readyOkCompleter;
   Completer<String>? _bestMoveCompleter;
   Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
+  Completer<List<EngineAnalysisLine>>? _analysisCompleter;
 
   final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
+  final Map<int, EngineAnalysisLine> _latestAnalysisLinesByMultiPv = {};
 
   bool _isRunning = false;
   bool _isStarting = false;
@@ -228,6 +231,29 @@ class StockfishPluginEngine implements ChessEngine {
   }
 
   @override
+  Future<List<EngineAnalysisLine>> analyzePositionFromFen({
+    required String fen,
+    int multiPv = 5,
+    int depth = 20,
+  }) async {
+    await _ensureStarted();
+
+    final safeMultiPv = multiPv.clamp(1, 5).toInt();
+    final safeDepth = depth.clamp(1, 20).toInt();
+
+    _sendCommand('setoption name UCI_LimitStrength value false');
+    _sendCommand('setoption name Skill Level value 20');
+    await _waitForReadyOk();
+
+    await setMultiPv(safeMultiPv);
+
+    return _searchAnalysisLines(
+      positionCommand: _positionCommandFromFen(fen),
+      depth: safeDepth,
+    );
+  }
+
+  @override
   Future<void> stop() async {
     final stockfish = _stockfish;
 
@@ -352,7 +378,9 @@ class StockfishPluginEngine implements ChessEngine {
     final completer = Completer<String>();
     _bestMoveCompleter = completer;
     _candidateCompleter = null;
+    _analysisCompleter = null;
     _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
 
     _sendCommand(positionCommand);
     _sendCommand('go movetime $moveTimeMs');
@@ -382,7 +410,9 @@ class StockfishPluginEngine implements ChessEngine {
     final completer = Completer<List<PersonaMoveCandidate>>();
     _candidateCompleter = completer;
     _bestMoveCompleter = null;
+    _analysisCompleter = null;
     _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
 
     _sendCommand(positionCommand);
     _sendCommand('go movetime $moveTimeMs');
@@ -404,6 +434,39 @@ class StockfishPluginEngine implements ChessEngine {
     return candidates;
   }
 
+  Future<List<EngineAnalysisLine>> _searchAnalysisLines({
+    required String positionCommand,
+    required int depth,
+  }) async {
+    _cancelPendingSearches();
+
+    final completer = Completer<List<EngineAnalysisLine>>();
+    _analysisCompleter = completer;
+    _candidateCompleter = null;
+    _bestMoveCompleter = null;
+    _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
+
+    _sendCommand(positionCommand);
+    _sendCommand('go depth $depth');
+
+    final lines = await completer.future.timeout(
+      const Duration(seconds: 45),
+      onTimeout: () {
+        if (identical(_analysisCompleter, completer)) {
+          _analysisCompleter = null;
+        }
+
+        _latestAnalysisLinesByMultiPv.clear();
+        _addOutput('Stockfish Timeout: keine Analyse-Linien erhalten.');
+        return const <EngineAnalysisLine>[];
+      },
+    );
+
+    _addOutput('Stockfish Analyse-Linien zurückgegeben: ${lines.length}');
+    return lines;
+  }
+
   void _cancelPendingSearches() {
     if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
       _bestMoveCompleter!.complete('(none)');
@@ -413,9 +476,15 @@ class StockfishPluginEngine implements ChessEngine {
       _candidateCompleter!.complete(const []);
     }
 
+    if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
+      _analysisCompleter!.complete(const []);
+    }
+
     _bestMoveCompleter = null;
     _candidateCompleter = null;
+    _analysisCompleter = null;
     _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
   }
 
   void _completePendingWaitersOnStop() {
@@ -435,11 +504,17 @@ class StockfishPluginEngine implements ChessEngine {
       _candidateCompleter!.complete(const []);
     }
 
+    if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
+      _analysisCompleter!.complete(const []);
+    }
+
     _uciOkCompleter = null;
     _readyOkCompleter = null;
     _bestMoveCompleter = null;
     _candidateCompleter = null;
+    _analysisCompleter = null;
     _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
   }
 
   String _positionCommandFromFen(String fen) {
@@ -502,6 +577,18 @@ class StockfishPluginEngine implements ChessEngine {
   }
 
   void _handleInfoLine(String line) {
+    if (_analysisCompleter != null) {
+      final analysisLine = _parseAnalysisLineFromInfoLine(line);
+
+      if (analysisLine != null && analysisLine.isValidMove) {
+        final existing = _latestAnalysisLinesByMultiPv[analysisLine.rank];
+
+        if (existing == null || analysisLine.depth >= existing.depth) {
+          _latestAnalysisLinesByMultiPv[analysisLine.rank] = analysisLine;
+        }
+      }
+    }
+
     if (_candidateCompleter == null) {
       return;
     }
@@ -570,6 +657,57 @@ class StockfishPluginEngine implements ChessEngine {
     );
   }
 
+  EngineAnalysisLine? _parseAnalysisLineFromInfoLine(String line) {
+    final parts = line.split(RegExp(r'\s+'));
+
+    final pvIndex = parts.indexOf('pv');
+
+    if (pvIndex < 0 || pvIndex + 1 >= parts.length) {
+      return null;
+    }
+
+    final pv = parts.sublist(pvIndex + 1);
+
+    if (pv.isEmpty) {
+      return null;
+    }
+
+    var depth = 0;
+    final depthIndex = parts.indexOf('depth');
+    if (depthIndex >= 0 && depthIndex + 1 < parts.length) {
+      depth = int.tryParse(parts[depthIndex + 1]) ?? 0;
+    }
+
+    var multiPv = 1;
+    final multiPvIndex = parts.indexOf('multipv');
+    if (multiPvIndex >= 0 && multiPvIndex + 1 < parts.length) {
+      multiPv = int.tryParse(parts[multiPvIndex + 1]) ?? 1;
+    }
+
+    int? scoreCp;
+    int? mate;
+    final scoreIndex = parts.indexOf('score');
+    if (scoreIndex >= 0 && scoreIndex + 2 < parts.length) {
+      final scoreType = parts[scoreIndex + 1];
+      final scoreValue = int.tryParse(parts[scoreIndex + 2]);
+
+      if (scoreType == 'cp') {
+        scoreCp = scoreValue;
+      } else if (scoreType == 'mate') {
+        mate = scoreValue;
+      }
+    }
+
+    return EngineAnalysisLine(
+      rank: multiPv,
+      depth: depth,
+      scoreCp: scoreCp,
+      mate: mate,
+      uciMove: pv.first,
+      pv: pv,
+    );
+  }
+
   int _mateScoreToCentipawns(int mateScore) {
     if (mateScore > 0) {
       return 100000 - mateScore.abs();
@@ -623,6 +761,27 @@ class StockfishPluginEngine implements ChessEngine {
       _candidateCompleter!.complete(candidates);
       _candidateCompleter = null;
       _latestCandidatesByMultiPv.clear();
+    }
+
+    if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
+      final lines = _latestAnalysisLinesByMultiPv.values.toList()
+        ..sort((a, b) => a.rank.compareTo(b.rank));
+
+      if (lines.isEmpty && bestMove != '(none)') {
+        lines.add(
+          EngineAnalysisLine(
+            rank: 1,
+            depth: 0,
+            scoreCp: 0,
+            uciMove: bestMove,
+            pv: [bestMove],
+          ),
+        );
+      }
+
+      _analysisCompleter!.complete(List.unmodifiable(lines.take(5)));
+      _analysisCompleter = null;
+      _latestAnalysisLinesByMultiPv.clear();
     }
   }
 

@@ -20,6 +20,10 @@ void _controllerStart(ChessBoardController controller) {
 Future<void> _controllerMakeBotMoveIfNeeded(
   ChessBoardController controller,
 ) async {
+  if (controller.isAnalysisMode) {
+    return;
+  }
+
   if (controller.isGameOver) {
     return;
   }

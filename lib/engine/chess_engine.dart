@@ -1,3 +1,4 @@
+import '../models/engine_analysis_line.dart';
 import 'personality/persona_move_candidate.dart';
 
 abstract class ChessEngine {
@@ -31,6 +32,12 @@ abstract class ChessEngine {
     required int uciElo,
     required int candidateCount,
     int moveTimeMs = 800,
+  });
+
+  Future<List<EngineAnalysisLine>> analyzePositionFromFen({
+    required String fen,
+    int multiPv = 5,
+    int depth = 20,
   });
 
   Future<void> stop();

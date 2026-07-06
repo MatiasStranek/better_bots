@@ -17,8 +17,14 @@ class ChessBoardControls extends StatelessWidget {
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
     required this.isBotThinking,
+    required this.isAnalysisMode,
+    required this.canNavigateAnalysisBack,
+    required this.canNavigateAnalysisForward,
     required this.onNewGame,
     required this.onRestart,
+    required this.onToggleAnalysisMode,
+    required this.onAnalysisBack,
+    required this.onAnalysisForward,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
@@ -40,9 +46,15 @@ class ChessBoardControls extends StatelessWidget {
   final BotPersonality effectiveBotPersonality;
   final int personaCandidateCount;
   final bool isBotThinking;
+  final bool isAnalysisMode;
+  final bool canNavigateAnalysisBack;
+  final bool canNavigateAnalysisForward;
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
+  final VoidCallback onToggleAnalysisMode;
+  final Future<void> Function() onAnalysisBack;
+  final Future<void> Function() onAnalysisForward;
 
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
@@ -79,6 +91,10 @@ class ChessBoardControls extends StatelessWidget {
 
   String get _candidateButtonText {
     return 'Kandidaten: $personaCandidateCount';
+  }
+
+  String get _analysisButtonText {
+    return isAnalysisMode ? 'Analyse ✓' : 'Analyse';
   }
 
   List<int> get _eloValues => [
@@ -385,6 +401,7 @@ class ChessBoardControls extends StatelessWidget {
     final personalityEnabled = botPersonality != BotPersonality.none;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
+    final normalControlsEnabled = !isBotThinking && !isAnalysisMode;
 
     final personalityButtonColor = effectiveBotPersonality.isAbstract
         ? Colors.orange
@@ -398,14 +415,35 @@ class ChessBoardControls extends StatelessWidget {
           runSpacing: 8,
           children: [
             ElevatedButton(
-              onPressed: () => onNewGame(PlayerSide.white),
+              onPressed: isAnalysisMode ? null : () => onNewGame(PlayerSide.white),
               child: const Text('Ich spiele Weiß'),
             ),
             ElevatedButton(
-              onPressed: () => onNewGame(PlayerSide.black),
+              onPressed: isAnalysisMode ? null : () => onNewGame(PlayerSide.black),
               child: const Text('Ich spiele Schwarz'),
             ),
-            ElevatedButton(onPressed: onRestart, child: const Text('Restart')),
+            ElevatedButton(
+              onPressed: isAnalysisMode ? null : onRestart,
+              child: const Text('Restart'),
+            ),
+            ElevatedButton(
+              onPressed: onToggleAnalysisMode,
+              child: Text(_analysisButtonText),
+            ),
+            OutlinedButton.icon(
+              onPressed: isAnalysisMode && canNavigateAnalysisBack
+                  ? () => onAnalysisBack()
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+              label: const Text('Zurück'),
+            ),
+            OutlinedButton.icon(
+              onPressed: isAnalysisMode && canNavigateAnalysisForward
+                  ? () => onAnalysisForward()
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+              label: const Text('Vor'),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -414,36 +452,36 @@ class ChessBoardControls extends StatelessWidget {
           runSpacing: 8,
           children: [
             ElevatedButton(
-              onPressed: isBotThinking
-                  ? null
-                  : () => _showStrengthDialog(context),
+              onPressed: normalControlsEnabled
+                  ? () => _showStrengthDialog(context)
+                  : null,
               child: Text(_strengthButtonText),
             ),
             ElevatedButton(
-              onPressed: isBotThinking || !cpLossEloEnabled
-                  ? null
-                  : () => _showCpLossUciSwitchMoveDialog(context),
+              onPressed: normalControlsEnabled && cpLossEloEnabled
+                  ? () => _showCpLossUciSwitchMoveDialog(context)
+                  : null,
               child: Text(_uciSwitchButtonText),
             ),
             ElevatedButton(
-              onPressed: isBotThinking
-                  ? null
-                  : () => _showOpeningDialog(context),
+              onPressed: normalControlsEnabled
+                  ? () => _showOpeningDialog(context)
+                  : null,
               child: Text(botOpeningMove.label),
             ),
             ElevatedButton(
-              onPressed: isBotThinking
-                  ? null
-                  : () => _showPersonalityDialog(context),
+              onPressed: normalControlsEnabled
+                  ? () => _showPersonalityDialog(context)
+                  : null,
               child: Text(
                 _personalityButtonText,
                 style: TextStyle(color: personalityButtonColor),
               ),
             ),
             ElevatedButton(
-              onPressed: isBotThinking || !candidatesEnabled
-                  ? null
-                  : () => _showCandidateDialog(context),
+              onPressed: normalControlsEnabled && candidatesEnabled
+                  ? () => _showCandidateDialog(context)
+                  : null,
               child: Text(_candidateButtonText),
             ),
           ],

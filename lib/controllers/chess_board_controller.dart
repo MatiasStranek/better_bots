@@ -9,14 +9,17 @@ import '../engine/chess_engine.dart';
 import '../engine/chess_engine_factory.dart';
 import '../engine/personality/cp_loss_move_selector.dart';
 import '../engine/personality/persona_move_selector.dart';
+import '../models/analysis_session.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
 import '../models/bot_opening_move.dart';
 import '../models/bot_personality.dart';
+import '../models/engine_analysis_line.dart';
 import '../models/engine_strength_mode.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
 
+part 'chess_board_controller_parts/chess_board_controller_analysis.dart';
 part 'chess_board_controller_parts/chess_board_controller_engine.dart';
 part 'chess_board_controller_parts/chess_board_controller_input.dart';
 part 'chess_board_controller_parts/chess_board_controller_premoves.dart';
@@ -35,12 +38,15 @@ typedef PromotionChoiceCallback =
 class ChessBoardController extends ChangeNotifier {
   ChessBoardController({
     ChessEngine? engine,
+    ChessEngine? analysisEngine,
     PromotionChoiceCallback? onPromotionChoiceRequested,
   }) : _engine = engine ?? ChessEngineFactory.createDefaultEngine(),
+       _analysisEngine = analysisEngine ?? ChessEngineFactory.createDefaultEngine(),
        _onPromotionChoiceRequested = onPromotionChoiceRequested;
 
   final chess.Chess _game = chess.Chess();
   final ChessEngine _engine;
+  final ChessEngine _analysisEngine;
   final PromotionChoiceCallback? _onPromotionChoiceRequested;
 
   StreamSubscription<String>? _engineSubscription;
@@ -73,6 +79,11 @@ class ChessBoardController extends ChangeNotifier {
   bool _isDisposed = false;
   int _searchGeneration = 0;
 
+  AnalysisSession? _analysisSession;
+  int _analysisGeneration = 0;
+  bool _analysisSearchInFlight = false;
+  bool _analysisSearchQueued = false;
+
   chess.Chess get game => _game;
 
   PlayerSide get playerSide => _playerSide;
@@ -101,20 +112,52 @@ class ChessBoardController extends ChangeNotifier {
 
   String get engineOutput => _engineOutput;
 
-  String get fen => _game.fen;
+  bool get isAnalysisMode => _analysisSession != null;
+
+  bool get isAnalysisThinking => _analysisSession?.isAnalyzing ?? false;
+
+  bool get canNavigateAnalysisBack {
+    return _analysisSession?.canStepBack ?? false;
+  }
+
+  bool get canNavigateAnalysisForward {
+    return _analysisSession?.canStepForward ?? false;
+  }
+
+  List<EngineAnalysisLine> get analysisLines {
+    return _analysisSession?.topLines ?? const [];
+  }
+
+  String get fen => _analysisSession?.fen ?? _game.fen;
 
   String get pgn {
+    final analysisPgn = _analysisSession?.pgn;
+
+    if (analysisPgn != null) {
+      return analysisPgn;
+    }
+
     final currentPgn = _game.pgn();
     return currentPgn.isEmpty ? '-' : currentPgn;
   }
 
   bool get playerIsWhite => _playerSide == PlayerSide.white;
 
-  bool get hasPremoves => _premoves.isNotEmpty;
+  bool get hasPremoves => !isAnalysisMode && _premoves.isNotEmpty;
 
-  String get premoveText => _premoves.displayText;
+  String get premoveText {
+    if (isAnalysisMode) {
+      return '-';
+    }
+
+    return _premoves.displayText;
+  }
 
   bool get isPlayersTurn {
+    if (isAnalysisMode) {
+      return true;
+    }
+
     final whiteToMove = _game.turn == chess.Color.WHITE;
 
     if (playerIsWhite) {
@@ -125,6 +168,12 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   bool get isGameOver {
+    final analysisSession = _analysisSession;
+
+    if (analysisSession != null) {
+      return analysisSession.isGameOver;
+    }
+
     return _game.game_over ||
         _game.in_checkmate ||
         _game.in_stalemate ||
@@ -140,19 +189,37 @@ class ChessBoardController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _analysisGeneration++;
     _engineSubscription?.cancel();
     unawaited(_engine.stop());
+    unawaited(_analysisEngine.stop());
     super.dispose();
   }
 
   void newGame(PlayerSide side) {
+    if (isAnalysisMode) {
+      return;
+    }
+
     _openingLogicAllowed = true;
     _resolvedRandomOpeningMove = null;
     _resolvedRandomPersonality = null;
     _controllerNewGame(this, side);
   }
 
-  void restartGame() => newGame(_playerSide);
+  void restartGame() {
+    if (isAnalysisMode) {
+      return;
+    }
+
+    newGame(_playerSide);
+  }
+
+  void toggleAnalysisMode() => _controllerToggleAnalysisMode(this);
+
+  Future<void> stepAnalysisBack() => _controllerStepAnalysisBack(this);
+
+  Future<void> stepAnalysisForward() => _controllerStepAnalysisForward(this);
 
   void setSkillLevel(int level) => _controllerSetSkillLevel(this, level);
 
@@ -169,7 +236,7 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void setBotOpeningMove(BotOpeningMove move) {
-    if (_isBotThinking) {
+    if (_isBotThinking || isAnalysisMode) {
       return;
     }
 
@@ -230,6 +297,10 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   Future<bool> loadFenPosition(String fenInput) {
+    if (isAnalysisMode) {
+      return Future<bool>.value(false);
+    }
+
     _openingLogicAllowed = false;
     _resolvedRandomOpeningMove = null;
     _resolvedRandomPersonality = null;

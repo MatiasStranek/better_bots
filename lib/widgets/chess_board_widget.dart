@@ -17,11 +17,13 @@ class ChessBoardWidget extends StatefulWidget {
 
 class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   late final ChessBoardController _controller;
+  late final FocusNode _keyboardFocusNode;
 
   @override
   void initState() {
     super.initState();
 
+    _keyboardFocusNode = FocusNode(debugLabel: 'ChessBoardAnalysisShortcuts');
     _controller = ChessBoardController(
       onPromotionChoiceRequested: _showPromotionChoiceDialog,
     )..start();
@@ -29,6 +31,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
 
   @override
   void dispose() {
+    _keyboardFocusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -118,6 +121,10 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   }
 
   Future<void> _showLoadFenDialog() async {
+    if (_controller.isAnalysisMode) {
+      return;
+    }
+
     final fenController = TextEditingController(text: _controller.fen);
 
     try {
@@ -181,81 +188,120 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     }
   }
 
+  KeyEventResult _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (!_controller.isAnalysisMode) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _controller.stepAnalysisBack();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _controller.stepAnalysisForward();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ChessStatusText(text: _controller.statusText),
-            const SizedBox(height: 12),
-            ChessBoardControls(
-              skillLevel: _controller.skillLevel,
-              uciElo: _controller.uciElo,
-              cpLossElo: _controller.cpLossElo,
-              cpLossUciSwitchFullMoveNumber:
-                  _controller.cpLossUciSwitchFullMoveNumber,
-              strengthMode: _controller.strengthMode,
-              botOpeningMove: _controller.botOpeningMove,
-              botPersonality: _controller.botPersonality,
-              effectiveBotPersonality: _controller.effectiveBotPersonality,
-              personaCandidateCount: _controller.personaCandidateCount,
-              isBotThinking: _controller.isBotThinking,
-              onNewGame: _controller.newGame,
-              onRestart: _controller.restartGame,
-              onSkillLevelChanged: _controller.setSkillLevel,
-              onUciEloChanged: _controller.setUciElo,
-              onCpLossEloChanged: _controller.setCpLossElo,
-              onCpLossUciSwitchFullMoveNumberChanged:
-                  _controller.setCpLossUciSwitchFullMoveNumber,
-              onStrengthModeChanged: _controller.setStrengthMode,
-              onBotOpeningMoveChanged: _controller.setBotOpeningMove,
-              onBotPersonalityChanged: _controller.setBotPersonality,
-              onPersonaCandidateCountChanged:
-                  _controller.setPersonaCandidateCount,
-            ),
-            const SizedBox(height: 16),
-            ChessBoardGrid(
-              playerIsWhite: _controller.playerIsWhite,
-              highlights: _controller.highlights,
-              pieceAt: _controller.pieceAt,
-              canHumanMovePiece: _controller.canHumanMovePiece,
-              canMoveTo: _controller.canMoveTo,
-              legalTargetsFromSquare: _controller.legalTargetsFromSquare,
-              onSquareTap: _controller.onSquareTap,
-              onMove: _controller.tryHumanMove,
-              onPieceDragStarted: _controller.selectSquare,
-              onPieceDragEnded: _controller.clearSelectedSquare,
-            ),
-            const SizedBox(height: 16),
-            ChessBoardDebugPanel(
-              playerSide: _controller.playerSide,
-              fen: _controller.fen,
-              pgn: _controller.pgn,
-              engineOutput: _controller.engineOutput,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _copyPgnToClipboard,
-                  icon: const Icon(Icons.copy),
-                  label: const Text('PGN kopieren'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _showLoadFenDialog,
-                  icon: const Icon(Icons.input),
-                  label: const Text('FEN laden'),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
+    return KeyboardListener(
+      focusNode: _keyboardFocusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ChessStatusText(text: _controller.statusText),
+              const SizedBox(height: 12),
+              ChessBoardControls(
+                skillLevel: _controller.skillLevel,
+                uciElo: _controller.uciElo,
+                cpLossElo: _controller.cpLossElo,
+                cpLossUciSwitchFullMoveNumber:
+                    _controller.cpLossUciSwitchFullMoveNumber,
+                strengthMode: _controller.strengthMode,
+                botOpeningMove: _controller.botOpeningMove,
+                botPersonality: _controller.botPersonality,
+                effectiveBotPersonality: _controller.effectiveBotPersonality,
+                personaCandidateCount: _controller.personaCandidateCount,
+                isBotThinking: _controller.isBotThinking,
+                isAnalysisMode: _controller.isAnalysisMode,
+                canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,
+                canNavigateAnalysisForward:
+                    _controller.canNavigateAnalysisForward,
+                onNewGame: _controller.newGame,
+                onRestart: _controller.restartGame,
+                onToggleAnalysisMode: _controller.toggleAnalysisMode,
+                onAnalysisBack: _controller.stepAnalysisBack,
+                onAnalysisForward: _controller.stepAnalysisForward,
+                onSkillLevelChanged: _controller.setSkillLevel,
+                onUciEloChanged: _controller.setUciElo,
+                onCpLossEloChanged: _controller.setCpLossElo,
+                onCpLossUciSwitchFullMoveNumberChanged:
+                    _controller.setCpLossUciSwitchFullMoveNumber,
+                onStrengthModeChanged: _controller.setStrengthMode,
+                onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+                onBotPersonalityChanged: _controller.setBotPersonality,
+                onPersonaCandidateCountChanged:
+                    _controller.setPersonaCandidateCount,
+              ),
+              const SizedBox(height: 16),
+              ChessBoardGrid(
+                playerIsWhite: _controller.playerIsWhite,
+                highlights: _controller.highlights,
+                pieceAt: _controller.pieceAt,
+                canHumanMovePiece: _controller.canHumanMovePiece,
+                canMoveTo: _controller.canMoveTo,
+                legalTargetsFromSquare: _controller.legalTargetsFromSquare,
+                onSquareTap: _controller.onSquareTap,
+                onMove: _controller.tryHumanMove,
+                onPieceDragStarted: _controller.selectSquare,
+                onPieceDragEnded: _controller.clearSelectedSquare,
+              ),
+              const SizedBox(height: 16),
+              ChessBoardDebugPanel(
+                playerSide: _controller.playerSide,
+                fen: _controller.fen,
+                pgn: _controller.pgn,
+                engineOutput: _controller.engineOutput,
+                isAnalysisMode: _controller.isAnalysisMode,
+                isAnalysisThinking: _controller.isAnalysisThinking,
+                analysisLines: _controller.analysisLines,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _copyPgnToClipboard,
+                    icon: const Icon(Icons.copy),
+                    label: const Text('PGN kopieren'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _controller.isAnalysisMode
+                        ? null
+                        : _showLoadFenDialog,
+                    icon: const Icon(Icons.input),
+                    label: const Text('FEN laden'),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
