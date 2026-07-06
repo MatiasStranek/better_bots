@@ -36,7 +36,7 @@ class ChessBoardController extends ChangeNotifier {
   ChessBoardController({
     ChessEngine? engine,
     PromotionChoiceCallback? onPromotionChoiceRequested,
-  }) : _engine = engine ?? ChessEngineFactory.createMobileEngine(),
+  }) : _engine = engine ?? ChessEngineFactory.createDefaultEngine(),
        _onPromotionChoiceRequested = onPromotionChoiceRequested;
 
   final chess.Chess _game = chess.Chess();
