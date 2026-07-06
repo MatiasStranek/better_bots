@@ -124,6 +124,24 @@ void _controllerSetCpLossElo(ChessBoardController controller, int elo) {
   _safeNotify(controller);
 }
 
+void _controllerSetCpLossUciSwitchFullMoveNumber(
+  ChessBoardController controller,
+  int fullMoveNumber,
+) {
+  if (controller._isBotThinking) {
+    return;
+  }
+
+  const allowedMoves = <int>[6, 11, 16, 21, 26];
+
+  if (!allowedMoves.contains(fullMoveNumber)) {
+    return;
+  }
+
+  controller._cpLossUciSwitchFullMoveNumber = fullMoveNumber;
+  _safeNotify(controller);
+}
+
 void _controllerSetBotPersonality(
   ChessBoardController controller,
   BotPersonality personality,

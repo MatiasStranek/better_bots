@@ -11,6 +11,7 @@ class MobileChessTopControls extends StatelessWidget {
     required this.skillLevel,
     required this.uciElo,
     required this.cpLossElo,
+    required this.cpLossUciSwitchFullMoveNumber,
     required this.strengthMode,
     required this.botOpeningMove,
     required this.botPersonality,
@@ -21,6 +22,7 @@ class MobileChessTopControls extends StatelessWidget {
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
+    required this.onCpLossUciSwitchFullMoveNumberChanged,
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
@@ -31,6 +33,7 @@ class MobileChessTopControls extends StatelessWidget {
   final int skillLevel;
   final int uciElo;
   final int cpLossElo;
+  final int cpLossUciSwitchFullMoveNumber;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotPersonality botPersonality;
@@ -43,6 +46,7 @@ class MobileChessTopControls extends StatelessWidget {
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
   final ValueChanged<int> onCpLossEloChanged;
+  final ValueChanged<int> onCpLossUciSwitchFullMoveNumberChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
@@ -59,6 +63,10 @@ class MobileChessTopControls extends StatelessWidget {
       case EngineStrengthMode.cpLossElo:
         return 'CP $cpLossElo';
     }
+  }
+
+  String get _uciSwitchButtonText {
+    return 'UCI ab Zug $cpLossUciSwitchFullMoveNumber';
   }
 
   String get _personalityButtonText {
@@ -80,6 +88,10 @@ class MobileChessTopControls extends StatelessWidget {
 
   List<int> get _cpLossEloValues {
     return List.generate(41, (index) => index * 100);
+  }
+
+  List<int> get _cpLossUciSwitchMoveValues {
+    return const [6, 11, 16, 21, 26];
   }
 
   List<int> get _candidateValues {
@@ -199,6 +211,30 @@ class MobileChessTopControls extends StatelessWidget {
     );
   }
 
+  Future<void> _showCpLossUciSwitchMoveDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('UCI_ELO ab Zug'),
+          children: _cpLossUciSwitchMoveValues.map((moveNumber) {
+            return SimpleDialogOption(
+              onPressed: () {
+                onCpLossUciSwitchFullMoveNumberChanged(moveNumber);
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                moveNumber == cpLossUciSwitchFullMoveNumber
+                    ? '✓ Zug $moveNumber'
+                    : 'Zug $moveNumber',
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
   Future<void> _showOpeningDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
@@ -284,7 +320,7 @@ class MobileChessTopControls extends StatelessWidget {
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
 
     return SizedBox(
-      height: 104,
+      height: 160,
       child: Column(
         children: [
           Row(
@@ -357,6 +393,20 @@ class MobileChessTopControls extends StatelessWidget {
                   icon: Icons.list,
                   onPressed: isEnabled && candidatesEnabled
                       ? () => _showCandidateDialog(context)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _MobileTopControlButton(
+                  label: _uciSwitchButtonText,
+                  icon: Icons.swap_horiz,
+                  onPressed: isEnabled && cpLossEloEnabled
+                      ? () => _showCpLossUciSwitchMoveDialog(context)
                       : null,
                 ),
               ),

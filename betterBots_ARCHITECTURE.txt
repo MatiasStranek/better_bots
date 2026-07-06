@@ -2,7 +2,6 @@ BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
 	* Windows: entwickelte Dame wird als Pawn gedragt
 
-* small test before build and commit
 
 * Button for 11 Move (choose amount)
 * MAX_CP_Loss for 0-1200 in 15 % case

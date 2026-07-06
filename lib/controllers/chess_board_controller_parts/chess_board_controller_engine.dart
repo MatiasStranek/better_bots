@@ -3,7 +3,6 @@ part of chess_board_controller;
 const String _defaultStartFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-const int _cpLossUciSwitchFullMoveNumber = 11;
 const int _cpLossUciSwitchMinElo = 1400;
 const int _cpLossUciSwitchMaxElo = 3100;
 
@@ -54,8 +53,9 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       String botMove;
 
       if (controller._strengthMode == EngineStrengthMode.cpLossElo) {
-        final shouldUseUciEloInsteadOfCpLoss =
-            _shouldUseUciEloInsteadOfCpLossFromMove11(controller);
+        final shouldUseUciEloInsteadOfCpLoss = _shouldUseUciEloInsteadOfCpLoss(
+          controller,
+        );
 
         if (shouldUseUciEloInsteadOfCpLoss) {
           botMove = await _selectMoveWithUciEloAfterCpLossSwitch(
@@ -203,7 +203,8 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
 
     controller._engineOutput =
         'CP_Loss_ELO ${controller._cpLossElo} ab Zug '
-        '$_cpLossUciSwitchFullMoveNumber → UCI_ELO $uciEloFromCpLoss | '
+        '${controller._cpLossUciSwitchFullMoveNumber} → '
+        'UCI_ELO $uciEloFromCpLoss | '
         'Aktueller Zug: $fullMoveNumber | '
         'Zug: $botMove';
 
@@ -230,7 +231,8 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
 
   controller._engineOutput =
       'CP_Loss_ELO ${controller._cpLossElo} ab Zug '
-      '$_cpLossUciSwitchFullMoveNumber → UCI_ELO $uciEloFromCpLoss | '
+      '${controller._cpLossUciSwitchFullMoveNumber} → '
+      'UCI_ELO $uciEloFromCpLoss | '
       'Aktueller Zug: $fullMoveNumber | '
       'Persona: ${personality.label} | '
       'Kandidaten: ${controller._personaCandidateCount} | '
@@ -239,9 +241,7 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
   return botMove;
 }
 
-bool _shouldUseUciEloInsteadOfCpLossFromMove11(
-  ChessBoardController controller,
-) {
+bool _shouldUseUciEloInsteadOfCpLoss(ChessBoardController controller) {
   if (controller._strengthMode != EngineStrengthMode.cpLossElo) {
     return false;
   }
@@ -253,7 +253,8 @@ bool _shouldUseUciEloInsteadOfCpLossFromMove11(
     return false;
   }
 
-  return _currentFullMoveNumber(controller) >= _cpLossUciSwitchFullMoveNumber;
+  return _currentFullMoveNumber(controller) >=
+      controller._cpLossUciSwitchFullMoveNumber;
 }
 
 int _uciEloFromCpLossElo(ChessBoardController controller) {

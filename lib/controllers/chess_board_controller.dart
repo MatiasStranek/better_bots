@@ -57,6 +57,7 @@ class ChessBoardController extends ChangeNotifier {
   EngineStrengthMode _strengthMode = EngineStrengthMode.level;
   int _uciElo = 1320;
   int _cpLossElo = 1300;
+  int _cpLossUciSwitchFullMoveNumber = 11;
 
   BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
   bool _openingLogicAllowed = true;
@@ -83,6 +84,8 @@ class ChessBoardController extends ChangeNotifier {
   int get uciElo => _uciElo;
 
   int get cpLossElo => _cpLossElo;
+
+  int get cpLossUciSwitchFullMoveNumber => _cpLossUciSwitchFullMoveNumber;
 
   BotOpeningMove get botOpeningMove => _botOpeningMove;
 
@@ -160,6 +163,10 @@ class ChessBoardController extends ChangeNotifier {
   void setUciElo(int elo) => _controllerSetUciElo(this, elo);
 
   void setCpLossElo(int elo) => _controllerSetCpLossElo(this, elo);
+
+  void setCpLossUciSwitchFullMoveNumber(int fullMoveNumber) {
+    return _controllerSetCpLossUciSwitchFullMoveNumber(this, fullMoveNumber);
+  }
 
   void setBotOpeningMove(BotOpeningMove move) {
     if (_isBotThinking) {

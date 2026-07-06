@@ -31,6 +31,7 @@ class MobileChessBoardLayout extends StatelessWidget {
     required this.skillLevel,
     required this.uciElo,
     required this.cpLossElo,
+    required this.cpLossUciSwitchFullMoveNumber,
     required this.strengthMode,
     required this.botOpeningMove,
     required this.botPersonality,
@@ -41,6 +42,7 @@ class MobileChessBoardLayout extends StatelessWidget {
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
+    required this.onCpLossUciSwitchFullMoveNumberChanged,
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
@@ -75,6 +77,7 @@ class MobileChessBoardLayout extends StatelessWidget {
   final int skillLevel;
   final int uciElo;
   final int cpLossElo;
+  final int cpLossUciSwitchFullMoveNumber;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotPersonality botPersonality;
@@ -87,6 +90,7 @@ class MobileChessBoardLayout extends StatelessWidget {
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
   final ValueChanged<int> onCpLossEloChanged;
+  final ValueChanged<int> onCpLossUciSwitchFullMoveNumberChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
@@ -95,7 +99,7 @@ class MobileChessBoardLayout extends StatelessWidget {
   final bool controlsEnabled;
 
   static const double _screenPadding = 16;
-  static const double _topControlsHeight = 104;
+  static const double _topControlsHeight = 160;
   static const double _bottomViewHeight = 96;
   static const double _copyPgnButtonHeight = 44;
   static const double _bottomGap = 8;
@@ -148,6 +152,7 @@ class MobileChessBoardLayout extends StatelessWidget {
                   skillLevel: skillLevel,
                   uciElo: uciElo,
                   cpLossElo: cpLossElo,
+                  cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumber,
                   strengthMode: strengthMode,
                   botOpeningMove: botOpeningMove,
                   botPersonality: botPersonality,
@@ -158,6 +163,8 @@ class MobileChessBoardLayout extends StatelessWidget {
                   onSkillLevelChanged: onSkillLevelChanged,
                   onUciEloChanged: onUciEloChanged,
                   onCpLossEloChanged: onCpLossEloChanged,
+                  onCpLossUciSwitchFullMoveNumberChanged:
+                      onCpLossUciSwitchFullMoveNumberChanged,
                   onStrengthModeChanged: onStrengthModeChanged,
                   onBotOpeningMoveChanged: onBotOpeningMoveChanged,
                   onBotPersonalityChanged: onBotPersonalityChanged,
