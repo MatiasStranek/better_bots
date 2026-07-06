@@ -257,44 +257,59 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                     _controller.setPersonaCandidateCount,
               ),
               const SizedBox(height: 16),
-              ChessBoardGrid(
-                playerIsWhite: _controller.playerIsWhite,
-                highlights: _controller.highlights,
-                pieceAt: _controller.pieceAt,
-                canHumanMovePiece: _controller.canHumanMovePiece,
-                canMoveTo: _controller.canMoveTo,
-                legalTargetsFromSquare: _controller.legalTargetsFromSquare,
-                onSquareTap: _controller.onSquareTap,
-                onMove: _controller.tryHumanMove,
-                onPieceDragStarted: _controller.selectSquare,
-                onPieceDragEnded: _controller.clearSelectedSquare,
-              ),
-              const SizedBox(height: 16),
-              ChessBoardDebugPanel(
-                playerSide: _controller.playerSide,
-                fen: _controller.fen,
-                pgn: _controller.pgn,
-                engineOutput: _controller.engineOutput,
-                isAnalysisMode: _controller.isAnalysisMode,
-                isAnalysisThinking: _controller.isAnalysisThinking,
-                analysisLines: _controller.analysisLines,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _copyPgnToClipboard,
-                    icon: const Icon(Icons.copy),
-                    label: const Text('PGN kopieren'),
+                  ChessBoardGrid(
+                    playerIsWhite: _controller.playerIsWhite,
+                    highlights: _controller.highlights,
+                    pieceAt: _controller.pieceAt,
+                    canHumanMovePiece: _controller.canHumanMovePiece,
+                    canMoveTo: _controller.canMoveTo,
+                    legalTargetsFromSquare: _controller.legalTargetsFromSquare,
+                    onSquareTap: _controller.onSquareTap,
+                    onMove: _controller.tryHumanMove,
+                    onPieceDragStarted: _controller.selectSquare,
+                    onPieceDragEnded: _controller.clearSelectedSquare,
                   ),
-                  OutlinedButton.icon(
-                    onPressed: _controller.isAnalysisMode
-                        ? null
-                        : _showLoadFenDialog,
-                    icon: const Icon(Icons.input),
-                    label: const Text('FEN laden'),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ChessBoardDebugPanel(
+                            playerSide: _controller.playerSide,
+                            fen: _controller.fen,
+                            pgn: _controller.pgn,
+                            engineOutput: _controller.engineOutput,
+                            isAnalysisMode: _controller.isAnalysisMode,
+                            isAnalysisThinking: _controller.isAnalysisThinking,
+                            analysisLines: _controller.analysisLines,
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _copyPgnToClipboard,
+                                icon: const Icon(Icons.copy),
+                                label: const Text('PGN kopieren'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _controller.isAnalysisMode
+                                    ? null
+                                    : _showLoadFenDialog,
+                                icon: const Icon(Icons.input),
+                                label: const Text('FEN laden'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
