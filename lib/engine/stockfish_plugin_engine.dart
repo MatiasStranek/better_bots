@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter_stockfish_plugin/stockfish.dart';
-import 'package:flutter_stockfish_plugin/stockfish_state.dart';
+import 'package:flutter/foundation.dart';
+import 'package:multistockfish/multistockfish.dart';
 
 import 'chess_engine.dart';
 import 'personality/persona_move_candidate.dart';
@@ -14,7 +14,15 @@ class StockfishPluginEngine implements ChessEngine {
 
   Stockfish? _stockfish;
   StreamSubscription<String>? _stdoutSubscription;
+
+  Future<void>? _startFuture;
+
+  Completer<void>? _uciOkCompleter;
+  Completer<void>? _readyOkCompleter;
   Completer<String>? _bestMoveCompleter;
+  Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
+
+  final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
 
   bool _isRunning = false;
   bool _isStarting = false;
@@ -26,33 +34,87 @@ class StockfishPluginEngine implements ChessEngine {
   bool get isRunning => _isRunning;
 
   @override
-  Future<void> start() async {
-    if (_isRunning || _isStarting) {
-      return;
+  Future<void> start() {
+    if (_isRunning) {
+      return Future<void>.value();
     }
 
+    final existingStartFuture = _startFuture;
+    if (existingStartFuture != null) {
+      return existingStartFuture;
+    }
+
+    final startFuture = _startInternal();
+    _startFuture = startFuture;
+    return startFuture;
+  }
+
+  Future<void> _startInternal() async {
     _isStarting = true;
 
     try {
-      final stockfish = Stockfish();
+      _addOutput('StockfishPluginEngine startet mit multistockfish...');
+
+      final stockfish = Stockfish.instance;
       _stockfish = stockfish;
 
-      _stdoutSubscription = stockfish.stdout.listen(_handleOutputLine);
+      _stdoutSubscription = stockfish.stdout.listen(
+        _handleRawOutput,
+        onError: (error) {
+          _addOutput('ANDROID STOCKFISH STDOUT ERROR: $error');
+        },
+        onDone: () {
+          _addOutput('ANDROID STOCKFISH STDOUT CLOSED');
+        },
+      );
 
-      await _waitForEngineReady();
+      await _startStockfishInstance(stockfish);
 
       _isRunning = true;
 
-      _sendCommand('uci');
+      await _waitForUciOk();
       await _waitForReadyOk();
 
       _sendCommand('setoption name Threads value 1');
       _sendCommand('setoption name Hash value 64');
       await _waitForReadyOk();
 
-      _outputController.add('StockfishPluginEngine bereit.');
+      _addOutput('StockfishPluginEngine bereit.');
+    } catch (error, stackTrace) {
+      _addOutput('StockfishPluginEngine Startfehler: $error');
+
+      debugPrintStack(
+        label: 'StockfishPluginEngine Startfehler StackTrace',
+        stackTrace: stackTrace,
+      );
+
+      await stop();
+      rethrow;
     } finally {
       _isStarting = false;
+      _startFuture = null;
+    }
+  }
+
+  Future<void> _startStockfishInstance(Stockfish stockfish) async {
+    try {
+      await stockfish.start();
+    } on StateError catch (error) {
+      _addOutput(
+        'Stockfish start() meldet StateError. Versuche quit() und Neustart: $error',
+      );
+
+      await stockfish.quit();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await stockfish.start();
+    }
+
+    _addOutput('Android Stockfish State: ${stockfish.state.value}');
+
+    if (stockfish.state.value != StockfishState.ready) {
+      throw StateError(
+        'Stockfish ist nach start() nicht bereit. State: ${stockfish.state.value}',
+      );
     }
   }
 
@@ -66,7 +128,30 @@ class StockfishPluginEngine implements ChessEngine {
     _sendCommand('setoption name Skill Level value $safeLevel');
     await _waitForReadyOk();
 
-    _outputController.add('Skill Level gesetzt: $safeLevel');
+    _addOutput('Skill Level gesetzt: $safeLevel');
+  }
+
+  Future<void> setUciElo(int elo) async {
+    await _ensureStarted();
+
+    final safeElo = elo.clamp(1320, 3190).toInt();
+
+    _sendCommand('setoption name UCI_LimitStrength value true');
+    _sendCommand('setoption name UCI_Elo value $safeElo');
+    await _waitForReadyOk();
+
+    _addOutput('UCI_Elo gesetzt: $safeElo');
+  }
+
+  Future<void> setMultiPv(int value) async {
+    await _ensureStarted();
+
+    final safeValue = value.clamp(1, 128).toInt();
+
+    _sendCommand('setoption name MultiPV value $safeValue');
+    await _waitForReadyOk();
+
+    _addOutput('MultiPV gesetzt: $safeValue');
   }
 
   @override
@@ -77,11 +162,14 @@ class StockfishPluginEngine implements ChessEngine {
     int moveTimeMs = 800,
   }) async {
     await _ensureStarted();
+
     await _configureStrength(
       skillLevel: skillLevel,
       useUciElo: useUciElo,
       uciElo: uciElo,
     );
+
+    await setMultiPv(1);
 
     return _searchBestMove(
       positionCommand: 'position startpos',
@@ -98,14 +186,17 @@ class StockfishPluginEngine implements ChessEngine {
     int moveTimeMs = 800,
   }) async {
     await _ensureStarted();
+
     await _configureStrength(
       skillLevel: skillLevel,
       useUciElo: useUciElo,
       uciElo: uciElo,
     );
 
+    await setMultiPv(1);
+
     return _searchBestMove(
-      positionCommand: 'position fen $fen',
+      positionCommand: _positionCommandFromFen(fen),
       moveTimeMs: moveTimeMs,
     );
   }
@@ -121,11 +212,19 @@ class StockfishPluginEngine implements ChessEngine {
   }) async {
     await _ensureStarted();
 
-    _outputController.add(
-      'MultiPV/Kandidaten sind im Stabilitäts-Fix noch deaktiviert.',
+    await _configureStrength(
+      skillLevel: skillLevel,
+      useUciElo: useUciElo,
+      uciElo: uciElo,
     );
 
-    return const [];
+    final safeCandidateCount = candidateCount.clamp(4, 128).toInt();
+    await setMultiPv(safeCandidateCount);
+
+    return _searchMoveCandidates(
+      positionCommand: _positionCommandFromFen(fen),
+      moveTimeMs: moveTimeMs,
+    );
   }
 
   @override
@@ -133,28 +232,37 @@ class StockfishPluginEngine implements ChessEngine {
     final stockfish = _stockfish;
 
     if (stockfish == null) {
+      _isRunning = false;
+      _isStarting = false;
+      _startFuture = null;
+      _completePendingWaitersOnStop();
       return;
     }
 
-    _sendCommand('quit');
+    try {
+      await stockfish.quit();
+    } catch (_) {
+      // Beim Stoppen bewusst ignorieren.
+    }
 
     await _stdoutSubscription?.cancel();
     _stdoutSubscription = null;
 
-    stockfish.dispose();
-
     _stockfish = null;
     _isRunning = false;
     _isStarting = false;
+    _startFuture = null;
 
-    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
-      _bestMoveCompleter!.complete('(none)');
-    }
+    _completePendingWaitersOnStop();
 
-    _bestMoveCompleter = null;
+    _addOutput('StockfishPluginEngine gestoppt.');
+  }
+
+  Future<void> dispose() async {
+    await stop();
 
     if (!_outputController.isClosed) {
-      _outputController.add('StockfishPluginEngine gestoppt.');
+      await _outputController.close();
     }
   }
 
@@ -166,31 +274,47 @@ class StockfishPluginEngine implements ChessEngine {
     await start();
   }
 
-  Future<void> _waitForEngineReady() async {
-    final stockfish = _stockfish;
+  Future<void> _waitForUciOk() async {
+    final completer = Completer<void>();
+    _uciOkCompleter = completer;
 
-    if (stockfish == null) {
-      throw StateError('Stockfish wurde nicht erstellt.');
-    }
+    _sendCommand('uci');
 
-    final startedAt = DateTime.now();
-
-    while (stockfish.state.value == StockfishState.starting) {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-
-      final elapsed = DateTime.now().difference(startedAt);
-
-      if (elapsed > const Duration(seconds: 10)) {
-        throw StateError('Stockfish Start-Timeout.');
+    try {
+      await completer.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw StateError(
+            'Android Stockfish hat nicht mit uciok geantwortet.',
+          );
+        },
+      );
+    } finally {
+      if (identical(_uciOkCompleter, completer)) {
+        _uciOkCompleter = null;
       }
     }
+  }
 
-    if (stockfish.state.value == StockfishState.error) {
-      throw StateError('Stockfish konnte nicht gestartet werden.');
-    }
+  Future<void> _waitForReadyOk() async {
+    final completer = Completer<void>();
+    _readyOkCompleter = completer;
 
-    if (stockfish.state.value == StockfishState.disposed) {
-      throw StateError('Stockfish wurde direkt beendet.');
+    _sendCommand('isready');
+
+    try {
+      await completer.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw StateError(
+            'Android Stockfish hat nicht mit readyok geantwortet.',
+          );
+        },
+      );
+    } finally {
+      if (identical(_readyOkCompleter, completer)) {
+        _readyOkCompleter = null;
+      }
     }
   }
 
@@ -206,7 +330,7 @@ class StockfishPluginEngine implements ChessEngine {
       _sendCommand('setoption name UCI_Elo value $safeElo');
       await _waitForReadyOk();
 
-      _outputController.add('UCI_Elo gesetzt: $safeElo');
+      _addOutput('UCI_Elo gesetzt: $safeElo');
       return;
     }
 
@@ -216,75 +340,250 @@ class StockfishPluginEngine implements ChessEngine {
     _sendCommand('setoption name Skill Level value $safeLevel');
     await _waitForReadyOk();
 
-    _outputController.add('Skill Level gesetzt: $safeLevel');
+    _addOutput('Skill Level gesetzt: $safeLevel');
   }
 
   Future<String> _searchBestMove({
     required String positionCommand,
     required int moveTimeMs,
   }) async {
-    final existingCompleter = _bestMoveCompleter;
-
-    if (existingCompleter != null && !existingCompleter.isCompleted) {
-      existingCompleter.complete('(none)');
-    }
+    _cancelPendingSearches();
 
     final completer = Completer<String>();
     _bestMoveCompleter = completer;
+    _candidateCompleter = null;
+    _latestCandidatesByMultiPv.clear();
 
     _sendCommand(positionCommand);
     _sendCommand('go movetime $moveTimeMs');
 
     final bestMove = await completer.future.timeout(
-      Duration(milliseconds: moveTimeMs + 8000),
+      Duration(milliseconds: moveTimeMs + 10000),
       onTimeout: () {
-        _bestMoveCompleter = null;
-        _outputController.add('Stockfish Timeout: kein bestmove erhalten.');
+        if (identical(_bestMoveCompleter, completer)) {
+          _bestMoveCompleter = null;
+        }
+
+        _addOutput('Stockfish Timeout: kein bestmove erhalten.');
         return '(none)';
       },
     );
 
+    _addOutput('Stockfish bestmove zurückgegeben: $bestMove');
     return bestMove;
   }
 
-  Future<void> _waitForReadyOk() async {
-    final completer = Completer<void>();
-    late final StreamSubscription<String> subscription;
+  Future<List<PersonaMoveCandidate>> _searchMoveCandidates({
+    required String positionCommand,
+    required int moveTimeMs,
+  }) async {
+    _cancelPendingSearches();
 
-    subscription = output.listen((line) {
-      if (line.trim() == 'readyok' && !completer.isCompleted) {
-        completer.complete();
+    final completer = Completer<List<PersonaMoveCandidate>>();
+    _candidateCompleter = completer;
+    _bestMoveCompleter = null;
+    _latestCandidatesByMultiPv.clear();
+
+    _sendCommand(positionCommand);
+    _sendCommand('go movetime $moveTimeMs');
+
+    final candidates = await completer.future.timeout(
+      Duration(milliseconds: moveTimeMs + 10000),
+      onTimeout: () {
+        if (identical(_candidateCompleter, completer)) {
+          _candidateCompleter = null;
+        }
+
+        _latestCandidatesByMultiPv.clear();
+        _addOutput('Stockfish Timeout: keine Kandidatenzüge erhalten.');
+        return const <PersonaMoveCandidate>[];
+      },
+    );
+
+    _addOutput('Stockfish Kandidaten zurückgegeben: ${candidates.length}');
+    return candidates;
+  }
+
+  void _cancelPendingSearches() {
+    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
+      _bestMoveCompleter!.complete('(none)');
+    }
+
+    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
+      _candidateCompleter!.complete(const []);
+    }
+
+    _bestMoveCompleter = null;
+    _candidateCompleter = null;
+    _latestCandidatesByMultiPv.clear();
+  }
+
+  void _completePendingWaitersOnStop() {
+    if (_uciOkCompleter != null && !_uciOkCompleter!.isCompleted) {
+      _uciOkCompleter!.complete();
+    }
+
+    if (_readyOkCompleter != null && !_readyOkCompleter!.isCompleted) {
+      _readyOkCompleter!.complete();
+    }
+
+    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
+      _bestMoveCompleter!.complete('(none)');
+    }
+
+    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
+      _candidateCompleter!.complete(const []);
+    }
+
+    _uciOkCompleter = null;
+    _readyOkCompleter = null;
+    _bestMoveCompleter = null;
+    _candidateCompleter = null;
+    _latestCandidatesByMultiPv.clear();
+  }
+
+  String _positionCommandFromFen(String fen) {
+    final trimmedFen = fen.trim();
+
+    if (trimmedFen == 'startpos') {
+      return 'position startpos';
+    }
+
+    return 'position fen $trimmedFen';
+  }
+
+  void _handleRawOutput(String rawOutput) {
+    final normalizedOutput = rawOutput
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
+
+    final lines = normalizedOutput.split('\n');
+
+    for (final line in lines) {
+      final trimmedLine = line.trim();
+
+      if (trimmedLine.isEmpty) {
+        continue;
       }
-    });
 
-    _sendCommand('isready');
-
-    try {
-      await completer.future.timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-      );
-    } finally {
-      await subscription.cancel();
+      _handleOutputLine(trimmedLine);
     }
   }
 
   void _handleOutputLine(String line) {
-    if (!_outputController.isClosed) {
-      _outputController.add(line);
-    }
+    _addOutput('ANDROID STOCKFISH << $line');
 
-    final trimmedLine = line.trim();
+    if (line == 'uciok') {
+      if (_uciOkCompleter != null && !_uciOkCompleter!.isCompleted) {
+        _uciOkCompleter!.complete();
+      }
 
-    if (!trimmedLine.startsWith('bestmove ')) {
+      _uciOkCompleter = null;
       return;
     }
 
-    final parts = trimmedLine.split(RegExp(r'\s+'));
+    if (line == 'readyok') {
+      if (_readyOkCompleter != null && !_readyOkCompleter!.isCompleted) {
+        _readyOkCompleter!.complete();
+      }
+
+      _readyOkCompleter = null;
+      return;
+    }
+
+    if (line.startsWith('info ')) {
+      _handleInfoLine(line);
+      return;
+    }
+
+    if (line.startsWith('bestmove')) {
+      _handleBestMoveLine(line);
+    }
+  }
+
+  void _handleInfoLine(String line) {
+    if (_candidateCompleter == null) {
+      return;
+    }
+
+    final candidate = _parseCandidateFromInfoLine(line);
+
+    if (candidate == null || !candidate.isValidMove) {
+      return;
+    }
+
+    final existing = _latestCandidatesByMultiPv[candidate.multiPv];
+
+    if (existing == null || candidate.depth >= existing.depth) {
+      _latestCandidatesByMultiPv[candidate.multiPv] = candidate;
+    }
+  }
+
+  PersonaMoveCandidate? _parseCandidateFromInfoLine(String line) {
+    final parts = line.split(RegExp(r'\s+'));
+
+    final pvIndex = parts.indexOf('pv');
+
+    if (pvIndex < 0 || pvIndex + 1 >= parts.length) {
+      return null;
+    }
+
+    final pv = parts.sublist(pvIndex + 1);
+
+    if (pv.isEmpty) {
+      return null;
+    }
+
+    final uciMove = pv.first;
+
+    var depth = 0;
+    final depthIndex = parts.indexOf('depth');
+    if (depthIndex >= 0 && depthIndex + 1 < parts.length) {
+      depth = int.tryParse(parts[depthIndex + 1]) ?? 0;
+    }
+
+    var multiPv = 1;
+    final multiPvIndex = parts.indexOf('multipv');
+    if (multiPvIndex >= 0 && multiPvIndex + 1 < parts.length) {
+      multiPv = int.tryParse(parts[multiPvIndex + 1]) ?? 1;
+    }
+
+    var scoreCp = 0;
+    final scoreIndex = parts.indexOf('score');
+    if (scoreIndex >= 0 && scoreIndex + 2 < parts.length) {
+      final scoreType = parts[scoreIndex + 1];
+      final scoreValue = int.tryParse(parts[scoreIndex + 2]) ?? 0;
+
+      if (scoreType == 'cp') {
+        scoreCp = scoreValue;
+      } else if (scoreType == 'mate') {
+        scoreCp = _mateScoreToCentipawns(scoreValue);
+      }
+    }
+
+    return PersonaMoveCandidate(
+      uciMove: uciMove,
+      multiPv: multiPv,
+      scoreCp: scoreCp,
+      depth: depth,
+      pv: pv,
+    );
+  }
+
+  int _mateScoreToCentipawns(int mateScore) {
+    if (mateScore > 0) {
+      return 100000 - mateScore.abs();
+    }
+
+    if (mateScore < 0) {
+      return -100000 + mateScore.abs();
+    }
+
+    return 0;
+  }
+
+  void _handleBestMoveLine(String line) {
+    final parts = line.split(RegExp(r'\s+'));
 
     if (parts.length < 2) {
       return;
@@ -292,11 +591,38 @@ class StockfishPluginEngine implements ChessEngine {
 
     final bestMove = parts[1];
 
-    final completer = _bestMoveCompleter;
-
-    if (completer != null && !completer.isCompleted) {
-      completer.complete(bestMove);
+    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
+      _bestMoveCompleter!.complete(bestMove);
       _bestMoveCompleter = null;
+    }
+
+    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
+      final candidates = _latestCandidatesByMultiPv.values.toList()
+        ..sort((a, b) {
+          final byMultiPv = a.multiPv.compareTo(b.multiPv);
+
+          if (byMultiPv != 0) {
+            return byMultiPv;
+          }
+
+          return b.scoreCp.compareTo(a.scoreCp);
+        });
+
+      if (candidates.isEmpty && bestMove != '(none)') {
+        candidates.add(
+          PersonaMoveCandidate(
+            uciMove: bestMove,
+            multiPv: 1,
+            scoreCp: 0,
+            depth: 0,
+            pv: [bestMove],
+          ),
+        );
+      }
+
+      _candidateCompleter!.complete(candidates);
+      _candidateCompleter = null;
+      _latestCandidatesByMultiPv.clear();
     }
   }
 
@@ -307,6 +633,18 @@ class StockfishPluginEngine implements ChessEngine {
       throw StateError('Stockfish läuft nicht. Command: $command');
     }
 
+    _addOutput('ANDROID STOCKFISH >> $command');
+
     stockfish.stdin = command;
+  }
+
+  void _addOutput(String line) {
+    debugPrint(line);
+
+    if (_outputController.isClosed) {
+      return;
+    }
+
+    _outputController.add(line);
   }
 }
