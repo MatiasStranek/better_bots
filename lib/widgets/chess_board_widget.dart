@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/chess_board_controller.dart';
+import '../models/board_annotation.dart';
 import '../models/player_side.dart';
 import 'chess_board/chess_board_controls.dart';
 import 'chess_board/chess_board_debug_panel.dart';
@@ -19,6 +20,15 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   late final ChessBoardController _controller;
   late final FocusNode _keyboardFocusNode;
 
+  final Set<String> _normalAnnotationMarkedSquares = <String>{};
+  final Set<BoardArrowAnnotation> _normalAnnotationArrows =
+      <BoardArrowAnnotation>{};
+  final Set<String> _analysisAnnotationMarkedSquares = <String>{};
+  final Set<BoardArrowAnnotation> _analysisAnnotationArrows =
+      <BoardArrowAnnotation>{};
+
+  bool _lastKnownAnalysisMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -27,13 +37,86 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     _controller = ChessBoardController(
       onPromotionChoiceRequested: _showPromotionChoiceDialog,
     )..start();
+    _lastKnownAnalysisMode = _controller.isAnalysisMode;
+    _controller.addListener(_handleControllerChanged);
   }
 
   @override
   void dispose() {
     _keyboardFocusNode.dispose();
+    _controller.removeListener(_handleControllerChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  Set<String> get _activeAnnotationMarkedSquares {
+    return _controller.isAnalysisMode
+        ? _analysisAnnotationMarkedSquares
+        : _normalAnnotationMarkedSquares;
+  }
+
+  Set<BoardArrowAnnotation> get _activeAnnotationArrows {
+    return _controller.isAnalysisMode
+        ? _analysisAnnotationArrows
+        : _normalAnnotationArrows;
+  }
+
+  void _handleControllerChanged() {
+    final isAnalysisMode = _controller.isAnalysisMode;
+    final hasJustLeftAnalysisMode = _lastKnownAnalysisMode && !isAnalysisMode;
+
+    _lastKnownAnalysisMode = isAnalysisMode;
+
+    if (!hasJustLeftAnalysisMode ||
+        (_analysisAnnotationMarkedSquares.isEmpty &&
+            _analysisAnnotationArrows.isEmpty)) {
+      return;
+    }
+
+    if (!mounted) {
+      _analysisAnnotationMarkedSquares.clear();
+      _analysisAnnotationArrows.clear();
+      return;
+    }
+
+    setState(() {
+      _analysisAnnotationMarkedSquares.clear();
+      _analysisAnnotationArrows.clear();
+    });
+  }
+
+  void _clearBoardAnnotations() {
+    final markedSquares = _activeAnnotationMarkedSquares;
+    final arrows = _activeAnnotationArrows;
+
+    if (markedSquares.isEmpty && arrows.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      markedSquares.clear();
+      arrows.clear();
+    });
+  }
+
+  void _toggleAnnotationSquare(String square) {
+    final markedSquares = _activeAnnotationMarkedSquares;
+
+    setState(() {
+      if (!markedSquares.add(square)) {
+        markedSquares.remove(square);
+      }
+    });
+  }
+
+  void _toggleAnnotationArrow(BoardArrowAnnotation arrow) {
+    final arrows = _activeAnnotationArrows;
+
+    setState(() {
+      if (!arrows.add(arrow)) {
+        arrows.remove(arrow);
+      }
+    });
   }
 
   Future<String?> _showPromotionChoiceDialog({
@@ -271,6 +354,12 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                     onMove: _controller.tryHumanMove,
                     onPieceDragStarted: _controller.selectSquare,
                     onPieceDragEnded: _controller.clearSelectedSquare,
+                    annotationModeEnabled: true,
+                    annotationMarkedSquares: _activeAnnotationMarkedSquares,
+                    annotationArrows: _activeAnnotationArrows,
+                    onClearAnnotations: _clearBoardAnnotations,
+                    onToggleAnnotationSquare: _toggleAnnotationSquare,
+                    onToggleAnnotationArrow: _toggleAnnotationArrow,
                   ),
                   const SizedBox(width: 24),
                   Expanded(
