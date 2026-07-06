@@ -78,11 +78,11 @@ class _AnalysisLinesView extends StatelessWidget {
           'Top-5 Analyse$titleSuffix',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (analysisLines.isEmpty)
           SelectableText(
             isAnalysisThinking
-                ? 'Engine analysiert bis Tiefe 20.'
+                ? 'Engine analysiert bis Tiefe 20. Live-Linien erscheinen ab Tiefe 10 und werden nur nach abgeschlossenen Tiefen aktualisiert.'
                 : 'Noch keine Analyse-Linien vorhanden.',
           )
         else
@@ -99,25 +99,75 @@ class _AnalysisLineTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SelectableText(
-            '#${line.rank}  ${line.formattedEvaluation}  '
-            '${line.uciMove}  Tiefe ${line.depth}',
-            style: Theme.of(context).textTheme.bodyMedium,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: Colors.green.shade200, width: 3),
           ),
-          if (line.pv.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: SelectableText(
-                'PV: ${line.pvText}',
-                style: Theme.of(context).textTheme.bodySmall,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _MoveBadge(label: line.displayMove),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '#${line.rank}  ${line.formattedEvaluation}  Tiefe ${line.depth}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-        ],
+              if (line.pv.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: SelectableText(
+                    'PV: ${line.pvText}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveBadge extends StatelessWidget {
+  const _MoveBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = label.trim().isEmpty ? '-' : label.trim();
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 42, minHeight: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        border: Border.all(color: Colors.green.shade500, width: 1.4),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(
+        '[$text]',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.green.shade800,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

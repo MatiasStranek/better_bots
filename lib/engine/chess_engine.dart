@@ -1,6 +1,8 @@
 import '../models/engine_analysis_line.dart';
 import 'personality/persona_move_candidate.dart';
 
+typedef EngineAnalysisUpdate = void Function(List<EngineAnalysisLine> lines);
+
 abstract class ChessEngine {
   Stream<String> get output;
 
@@ -38,6 +40,7 @@ abstract class ChessEngine {
     required String fen,
     int multiPv = 5,
     int depth = 20,
+    EngineAnalysisUpdate? onUpdate,
   });
 
   Future<void> stop();

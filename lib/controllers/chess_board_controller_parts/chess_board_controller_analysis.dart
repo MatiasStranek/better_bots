@@ -1,5 +1,8 @@
 part of chess_board_controller;
 
+const int _analysisMultiPv = 5;
+const int _analysisDepth = 20;
+
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
     _controllerStartAnalysisMode(controller);
@@ -228,8 +231,18 @@ void _requestAnalysisForCurrentPosition(ChessBoardController controller) {
   }
 
   controller._analysisGeneration++;
-  session.isAnalyzing = true;
-  session.statusText = 'Analyse läuft für ${session.sideToMoveText} am Zug...';
+
+  if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+    session
+      ..isAnalyzing = false
+      ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+    _safeNotify(controller);
+    return;
+  }
+
+  session
+    ..isAnalyzing = true
+    ..statusText = 'Analyse läuft für ${session.sideToMoveText} am Zug...';
   _safeNotify(controller);
 
   if (controller._analysisSearchInFlight) {
@@ -251,6 +264,14 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
         return;
       }
 
+      if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+        session
+          ..isAnalyzing = false
+          ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+        _safeNotify(controller);
+        return;
+      }
+
       controller._analysisSearchQueued = false;
       final generation = controller._analysisGeneration;
       final fen = session.fen;
@@ -258,14 +279,40 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
       try {
         final lines = await controller._analysisEngine.analyzePositionFromFen(
           fen: fen,
-          multiPv: 5,
-          depth: 20,
+          multiPv: _analysisMultiPv,
+          depth: _analysisDepth,
+          onUpdate: (liveLines) {
+            final currentSession = controller._analysisSession;
+
+            if (currentSession == null ||
+                !identical(currentSession, session) ||
+                currentSession.fen != fen ||
+                generation != controller._analysisGeneration ||
+                controller._isDisposed) {
+              return;
+            }
+
+            currentSession.updateLiveTopLinesForFen(
+              fen: fen,
+              lines: liveLines,
+              targetDepth: _analysisDepth,
+            );
+
+            final maxDepth = _maxAnalysisDepth(currentSession.topLines);
+            currentSession.statusText = currentSession
+                    .hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)
+                ? 'Tiefe $_analysisDepth erreicht und gespeichert.'
+                : 'Analyse läuft: aktuelle Tiefe $maxDepth/$_analysisDepth.';
+
+            _safeNotify(controller);
+          },
         );
 
         final currentSession = controller._analysisSession;
 
         if (currentSession == null ||
             !identical(currentSession, session) ||
+            currentSession.fen != fen ||
             generation != controller._analysisGeneration ||
             controller._isDisposed) {
           if (!controller._analysisSearchQueued) {
@@ -274,11 +321,22 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
           continue;
         }
 
+        session.updateCompletedTopLinesForFen(
+          fen: fen,
+          lines: lines,
+          targetDepth: _analysisDepth,
+        );
+
+        final hasCompletedLines = session.hasCompletedLinesForCurrentFen(
+          targetDepth: _analysisDepth,
+        );
+
         session
-          ..updateTopLines(lines)
           ..statusText = lines.isEmpty
               ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
-              : 'Analyse aktiv. ${lines.length} Linien bis Tiefe 20.'
+              : hasCompletedLines
+                  ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
+                  : 'Analyse aktiv. ${lines.length} Linien bis Tiefe ${_maxAnalysisDepth(lines)}.'
           ..isAnalyzing = false;
 
         _safeNotify(controller);
@@ -287,6 +345,7 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
 
         if (currentSession == null ||
             !identical(currentSession, session) ||
+            currentSession.fen != fen ||
             generation != controller._analysisGeneration ||
             controller._isDisposed) {
           if (!controller._analysisSearchQueued) {
@@ -308,9 +367,19 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
 
       final queuedSession = controller._analysisSession;
       if (queuedSession != null) {
-        queuedSession.isAnalyzing = true;
-        queuedSession.statusText =
-            'Analyse läuft für ${queuedSession.sideToMoveText} am Zug...';
+        if (queuedSession.hasCompletedLinesForCurrentFen(
+          targetDepth: _analysisDepth,
+        )) {
+          queuedSession
+            ..isAnalyzing = false
+            ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+        } else {
+          queuedSession
+            ..isAnalyzing = true
+            ..statusText =
+                'Analyse läuft für ${queuedSession.sideToMoveText} am Zug...';
+        }
+
         _safeNotify(controller);
       }
     }
@@ -323,4 +392,16 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
       _safeNotify(controller);
     }
   }
+}
+
+int _maxAnalysisDepth(List<EngineAnalysisLine> lines) {
+  var maxDepth = 0;
+
+  for (final line in lines) {
+    if (line.depth > maxDepth) {
+      maxDepth = line.depth;
+    }
+  }
+
+  return maxDepth;
 }

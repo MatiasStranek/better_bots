@@ -75,6 +75,7 @@ class NoopChessEngine implements ChessEngine {
     required String fen,
     int multiPv = 5,
     int depth = 20,
+    EngineAnalysisUpdate? onUpdate,
   }) async {
     _outputController.add('NoopChessEngine: Keine Analyse-Linien verfügbar.');
 

@@ -6,6 +6,7 @@ class EngineAnalysisLine {
     required this.pv,
     this.scoreCp,
     this.mate,
+    this.shortMove,
   });
 
   /// Engine-Rang aus MultiPV.
@@ -24,6 +25,10 @@ class EngineAnalysisLine {
   /// Erster Zug der PV im UCI-Format, z. B. e2e4 oder e7e8q.
   final String uciMove;
 
+  /// Optionaler Kurzschrieb für die UI, z. B. e4, Nf3 oder O-O.
+  /// Wird im Analysemodus aus der FEN berechnet.
+  final String? shortMove;
+
   /// Vollständige Principal Variation als UCI-Zugliste.
   final List<String> pv;
 
@@ -41,6 +46,16 @@ class EngineAnalysisLine {
     }
 
     return true;
+  }
+
+  String get displayMove {
+    final move = shortMove;
+
+    if (move != null && move.trim().isNotEmpty) {
+      return move.trim();
+    }
+
+    return _fallbackShortMoveFromUci(uciMove);
   }
 
   String get formattedEvaluation {
@@ -79,6 +94,7 @@ class EngineAnalysisLine {
     int? scoreCp,
     int? mate,
     String? uciMove,
+    String? shortMove,
     List<String>? pv,
   }) {
     return EngineAnalysisLine(
@@ -87,8 +103,24 @@ class EngineAnalysisLine {
       scoreCp: scoreCp ?? this.scoreCp,
       mate: mate ?? this.mate,
       uciMove: uciMove ?? this.uciMove,
+      shortMove: shortMove ?? this.shortMove,
       pv: pv ?? this.pv,
     );
+  }
+
+  static String _fallbackShortMoveFromUci(String uciMove) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    if (promotion.isEmpty) {
+      return to;
+    }
+
+    return '$to=${promotion.toUpperCase()}';
   }
 
   @override
@@ -99,6 +131,7 @@ class EngineAnalysisLine {
         'scoreCp: $scoreCp, '
         'mate: $mate, '
         'uciMove: $uciMove, '
+        'shortMove: $shortMove, '
         'pv: $pv'
         ')';
   }

@@ -23,6 +23,12 @@ class StockfishPluginEngine implements ChessEngine {
   Completer<String>? _bestMoveCompleter;
   Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
   Completer<List<EngineAnalysisLine>>? _analysisCompleter;
+  EngineAnalysisUpdate? _analysisUpdateCallback;
+
+  static const int _analysisLiveUpdateMinDepth = 10;
+
+  int _analysisRequestedMultiPv = 5;
+  int _lastEmittedAnalysisDepth = 0;
 
   final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
   final Map<int, EngineAnalysisLine> _latestAnalysisLinesByMultiPv = {};
@@ -235,6 +241,7 @@ class StockfishPluginEngine implements ChessEngine {
     required String fen,
     int multiPv = 5,
     int depth = 20,
+    EngineAnalysisUpdate? onUpdate,
   }) async {
     await _ensureStarted();
 
@@ -250,6 +257,8 @@ class StockfishPluginEngine implements ChessEngine {
     return _searchAnalysisLines(
       positionCommand: _positionCommandFromFen(fen),
       depth: safeDepth,
+      requestedMultiPv: safeMultiPv,
+      onUpdate: onUpdate,
     );
   }
 
@@ -379,6 +388,9 @@ class StockfishPluginEngine implements ChessEngine {
     _bestMoveCompleter = completer;
     _candidateCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
 
@@ -411,6 +423,9 @@ class StockfishPluginEngine implements ChessEngine {
     _candidateCompleter = completer;
     _bestMoveCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
 
@@ -437,11 +452,16 @@ class StockfishPluginEngine implements ChessEngine {
   Future<List<EngineAnalysisLine>> _searchAnalysisLines({
     required String positionCommand,
     required int depth,
+    required int requestedMultiPv,
+    EngineAnalysisUpdate? onUpdate,
   }) async {
     _cancelPendingSearches();
 
     final completer = Completer<List<EngineAnalysisLine>>();
     _analysisCompleter = completer;
+    _analysisUpdateCallback = onUpdate;
+    _analysisRequestedMultiPv = requestedMultiPv;
+    _lastEmittedAnalysisDepth = 0;
     _candidateCompleter = null;
     _bestMoveCompleter = null;
     _latestCandidatesByMultiPv.clear();
@@ -457,6 +477,7 @@ class StockfishPluginEngine implements ChessEngine {
           _analysisCompleter = null;
         }
 
+        _analysisUpdateCallback = null;
         _latestAnalysisLinesByMultiPv.clear();
         _addOutput('Stockfish Timeout: keine Analyse-Linien erhalten.');
         return const <EngineAnalysisLine>[];
@@ -477,12 +498,15 @@ class StockfishPluginEngine implements ChessEngine {
     }
 
     if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
-      _analysisCompleter!.complete(const []);
+      _analysisCompleter!.complete(const <EngineAnalysisLine>[]);
     }
 
     _bestMoveCompleter = null;
     _candidateCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
   }
@@ -505,14 +529,18 @@ class StockfishPluginEngine implements ChessEngine {
     }
 
     if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
-      _analysisCompleter!.complete(const []);
+      _analysisCompleter!.complete(const <EngineAnalysisLine>[]);
     }
 
     _uciOkCompleter = null;
     _readyOkCompleter = null;
+    _analysisUpdateCallback = null;
     _bestMoveCompleter = null;
     _candidateCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
   }
@@ -585,6 +613,7 @@ class StockfishPluginEngine implements ChessEngine {
 
         if (existing == null || analysisLine.depth >= existing.depth) {
           _latestAnalysisLinesByMultiPv[analysisLine.rank] = analysisLine;
+          _emitAnalysisUpdateIfWholeDepthReady();
         }
       }
     }
@@ -779,9 +808,50 @@ class StockfishPluginEngine implements ChessEngine {
         );
       }
 
-      _analysisCompleter!.complete(List.unmodifiable(lines.take(5)));
+      final completedLines = List<EngineAnalysisLine>.unmodifiable(lines.take(5));
+      _analysisCompleter!.complete(completedLines);
       _analysisCompleter = null;
+      _analysisUpdateCallback = null;
       _latestAnalysisLinesByMultiPv.clear();
+    }
+  }
+
+
+  void _emitAnalysisUpdateIfWholeDepthReady() {
+    final callback = _analysisUpdateCallback;
+
+    if (callback == null) {
+      return;
+    }
+
+    final lines = _latestAnalysisLinesByMultiPv.values.toList()
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    if (lines.length < _analysisRequestedMultiPv) {
+      return;
+    }
+
+    var completedDepth = lines.first.depth;
+
+    for (final line in lines.take(_analysisRequestedMultiPv)) {
+      if (line.depth < completedDepth) {
+        completedDepth = line.depth;
+      }
+    }
+
+    if (completedDepth < _analysisLiveUpdateMinDepth ||
+        completedDepth <= _lastEmittedAnalysisDepth) {
+      return;
+    }
+
+    _lastEmittedAnalysisDepth = completedDepth;
+
+    try {
+      callback(
+      List<EngineAnalysisLine>.unmodifiable(lines.take(_analysisRequestedMultiPv)),
+    );
+    } catch (error) {
+      _addOutput('Analyse-Update-Callback fehlgeschlagen: $error');
     }
   }
 

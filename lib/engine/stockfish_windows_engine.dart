@@ -20,6 +20,12 @@ class StockfishWindowsEngine implements ChessEngine {
   Completer<String>? _bestMoveCompleter;
   Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
   Completer<List<EngineAnalysisLine>>? _analysisCompleter;
+  EngineAnalysisUpdate? _analysisUpdateCallback;
+
+  static const int _analysisLiveUpdateMinDepth = 10;
+
+  int _analysisRequestedMultiPv = 5;
+  int _lastEmittedAnalysisDepth = 0;
 
   final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
   final Map<int, EngineAnalysisLine> _latestAnalysisLinesByMultiPv = {};
@@ -134,6 +140,9 @@ class StockfishWindowsEngine implements ChessEngine {
     _bestMoveCompleter = Completer<String>();
     _candidateCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
 
@@ -175,6 +184,9 @@ class StockfishWindowsEngine implements ChessEngine {
     _bestMoveCompleter = null;
     _candidateCompleter = Completer<List<PersonaMoveCandidate>>();
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
 
@@ -196,6 +208,7 @@ class StockfishWindowsEngine implements ChessEngine {
     required String fen,
     int multiPv = 5,
     int depth = 20,
+    EngineAnalysisUpdate? onUpdate,
   }) async {
     if (_process == null) {
       await start();
@@ -213,6 +226,9 @@ class StockfishWindowsEngine implements ChessEngine {
     _bestMoveCompleter = null;
     _candidateCompleter = null;
     _analysisCompleter = Completer<List<EngineAnalysisLine>>();
+    _analysisUpdateCallback = onUpdate;
+    _analysisRequestedMultiPv = safeMultiPv;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
 
@@ -223,6 +239,7 @@ class StockfishWindowsEngine implements ChessEngine {
       const Duration(seconds: 45),
       onTimeout: () {
         _analysisCompleter = null;
+        _analysisUpdateCallback = null;
         _latestAnalysisLinesByMultiPv.clear();
         throw Exception('Stockfish hat keine Analyse-Linien geliefert.');
       },
@@ -290,6 +307,7 @@ class StockfishWindowsEngine implements ChessEngine {
 
         if (existing == null || analysisLine.depth >= existing.depth) {
           _latestAnalysisLinesByMultiPv[analysisLine.rank] = analysisLine;
+          _emitAnalysisUpdateIfWholeDepthReady();
         }
       }
     }
@@ -483,9 +501,50 @@ class StockfishWindowsEngine implements ChessEngine {
         );
       }
 
-      _analysisCompleter!.complete(List.unmodifiable(lines.take(5)));
+      final completedLines = List<EngineAnalysisLine>.unmodifiable(lines.take(5));
+      _analysisCompleter!.complete(completedLines);
       _analysisCompleter = null;
+      _analysisUpdateCallback = null;
       _latestAnalysisLinesByMultiPv.clear();
+    }
+  }
+
+
+  void _emitAnalysisUpdateIfWholeDepthReady() {
+    final callback = _analysisUpdateCallback;
+
+    if (callback == null) {
+      return;
+    }
+
+    final lines = _latestAnalysisLinesByMultiPv.values.toList()
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    if (lines.length < _analysisRequestedMultiPv) {
+      return;
+    }
+
+    var completedDepth = lines.first.depth;
+
+    for (final line in lines.take(_analysisRequestedMultiPv)) {
+      if (line.depth < completedDepth) {
+        completedDepth = line.depth;
+      }
+    }
+
+    if (completedDepth < _analysisLiveUpdateMinDepth ||
+        completedDepth <= _lastEmittedAnalysisDepth) {
+      return;
+    }
+
+    _lastEmittedAnalysisDepth = completedDepth;
+
+    try {
+      callback(
+      List<EngineAnalysisLine>.unmodifiable(lines.take(_analysisRequestedMultiPv)),
+    );
+    } catch (error) {
+      _outputController.add('Analyse-Update-Callback fehlgeschlagen: $error');
     }
   }
 
@@ -503,12 +562,15 @@ class StockfishWindowsEngine implements ChessEngine {
     }
 
     if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
-      _analysisCompleter!.complete(const []);
+      _analysisCompleter!.complete(const <EngineAnalysisLine>[]);
     }
 
     _bestMoveCompleter = null;
     _candidateCompleter = null;
     _analysisCompleter = null;
+    _analysisUpdateCallback = null;
+    _analysisRequestedMultiPv = 5;
+    _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
   }

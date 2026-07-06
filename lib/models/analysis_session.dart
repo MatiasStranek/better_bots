@@ -21,6 +21,11 @@ class AnalysisSession {
 
   final List<BoardMove> _analysisMoves = [];
 
+  /// Fertige Tiefe-20-Analysen pro Analyse-FEN.
+  /// Diese Map lebt nur innerhalb der AnalysisSession und wird beim Verlassen
+  /// des Analysemodus zusammen mit der Session verworfen.
+  final Map<String, List<EngineAnalysisLine>> _completedTopLinesByFen = {};
+
   int currentPly = 0;
 
   List<EngineAnalysisLine> topLines = const [];
@@ -148,7 +153,7 @@ class AnalysisSession {
     );
     currentPly = _analysisMoves.length;
 
-    topLines = const [];
+    restoreCompletedLinesForCurrentFen();
     statusText = 'Analysezug gespielt: $from$to${normalizedPromotion ?? ''}';
 
     return true;
@@ -161,8 +166,10 @@ class AnalysisSession {
 
     currentPly -= 1;
     _rebuildCurrentPosition();
-    topLines = const [];
-    statusText = 'Analyse: einen Zug zurück.';
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: einen Zug zurück. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: einen Zug zurück.';
 
     return true;
   }
@@ -174,21 +181,244 @@ class AnalysisSession {
 
     currentPly += 1;
     _rebuildCurrentPosition();
-    topLines = const [];
-    statusText = 'Analyse: einen Zug vor.';
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: einen Zug vor. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: einen Zug vor.';
 
     return true;
   }
 
-  void updateTopLines(List<EngineAnalysisLine> lines) {
-    final sortedLines = List<EngineAnalysisLine>.from(lines)
-      ..sort((a, b) => a.rank.compareTo(b.rank));
+  bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
+    final cachedLines = _completedTopLinesByFen[fen];
+
+    if (cachedLines == null || cachedLines.isEmpty) {
+      return false;
+    }
+
+    return _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth);
+  }
+
+  bool restoreCompletedLinesForCurrentFen({int targetDepth = 20}) {
+    final cachedLines = _completedTopLinesByFen[fen];
+
+    if (cachedLines != null &&
+        cachedLines.isNotEmpty &&
+        _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth)) {
+      topLines = cachedLines;
+      return true;
+    }
+
+    topLines = const [];
+    return false;
+  }
+
+  void updateLiveTopLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+    int targetDepth = 20,
+  }) {
+    if (fen != this.fen) {
+      return;
+    }
+
+    final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
 
     topLines = List.unmodifiable(sortedLines.take(5));
+
+    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
+      _completedTopLinesByFen[fen] = topLines;
+    }
+  }
+
+  void updateCompletedTopLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+    int targetDepth = 20,
+  }) {
+    if (fen != this.fen) {
+      return;
+    }
+
+    final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
+
+    topLines = List.unmodifiable(sortedLines.take(5));
+
+    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
+      _completedTopLinesByFen[fen] = topLines;
+    }
   }
 
   void clearTopLines() {
     topLines = const [];
+  }
+
+  List<EngineAnalysisLine> _formatLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+  }) {
+    final sortedLines = List<EngineAnalysisLine>.from(lines)
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    return sortedLines.map((line) {
+      return line.copyWith(shortMove: _shortMoveFromUci(fen, line.uciMove));
+    }).toList(growable: false);
+  }
+
+  bool _linesReachedTargetDepth(
+    List<EngineAnalysisLine> lines, {
+    required int targetDepth,
+  }) {
+    if (lines.isEmpty) {
+      return false;
+    }
+
+    return lines.every((line) => line.depth >= targetDepth);
+  }
+
+  String _shortMoveFromUci(String fen, String uciMove) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final from = uciMove.substring(0, 2);
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    final scratch = chess.Chess();
+    final loaded = scratch.load(fen);
+
+    if (!loaded) {
+      return _fallbackShortMoveFromUci(uciMove);
+    }
+
+    final piece = scratch.get(from);
+    final targetPiece = scratch.get(to);
+    final moveData = <String, String>{'from': from, 'to': to};
+
+    if (promotion.isNotEmpty) {
+      moveData['promotion'] = promotion;
+    }
+
+    final moved = scratch.move(moveData);
+
+    if (moved && scratch.history.isNotEmpty) {
+      final san = scratch.history.last.toString().trim();
+
+      if (_looksLikeSan(san)) {
+        return san;
+      }
+    }
+
+    return _fallbackShortMoveFromUci(
+      uciMove,
+      movingPiece: piece,
+      targetPiece: targetPiece,
+    );
+  }
+
+  bool _looksLikeSan(String value) {
+    if (value.isEmpty || value.length > 12) {
+      return false;
+    }
+
+    final lower = value.toLowerCase();
+
+    if (lower.contains('move') ||
+        lower.contains('instance') ||
+        value.contains('{') ||
+        value.contains('}')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  String _fallbackShortMoveFromUci(
+    String uciMove, {
+    chess.Piece? movingPiece,
+    chess.Piece? targetPiece,
+  }) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final from = uciMove.substring(0, 2);
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    if (movingPiece != null && _isKing(movingPiece)) {
+      if ((from == 'e1' && to == 'g1') || (from == 'e8' && to == 'g8')) {
+        return 'O-O';
+      }
+
+      if ((from == 'e1' && to == 'c1') || (from == 'e8' && to == 'c8')) {
+        return 'O-O-O';
+      }
+    }
+
+    final isPawn = movingPiece == null || _isPawn(movingPiece);
+    final isCapture = targetPiece != null || (isPawn && from[0] != to[0]);
+    final promotionText = promotion.isEmpty ? '' : '=${promotion.toUpperCase()}';
+
+    if (isPawn) {
+      if (isCapture) {
+        return '${from[0]}x$to$promotionText';
+      }
+
+      return '$to$promotionText';
+    }
+
+    final pieceLetter = _pieceLetter(movingPiece);
+    final captureText = isCapture ? 'x' : '';
+
+    return '$pieceLetter$captureText$to$promotionText';
+  }
+
+  String _pieceLetter(chess.Piece? piece) {
+    if (piece == null) {
+      return '';
+    }
+
+    final typeText = piece.type.toString().toLowerCase();
+
+    if (typeText == 'n' || typeText.endsWith('.n') || typeText.contains('knight')) {
+      return 'N';
+    }
+
+    if (typeText == 'b' || typeText.endsWith('.b') || typeText.contains('bishop')) {
+      return 'B';
+    }
+
+    if (typeText == 'r' || typeText.endsWith('.r') || typeText.contains('rook')) {
+      return 'R';
+    }
+
+    if (typeText == 'q' || typeText.endsWith('.q') || typeText.contains('queen')) {
+      return 'Q';
+    }
+
+    if (typeText == 'k' || typeText.endsWith('.k') || typeText.contains('king')) {
+      return 'K';
+    }
+
+    return '';
+  }
+
+  bool _isPawn(chess.Piece piece) {
+    final typeText = piece.type.toString().toLowerCase();
+
+    return typeText == 'p' ||
+        typeText.endsWith('.p') ||
+        typeText.contains('pawn');
+  }
+
+  bool _isKing(chess.Piece piece) {
+    final typeText = piece.type.toString().toLowerCase();
+
+    return typeText == 'k' ||
+        typeText.endsWith('.k') ||
+        typeText.contains('king');
   }
 
   void _rebuildCurrentPosition() {
