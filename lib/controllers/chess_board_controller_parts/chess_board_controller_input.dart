@@ -109,6 +109,13 @@ Future<bool> _controllerTryHumanMove(
     return false;
   }
 
+  _recordNormalGameMove(
+    controller,
+    from: from,
+    to: to,
+    promotion: selectedPromotion.isEmpty ? null : selectedPromotion,
+  );
+
   controller._lastFrom = from;
   controller._lastTo = to;
   controller._selectedSquare = null;
@@ -163,6 +170,8 @@ Future<bool> _controllerLoadFenPosition(
     _safeNotify(controller);
     return false;
   }
+
+  _resetNormalGameHistoryFromCurrentFen(controller, fen);
 
   controller._selectedSquare = null;
   controller._lastFrom = null;

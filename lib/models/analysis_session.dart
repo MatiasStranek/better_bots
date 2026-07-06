@@ -4,15 +4,29 @@ import 'board_move.dart';
 import 'engine_analysis_line.dart';
 
 class AnalysisSession {
-  AnalysisSession({required this.startFen}) : analysisGame = chess.Chess() {
+  AnalysisSession({
+    required this.startFen,
+    List<BoardMove> initialMoves = const <BoardMove>[],
+    int? initialPly,
+  }) : analysisGame = chess.Chess() {
     final loaded = analysisGame.load(startFen);
 
     if (!loaded) {
       throw ArgumentError.value(startFen, 'startFen', 'Ungültige Analyse-FEN');
     }
+
+    _analysisMoves.addAll(initialMoves);
+    currentPly = (initialPly ?? _analysisMoves.length)
+        .clamp(0, _analysisMoves.length)
+        .toInt();
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
   }
 
-  /// Original-FEN der Partie an dem Moment, in dem Analyse aktiviert wurde.
+  /// Ausgangs-FEN der Originalpartie.
+  /// Bei einer normalen Partie ist das die Startstellung; bei einer geladenen
+  /// FEN ist es genau diese geladene FEN. Die aktuelle Stellung entsteht durch
+  /// Replay von [_analysisMoves] bis [currentPly].
   final String startFen;
 
   /// Komplett getrenntes Analysebrett. Dieses Objekt darf nie in _game kopiert

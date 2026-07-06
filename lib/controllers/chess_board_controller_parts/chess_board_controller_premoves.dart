@@ -134,6 +134,13 @@ Future<void> _tryPlayNextPremoveIfPossible(
     return;
   }
 
+  _recordNormalGameMove(
+    controller,
+    from: premove.from,
+    to: premove.to,
+    promotion: premove.promotion,
+  );
+
   controller._lastFrom = premove.from;
   controller._lastTo = premove.to;
   controller._selectedSquare = null;

@@ -110,6 +110,8 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
 
   controller._playerSide = side;
   controller._game.reset();
+  controller._normalGameStartFen = _defaultStartFen;
+  controller._normalGameMoves.clear();
   controller._selectedSquare = null;
   controller._lastFrom = null;
   controller._lastTo = null;
@@ -268,6 +270,33 @@ bool _isPlayerPiece(ChessBoardController controller, chess.Piece piece) {
       : chess.Color.BLACK;
 
   return piece.color == playerColor;
+}
+
+void _recordNormalGameMove(
+  ChessBoardController controller, {
+  required String from,
+  required String to,
+  String? promotion,
+}) {
+  if (controller.isAnalysisMode) {
+    return;
+  }
+
+  final normalizedPromotion = promotion == null || promotion.isEmpty
+      ? null
+      : promotion.toLowerCase();
+
+  controller._normalGameMoves.add(
+    BoardMove(from: from, to: to, promotion: normalizedPromotion),
+  );
+}
+
+void _resetNormalGameHistoryFromCurrentFen(
+  ChessBoardController controller,
+  String fen,
+) {
+  controller._normalGameStartFen = fen;
+  controller._normalGameMoves.clear();
 }
 
 void _safeNotify(ChessBoardController controller) {

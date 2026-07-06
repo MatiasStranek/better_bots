@@ -84,6 +84,17 @@ class ChessBoardController extends ChangeNotifier {
   bool _analysisSearchInFlight = false;
   bool _analysisSearchQueued = false;
 
+  /// Start-FEN der aktuell laufenden Originalpartie.
+  /// Diese FEN wird zusammen mit [_normalGameMoves] benutzt, damit der
+  /// Analysemodus nicht nur die aktuelle Stellung sieht, sondern die komplette
+  /// bisherige Partie als navigierbare Hauptvariante bekommt.
+  String _normalGameStartFen = _defaultStartFen;
+
+  /// UCI-Zugliste der Originalpartie seit [_normalGameStartFen].
+  /// Diese Liste wird ausschließlich beim normalen Spiel fortgeschrieben und
+  /// niemals aus der Analyse-Session zurückkopiert.
+  final List<BoardMove> _normalGameMoves = [];
+
   chess.Chess get game => _game;
 
   PlayerSide get playerSide => _playerSide;

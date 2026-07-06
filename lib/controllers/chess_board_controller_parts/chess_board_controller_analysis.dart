@@ -20,8 +20,14 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
   controller._premoves.clear();
 
   try {
-    controller._analysisSession = AnalysisSession(startFen: controller._game.fen)
-      ..statusText = 'Analysemodus aktiv. Startposition übernommen.';
+    controller._analysisSession = AnalysisSession(
+      startFen: controller._normalGameStartFen,
+      initialMoves: controller._normalGameMoves,
+      initialPly: controller._normalGameMoves.length,
+    )..statusText = controller._normalGameMoves.isEmpty
+        ? 'Analysemodus aktiv. Startposition übernommen.'
+        : 'Analysemodus aktiv. Ganze Partie geladen: '
+            '${controller._normalGameMoves.length} Halbzüge verfügbar.';
   } catch (e) {
     controller._analysisSession = null;
     controller._engineOutput = 'Analyse konnte nicht gestartet werden: $e';

@@ -362,6 +362,13 @@ bool _applyUciMove(ChessBoardController controller, String uciMove) {
     return false;
   }
 
+  _recordNormalGameMove(
+    controller,
+    from: from,
+    to: to,
+    promotion: promotion.isEmpty ? null : promotion,
+  );
+
   controller._lastFrom = from;
   controller._lastTo = to;
   controller._selectedSquare = null;
