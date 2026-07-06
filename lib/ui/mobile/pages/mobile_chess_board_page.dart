@@ -46,9 +46,19 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
               statusText: _controller.statusText,
               playerSideText: _playerSideText,
               pgnText: _controller.pgn,
+
               playerIsWhite: _controller.playerIsWhite,
               pieceAt: _controller.pieceAt,
+
+              canHumanMovePiece: _controller.canHumanMovePiece,
+              canMoveTo: _controller.canMoveTo,
+
               onSquareTap: _controller.onSquareTap,
+              onMove: _controller.tryHumanMove,
+
+              onPieceDragStarted: _controller.selectSquare,
+              onPieceDragEnded: _controller.clearSelectedSquare,
+
               skillLevel: _controller.skillLevel,
               uciElo: _controller.uciElo,
               cpLossElo: _controller.cpLossElo,
@@ -58,8 +68,10 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
               effectiveBotPersonality: _controller.effectiveBotPersonality,
               personaCandidateCount: _controller.personaCandidateCount,
               controlsEnabled: !_controller.isBotThinking,
+
               onNewGame: _controller.newGame,
               onRestart: _controller.restartGame,
+
               onSkillLevelChanged: _controller.setSkillLevel,
               onUciEloChanged: _controller.setUciElo,
               onCpLossEloChanged: _controller.setCpLossElo,

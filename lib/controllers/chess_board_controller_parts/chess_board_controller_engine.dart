@@ -3,6 +3,10 @@ part of chess_board_controller;
 const String _defaultStartFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+const int _cpLossUciSwitchFullMoveNumber = 11;
+const int _cpLossUciSwitchMinElo = 1400;
+const int _cpLossUciSwitchMaxElo = 3100;
+
 void _controllerStart(ChessBoardController controller) {
   controller._engineSubscription ??= controller._engine.output.listen((line) {
     if (controller._isDisposed) {
@@ -50,47 +54,21 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       String botMove;
 
       if (controller._strengthMode == EngineStrengthMode.cpLossElo) {
-        final candidates = await controller._engine.getMoveCandidatesFromFen(
-          fen: currentFen,
-          skillLevel: 20,
-          useUciElo: false,
-          uciElo: controller._uciElo,
-          candidateCount: controller._personaCandidateCount,
-          moveTimeMs: 800,
-        );
+        final shouldUseUciEloInsteadOfCpLoss =
+            _shouldUseUciEloInsteadOfCpLossFromMove11(controller);
 
-        const cpLossSelector = CpLossMoveSelector();
-
-        final cpLossPool = cpLossSelector.buildCandidatePool(
-          candidates: candidates,
-          cpLossElo: controller._cpLossElo,
-        );
-
-        if (effectivePersonality == BotPersonality.none) {
-          final selection = cpLossSelector.selectMoveFromPool(pool: cpLossPool);
-
-          botMove = selection.uciMove;
-          controller._engineOutput = selection.debugText;
-        } else {
-          botMove = const PersonaMoveSelector().selectMoveFromCpLossPool(
+        if (shouldUseUciEloInsteadOfCpLoss) {
+          botMove = await _selectMoveWithUciEloAfterCpLossSwitch(
+            controller: controller,
             fen: currentFen,
-            pool: cpLossPool,
             personality: effectivePersonality,
-            skillLevel: 20,
-            useUciElo: false,
-            uciElo: controller._uciElo,
           );
-
-          final chosenCpLoss = cpLossSelector.cpLossForMoveInPool(
-            pool: cpLossPool,
-            uciMove: botMove,
+        } else {
+          botMove = await _selectMoveWithCpLossElo(
+            controller: controller,
+            fen: currentFen,
+            personality: effectivePersonality,
           );
-
-          controller._engineOutput =
-              '${cpLossPool.debugPrefix} | '
-              'Persona: ${effectivePersonality.label} | '
-              'Gewählt: $chosenCpLoss cp | '
-              'Zug: $botMove';
         }
       } else if (effectivePersonality == BotPersonality.none) {
         botMove = await controller._engine.getBestMoveFromFen(
@@ -153,6 +131,150 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       botMoved) {
     await _tryPlayNextPremoveIfPossible(controller);
   }
+}
+
+Future<String> _selectMoveWithCpLossElo({
+  required ChessBoardController controller,
+  required String fen,
+  required BotPersonality personality,
+}) async {
+  final candidates = await controller._engine.getMoveCandidatesFromFen(
+    fen: fen,
+    skillLevel: 20,
+    useUciElo: false,
+    uciElo: controller._uciElo,
+    candidateCount: controller._personaCandidateCount,
+    moveTimeMs: 800,
+  );
+
+  const cpLossSelector = CpLossMoveSelector();
+
+  final cpLossPool = cpLossSelector.buildCandidatePool(
+    candidates: candidates,
+    cpLossElo: controller._cpLossElo,
+  );
+
+  if (personality == BotPersonality.none) {
+    final selection = cpLossSelector.selectMoveFromPool(pool: cpLossPool);
+
+    controller._engineOutput = selection.debugText;
+    return selection.uciMove;
+  }
+
+  final botMove = const PersonaMoveSelector().selectMoveFromCpLossPool(
+    fen: fen,
+    pool: cpLossPool,
+    personality: personality,
+    skillLevel: 20,
+    useUciElo: false,
+    uciElo: controller._uciElo,
+  );
+
+  final chosenCpLoss = cpLossSelector.cpLossForMoveInPool(
+    pool: cpLossPool,
+    uciMove: botMove,
+  );
+
+  controller._engineOutput =
+      '${cpLossPool.debugPrefix} | '
+      'Persona: ${personality.label} | '
+      'Gewählt: $chosenCpLoss cp | '
+      'Zug: $botMove';
+
+  return botMove;
+}
+
+Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
+  required ChessBoardController controller,
+  required String fen,
+  required BotPersonality personality,
+}) async {
+  final uciEloFromCpLoss = _uciEloFromCpLossElo(controller);
+  final fullMoveNumber = _currentFullMoveNumber(controller);
+
+  if (personality == BotPersonality.none) {
+    final botMove = await controller._engine.getBestMoveFromFen(
+      fen: fen,
+      skillLevel: 20,
+      useUciElo: true,
+      uciElo: uciEloFromCpLoss,
+      moveTimeMs: 800,
+    );
+
+    controller._engineOutput =
+        'CP_Loss_ELO ${controller._cpLossElo} ab Zug '
+        '$_cpLossUciSwitchFullMoveNumber → UCI_ELO $uciEloFromCpLoss | '
+        'Aktueller Zug: $fullMoveNumber | '
+        'Zug: $botMove';
+
+    return botMove;
+  }
+
+  final candidates = await controller._engine.getMoveCandidatesFromFen(
+    fen: fen,
+    skillLevel: 20,
+    useUciElo: true,
+    uciElo: uciEloFromCpLoss,
+    candidateCount: controller._personaCandidateCount,
+    moveTimeMs: 800,
+  );
+
+  final botMove = const PersonaMoveSelector().selectMove(
+    fen: fen,
+    candidates: candidates,
+    personality: personality,
+    skillLevel: 20,
+    useUciElo: true,
+    uciElo: uciEloFromCpLoss,
+  );
+
+  controller._engineOutput =
+      'CP_Loss_ELO ${controller._cpLossElo} ab Zug '
+      '$_cpLossUciSwitchFullMoveNumber → UCI_ELO $uciEloFromCpLoss | '
+      'Aktueller Zug: $fullMoveNumber | '
+      'Persona: ${personality.label} | '
+      'Kandidaten: ${controller._personaCandidateCount} | '
+      'Zug: $botMove';
+
+  return botMove;
+}
+
+bool _shouldUseUciEloInsteadOfCpLossFromMove11(
+  ChessBoardController controller,
+) {
+  if (controller._strengthMode != EngineStrengthMode.cpLossElo) {
+    return false;
+  }
+
+  final cpLossElo = controller._cpLossElo;
+
+  if (cpLossElo < _cpLossUciSwitchMinElo ||
+      cpLossElo > _cpLossUciSwitchMaxElo) {
+    return false;
+  }
+
+  return _currentFullMoveNumber(controller) >= _cpLossUciSwitchFullMoveNumber;
+}
+
+int _uciEloFromCpLossElo(ChessBoardController controller) {
+  return controller._cpLossElo
+      .clamp(_cpLossUciSwitchMinElo, _cpLossUciSwitchMaxElo)
+      .toInt();
+}
+
+int _currentFullMoveNumber(ChessBoardController controller) {
+  final fen = controller._game.fen;
+  final parts = fen.trim().split(RegExp(r'\s+'));
+
+  if (parts.length >= 6) {
+    final fullMoveNumber = int.tryParse(parts[5]);
+
+    if (fullMoveNumber != null && fullMoveNumber > 0) {
+      return fullMoveNumber;
+    }
+  }
+
+  return 1;
 }
 
 String? _getForcedOpeningMove(ChessBoardController controller) {

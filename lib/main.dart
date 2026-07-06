@@ -8,7 +8,12 @@ import 'ui/mobile/pages/mobile_chess_board_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // Nur die Android-Navigationsleiste anzeigen,
+  // Statusleiste ausgeblendet lassen.
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: const [SystemUiOverlay.bottom],
+  );
 
   runApp(const BetterBotsApp());
 }

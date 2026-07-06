@@ -20,7 +20,12 @@ class MobileChessBoardLayout extends StatelessWidget {
     required this.pgnText,
     required this.playerIsWhite,
     required this.pieceAt,
+    required this.canHumanMovePiece,
+    required this.canMoveTo,
     required this.onSquareTap,
+    required this.onMove,
+    required this.onPieceDragStarted,
+    required this.onPieceDragEnded,
     required this.skillLevel,
     required this.uciElo,
     required this.cpLossElo,
@@ -47,7 +52,19 @@ class MobileChessBoardLayout extends StatelessWidget {
 
   final bool playerIsWhite;
   final chess.Piece? Function(String square) pieceAt;
+  final bool Function(String square) canHumanMovePiece;
+  final bool Function({required String from, required String to}) canMoveTo;
   final Future<void> Function(String square) onSquareTap;
+
+  final Future<bool> Function({
+    required String from,
+    required String to,
+    String? promotion,
+  })
+  onMove;
+
+  final ValueChanged<String> onPieceDragStarted;
+  final VoidCallback onPieceDragEnded;
 
   final int skillLevel;
   final int uciElo;
@@ -72,9 +89,7 @@ class MobileChessBoardLayout extends StatelessWidget {
   final bool controlsEnabled;
 
   static const double _screenPadding = 16;
-
   static const double _topControlsHeight = 104;
-
   static const double _bottomViewHeight = 96;
   static const double _copyPgnButtonHeight = 44;
   static const double _bottomGap = 8;
@@ -107,7 +122,12 @@ class MobileChessBoardLayout extends StatelessWidget {
                 child: MobileChessBoardView(
                   playerIsWhite: playerIsWhite,
                   pieceAt: pieceAt,
+                  canHumanMovePiece: canHumanMovePiece,
+                  canMoveTo: canMoveTo,
                   onSquareTap: onSquareTap,
+                  onMove: onMove,
+                  onPieceDragStarted: onPieceDragStarted,
+                  onPieceDragEnded: onPieceDragEnded,
                 ),
               ),
             ),

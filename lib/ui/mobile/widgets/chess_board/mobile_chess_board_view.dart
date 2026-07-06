@@ -8,12 +8,29 @@ class MobileChessBoardView extends StatelessWidget {
     super.key,
     required this.playerIsWhite,
     required this.pieceAt,
+    required this.canHumanMovePiece,
+    required this.canMoveTo,
     required this.onSquareTap,
+    required this.onMove,
+    required this.onPieceDragStarted,
+    required this.onPieceDragEnded,
   });
 
   final bool playerIsWhite;
   final chess.Piece? Function(String square) pieceAt;
+  final bool Function(String square) canHumanMovePiece;
+  final bool Function({required String from, required String to}) canMoveTo;
   final Future<void> Function(String square) onSquareTap;
+
+  final Future<bool> Function({
+    required String from,
+    required String to,
+    String? promotion,
+  })
+  onMove;
+
+  final ValueChanged<String> onPieceDragStarted;
+  final VoidCallback onPieceDragEnded;
 
   static const List<String> _files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -115,13 +132,16 @@ class MobileChessBoardView extends StatelessWidget {
             final piece = pieceAt(square);
             final pieceCode = _pieceCodeForPiece(piece);
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _handleSquareTap(square),
-              child: MobileChessBoardSquare(
-                isLightSquare: _isLightSquare(square),
-                pieceCode: pieceCode,
-              ),
+            return MobileChessBoardSquare(
+              square: square,
+              isLightSquare: _isLightSquare(square),
+              pieceCode: pieceCode,
+              canDrag: canHumanMovePiece(square),
+              canMoveTo: canMoveTo,
+              onSquareTap: _handleSquareTap,
+              onMove: onMove,
+              onPieceDragStarted: onPieceDragStarted,
+              onPieceDragEnded: onPieceDragEnded,
             );
           },
         ),
