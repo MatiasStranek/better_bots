@@ -1,36 +1,22 @@
 BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
+	* Windows: entwickelte Dame wird als Pawn gedragt
 
-* drag & drop bigger size effect
-* adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative) as Button (standard: 11)
-* Google Drive Versioning for APK
+* small test before build and commit
 
-* MAX_CP_Loss for 0-1200
-
+* Button for 11 Move (choose amount)
+* MAX_CP_Loss for 0-1200 in 15 % case
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
-* removing statusbar and navigationbar
-
-* Strength Selection Button with 3 Tabs
-
-* descending from move1 to move10, after it engine continues
-
-* Restart Aufgeben Button (counts looses)
-* View for Won, Lost and Remis
-
-* creating own bots with names
-
-* responsible for android (UserInterface Directory)
-* adding database (hive or objectivebox)
-
-* add 5 (Chessiverse Personalities: Hunter, Guardian, Savage, Observer, Mediator)
-* add 6 (Fritz19 Personalities)
 
 * Opening & Personality Button:
 	* multiple selection
 	* random selection (random amount)
 	* random amount selection
 	* renaming "Ohne ..." with "Ohne ... / Auswahl entfernen"
+
+
+* Strength Selection Button with 3 Tabs
 
 * Analysis Button:
 	* analysis from the pgn
@@ -40,6 +26,20 @@ BUG SECTION:
 		* analysis gets deleted
 		* continue playing from actual position
 	* arrows with right click hold
+
+* drag & drop bigger size effect
+
+* adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative) as Button (standard: 11)
+
+* descending from move1 to move10, after it engine continues
+
+* Restart Aufgeben Button (counts looses)
+* View for Won, Lost and Remis
+
+* creating own bots with names
+
+* adding database (hive or objectivebox)
+* add 6 (Fritz19 Personalities)
 
 (* adding stronger intelligence for 0-1200? With the function to increase intelligence after each step Move1-5, move 6-10 etc.)
 
@@ -57,7 +57,6 @@ BUG SECTION:
 
 * add multiple selection for Openings and Personalities
 
-* Bug fixen: entwickelte Dame wird als Pawn gedragt
 * bigger Pieces
 * Schlagschatten auf Figuren
 * hitbox on complete field

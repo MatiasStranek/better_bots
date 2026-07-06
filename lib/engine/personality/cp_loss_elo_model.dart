@@ -52,6 +52,19 @@ class CpLossEloModel {
   };
 
   static const Map<int, int> maxAllowedCpLossByElo = {
+    0: 1000,
+    100: 900,
+    200: 800,
+    300: 700,
+    400: 620,
+    500: 550,
+    600: 490,
+    700: 440,
+    800: 390,
+    900: 350,
+    1000: 315,
+    1100: 290,
+    1200: 275,
     1300: 260,
     1400: 230,
     1500: 205,
@@ -115,11 +128,6 @@ class CpLossEloModel {
 
   static int maxAllowedCpLossForElo(int elo) {
     final normalized = normalizeElo(elo);
-
-    if (normalized < 1300) {
-      return 100000;
-    }
-
     return maxAllowedCpLossByElo[normalized] ?? 10;
   }
 
