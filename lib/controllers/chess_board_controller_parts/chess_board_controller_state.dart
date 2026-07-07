@@ -133,10 +133,8 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
   controller._openingLogicAllowed = true;
   controller._resolvedRandomOpeningMove = null;
 
-  controller._resolvedRandomPersonality = null;
-  if (controller._botPersonality == BotPersonality.random) {
-    controller._resolvedRandomPersonality = _randomBotPersonality();
-  }
+  _controllerResetResolvedRandomPersonalities(controller);
+  _controllerResolveRandomPersonalities(controller);
 
   _controllerRefreshTrainingCounterSnapshot(controller);
 
@@ -213,12 +211,47 @@ void _controllerSetBotPersonality(
     return;
   }
 
+  controller._botPersonalitySource = BotPersonalitySource.chessiverse;
   controller._botPersonality = personality;
-  controller._resolvedRandomPersonality = null;
+  _controllerResetResolvedRandomPersonalities(controller);
 
   if (personality == BotPersonality.random) {
     controller._resolvedRandomPersonality = _randomBotPersonality();
   }
+
+  _safeNotify(controller);
+}
+
+void _controllerSetFritz19Personality(
+  ChessBoardController controller,
+  Fritz19Personality personality,
+) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
+    return;
+  }
+
+  controller._botPersonalitySource = BotPersonalitySource.fritz19;
+  controller._fritz19Personality = personality;
+  _controllerResetResolvedRandomPersonalities(controller);
+
+  if (personality == Fritz19Personality.random) {
+    controller._resolvedRandomFritz19Personality =
+        _randomFritz19Personality();
+  }
+
+  _safeNotify(controller);
+}
+
+void _controllerSetAllPersonalitiesRandom(
+  ChessBoardController controller,
+) {
+  if (controller._isBotThinking || controller.isAnalysisMode) {
+    return;
+  }
+
+  controller._botPersonalitySource = BotPersonalitySource.random;
+  _controllerResetResolvedRandomPersonalities(controller);
+  _controllerResolveRandomPersonalities(controller);
 
   _safeNotify(controller);
 }
@@ -235,10 +268,31 @@ void _controllerSetPersonaCandidateCount(
   _safeNotify(controller);
 }
 
+BotPersonalitySource _controllerEffectiveBotPersonalitySource(
+  ChessBoardController controller,
+) {
+  if (controller._botPersonalitySource == BotPersonalitySource.random) {
+    controller._resolvedRandomPersonalitySource ??=
+        _randomBotPersonalitySource();
+    return controller._resolvedRandomPersonalitySource!;
+  }
+
+  return controller._botPersonalitySource;
+}
+
 BotPersonality _controllerEffectiveBotPersonality(
   ChessBoardController controller,
 ) {
-  if (controller._botPersonality == BotPersonality.random) {
+  final effectiveSource = _controllerEffectiveBotPersonalitySource(controller);
+
+  if (effectiveSource != BotPersonalitySource.chessiverse) {
+    return controller._botPersonality == BotPersonality.none
+        ? BotPersonality.none
+        : BotPersonality.random;
+  }
+
+  if (controller._botPersonalitySource == BotPersonalitySource.random ||
+      controller._botPersonality == BotPersonality.random) {
     controller._resolvedRandomPersonality ??= _randomBotPersonality();
     return controller._resolvedRandomPersonality!;
   }
@@ -246,9 +300,99 @@ BotPersonality _controllerEffectiveBotPersonality(
   return controller._botPersonality;
 }
 
+Fritz19Personality _controllerEffectiveFritz19Personality(
+  ChessBoardController controller,
+) {
+  final effectiveSource = _controllerEffectiveBotPersonalitySource(controller);
+
+  if (effectiveSource != BotPersonalitySource.fritz19) {
+    return controller._fritz19Personality;
+  }
+
+  if (controller._botPersonalitySource == BotPersonalitySource.random ||
+      controller._fritz19Personality == Fritz19Personality.random) {
+    controller._resolvedRandomFritz19Personality ??=
+        _randomFritz19Personality();
+    return controller._resolvedRandomFritz19Personality!;
+  }
+
+  return controller._fritz19Personality;
+}
+
+String _controllerActivePersonalityLabel(ChessBoardController controller) {
+  final effectiveSource = _controllerEffectiveBotPersonalitySource(controller);
+
+  if (controller._botPersonalitySource == BotPersonalitySource.random) {
+    if (effectiveSource == BotPersonalitySource.fritz19) {
+      return 'Alles Zufällig: Fritz19 '
+          '${_controllerEffectiveFritz19Personality(controller).label}';
+    }
+
+    return 'Alles Zufällig: '
+        '${_controllerEffectiveBotPersonality(controller).label}';
+  }
+
+  if (controller._botPersonalitySource == BotPersonalitySource.fritz19) {
+    if (controller._fritz19Personality == Fritz19Personality.random) {
+      return 'Fritz19 Zufällig: '
+          '${_controllerEffectiveFritz19Personality(controller).label}';
+    }
+
+    return '${controller._botPersonalitySource.label}: '
+        '${controller._fritz19Personality.label}';
+  }
+
+  final effectivePersonality = _controllerEffectiveBotPersonality(controller);
+
+  if (controller._botPersonality == BotPersonality.random &&
+      effectivePersonality.isConcretePersonality) {
+    return 'Zufällig: ${effectivePersonality.label}';
+  }
+
+  return controller._botPersonality.label;
+}
+
+void _controllerResetResolvedRandomPersonalities(
+  ChessBoardController controller,
+) {
+  controller._resolvedRandomPersonalitySource = null;
+  controller._resolvedRandomPersonality = null;
+  controller._resolvedRandomFritz19Personality = null;
+}
+
+void _controllerResolveRandomPersonalities(ChessBoardController controller) {
+  final effectiveSource = _controllerEffectiveBotPersonalitySource(controller);
+
+  if (effectiveSource == BotPersonalitySource.chessiverse) {
+    _controllerEffectiveBotPersonality(controller);
+  } else if (effectiveSource == BotPersonalitySource.fritz19) {
+    _controllerEffectiveFritz19Personality(controller);
+  }
+}
+
+BotPersonalitySource _randomBotPersonalitySource() {
+  final sources = BotPersonalitySource.values
+      .where((source) => source != BotPersonalitySource.random)
+      .toList();
+
+  sources.shuffle();
+
+  return sources.first;
+}
+
 BotPersonality _randomBotPersonality() {
   final personalities = List<BotPersonality>.from(
     BotPersonality.concretePersonalities,
+  );
+
+  personalities.shuffle();
+
+  return personalities.first;
+}
+
+Fritz19Personality _randomFritz19Personality() {
+  final personalities = List<Fritz19Personality>.from(
+    Fritz19Personality.concretePersonalities,
   );
 
   personalities.shuffle();

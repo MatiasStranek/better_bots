@@ -69,6 +69,7 @@ class TrainingCounterKey {
     required this.strengthModeName,
     required this.strengthValue,
     required this.effectiveOpeningName,
+    required this.personalitySourceName,
     required this.effectivePersonalityName,
     required this.personaCandidateCount,
     required this.cpLossUciSwitchFullMoveNumber,
@@ -79,6 +80,7 @@ class TrainingCounterKey {
   final String strengthModeName;
   final int strengthValue;
   final String effectiveOpeningName;
+  final String personalitySourceName;
   final String effectivePersonalityName;
   final int personaCandidateCount;
   final int cpLossUciSwitchFullMoveNumber;
@@ -152,7 +154,8 @@ class BetterBotsDatabase {
     required int cpLossElo,
     required int cpLossUciSwitchFullMoveNumber,
     required BotOpeningMove effectiveOpeningMove,
-    required BotPersonality effectiveBotPersonality,
+    required String personalitySourceName,
+    required String effectivePersonalityName,
     required int personaCandidateCount,
   }) {
     final key = buildTrainingCounterKey(
@@ -162,7 +165,8 @@ class BetterBotsDatabase {
       cpLossElo: cpLossElo,
       cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumber,
       effectiveOpeningMove: effectiveOpeningMove,
-      effectiveBotPersonality: effectiveBotPersonality,
+      personalitySourceName: personalitySourceName,
+      effectivePersonalityName: effectivePersonalityName,
       personaCandidateCount: personaCandidateCount,
     );
 
@@ -212,7 +216,8 @@ class BetterBotsDatabase {
     required int cpLossElo,
     required int cpLossUciSwitchFullMoveNumber,
     required BotOpeningMove effectiveOpeningMove,
-    required BotPersonality effectiveBotPersonality,
+    required String personalitySourceName,
+    required String effectivePersonalityName,
     required int personaCandidateCount,
   }) {
     final box = _trainingCounterBox;
@@ -224,7 +229,8 @@ class BetterBotsDatabase {
       cpLossElo: cpLossElo,
       cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumber,
       effectiveOpeningMove: effectiveOpeningMove,
-      effectiveBotPersonality: effectiveBotPersonality,
+      personalitySourceName: personalitySourceName,
+      effectivePersonalityName: effectivePersonalityName,
       personaCandidateCount: personaCandidateCount,
     );
 
@@ -240,6 +246,7 @@ class BetterBotsDatabase {
           strengthModeName: key.strengthModeName,
           strengthValue: key.strengthValue,
           effectiveOpeningName: key.effectiveOpeningName,
+          personalitySourceName: key.personalitySourceName,
           effectivePersonalityName: key.effectivePersonalityName,
           personaCandidateCount: key.personaCandidateCount,
           cpLossUciSwitchFullMoveNumber: key.cpLossUciSwitchFullMoveNumber,
@@ -282,6 +289,7 @@ class BetterBotsDatabase {
       ..strengthModeName = key.strengthModeName
       ..strengthValue = key.strengthValue
       ..effectiveOpeningName = key.effectiveOpeningName
+      ..personalitySourceName = key.personalitySourceName
       ..effectivePersonalityName = key.effectivePersonalityName
       ..personaCandidateCount = key.personaCandidateCount
       ..cpLossUciSwitchFullMoveNumber = key.cpLossUciSwitchFullMoveNumber
@@ -313,7 +321,8 @@ class BetterBotsDatabase {
     required int cpLossElo,
     required int cpLossUciSwitchFullMoveNumber,
     required BotOpeningMove effectiveOpeningMove,
-    required BotPersonality effectiveBotPersonality,
+    required String personalitySourceName,
+    required String effectivePersonalityName,
     required int personaCandidateCount,
   }) {
     final strengthValue = switch (strengthMode) {
@@ -331,7 +340,8 @@ class BetterBotsDatabase {
       'mode=${strengthMode.name}',
       'strength=$strengthValue',
       'opening=${effectiveOpeningMove.name}',
-      'personality=${effectiveBotPersonality.name}',
+      'personalitySource=$personalitySourceName',
+      'personality=$effectivePersonalityName',
       'candidates=$normalizedCandidateCount',
       if (strengthMode == EngineStrengthMode.cpLossElo)
         'uciSwitch=$normalizedSwitch',
@@ -345,7 +355,8 @@ class BetterBotsDatabase {
       strengthModeName: strengthMode.name,
       strengthValue: strengthValue,
       effectiveOpeningName: effectiveOpeningMove.name,
-      effectivePersonalityName: effectiveBotPersonality.name,
+      personalitySourceName: personalitySourceName,
+      effectivePersonalityName: effectivePersonalityName,
       personaCandidateCount: normalizedCandidateCount,
       cpLossUciSwitchFullMoveNumber: normalizedSwitch,
     );

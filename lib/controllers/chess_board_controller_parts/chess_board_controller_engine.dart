@@ -60,6 +60,12 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       final effectivePersonality = _controllerEffectiveBotPersonality(
         controller,
       );
+      final effectivePersonalitySource =
+          _controllerEffectiveBotPersonalitySource(controller);
+      final effectiveFritz19Personality =
+          _controllerEffectiveFritz19Personality(controller);
+      final usesFritz19 =
+          effectivePersonalitySource == BotPersonalitySource.fritz19;
 
       String botMove;
 
@@ -81,7 +87,8 @@ Future<void> _controllerMakeBotMoveIfNeeded(
             personality: effectivePersonality,
           );
         }
-      } else if (effectivePersonality == BotPersonality.none) {
+      } else if (!usesFritz19 &&
+          effectivePersonality == BotPersonality.none) {
         botMove = await controller._engine.getBestMoveFromFen(
           fen: currentFen,
           skillLevel: controller._skillLevel,
@@ -99,19 +106,33 @@ Future<void> _controllerMakeBotMoveIfNeeded(
           moveTimeMs: 800,
         );
 
-        botMove = const PersonaMoveSelector().selectMove(
-          fen: currentFen,
-          candidates: candidates,
-          personality: effectivePersonality,
-          skillLevel: controller._skillLevel,
-          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-          uciElo: controller._uciElo,
-        );
+        if (usesFritz19) {
+          final selection = const Fritz19MoveSelector().selectMove(
+            fen: currentFen,
+            candidates: candidates,
+            personality: effectiveFritz19Personality,
+            skillLevel: controller._skillLevel,
+            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+            uciElo: controller._uciElo,
+          );
 
-        controller._engineOutput =
-            'Persona: ${effectivePersonality.label} | '
-            'Kandidaten: ${controller._personaCandidateCount} | '
-            'Zug: $botMove';
+          botMove = selection.uciMove;
+          controller._engineOutput = selection.debugText;
+        } else {
+          botMove = const PersonaMoveSelector().selectMove(
+            fen: currentFen,
+            candidates: candidates,
+            personality: effectivePersonality,
+            skillLevel: controller._skillLevel,
+            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+            uciElo: controller._uciElo,
+          );
+
+          controller._engineOutput =
+              'Chessiverse: ${effectivePersonality.label} | '
+              'Kandidaten: ${controller._personaCandidateCount} | '
+              'Zug: $botMove';
+        }
       }
 
       if (controller._isDisposed ||
@@ -165,6 +186,34 @@ Future<String> _selectMoveWithCpLossElo({
     cpLossElo: controller._cpLossElo,
   );
 
+  final effectivePersonalitySource =
+      _controllerEffectiveBotPersonalitySource(controller);
+  final effectiveFritz19Personality =
+      _controllerEffectiveFritz19Personality(controller);
+
+  if (effectivePersonalitySource == BotPersonalitySource.fritz19) {
+    final selection = const Fritz19MoveSelector().selectMoveFromCpLossPool(
+      fen: fen,
+      pool: cpLossPool,
+      personality: effectiveFritz19Personality,
+    );
+
+    final chosenCpLoss = cpLossSelector.cpLossForMoveInPool(
+      pool: cpLossPool,
+      uciMove: selection.uciMove,
+    );
+
+    controller._engineOutput =
+        '${cpLossPool.debugPrefix} | '
+        'Fritz19: ${effectiveFritz19Personality.label} | '
+        'Grund: ${selection.reason} | '
+        'Style: ${selection.styleScore.toStringAsFixed(1)} | '
+        'Gewählt: $chosenCpLoss cp | '
+        'Zug: ${selection.uciMove}';
+
+    return selection.uciMove;
+  }
+
   if (personality == BotPersonality.none) {
     final selection = cpLossSelector.selectMoveFromPool(pool: cpLossPool);
 
@@ -188,7 +237,7 @@ Future<String> _selectMoveWithCpLossElo({
 
   controller._engineOutput =
       '${cpLossPool.debugPrefix} | '
-      'Persona: ${personality.label} | '
+      'Chessiverse: ${personality.label} | '
       'Gewählt: $chosenCpLoss cp | '
       'Zug: $botMove';
 
@@ -203,7 +252,13 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
   final uciEloFromCpLoss = _uciEloFromCpLossElo(controller);
   final fullMoveNumber = _currentFullMoveNumber(controller);
 
-  if (personality == BotPersonality.none) {
+  final effectivePersonalitySource =
+      _controllerEffectiveBotPersonalitySource(controller);
+  final effectiveFritz19Personality =
+      _controllerEffectiveFritz19Personality(controller);
+
+  if (effectivePersonalitySource != BotPersonalitySource.fritz19 &&
+      personality == BotPersonality.none) {
     final botMove = await controller._engine.getBestMoveFromFen(
       fen: fen,
       skillLevel: 20,
@@ -231,6 +286,26 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
     moveTimeMs: 800,
   );
 
+  if (effectivePersonalitySource == BotPersonalitySource.fritz19) {
+    final selection = const Fritz19MoveSelector().selectMove(
+      fen: fen,
+      candidates: candidates,
+      personality: effectiveFritz19Personality,
+      skillLevel: 20,
+      useUciElo: true,
+      uciElo: uciEloFromCpLoss,
+    );
+
+    controller._engineOutput =
+        'CP_Loss_ELO ${controller._cpLossElo} ab Zug '
+        '${controller._cpLossUciSwitchFullMoveNumber} → '
+        'UCI_ELO $uciEloFromCpLoss | '
+        'Aktueller Zug: $fullMoveNumber | '
+        '${selection.debugText}';
+
+    return selection.uciMove;
+  }
+
   final botMove = const PersonaMoveSelector().selectMove(
     fen: fen,
     candidates: candidates,
@@ -245,7 +320,7 @@ Future<String> _selectMoveWithUciEloAfterCpLossSwitch({
       '${controller._cpLossUciSwitchFullMoveNumber} → '
       'UCI_ELO $uciEloFromCpLoss | '
       'Aktueller Zug: $fullMoveNumber | '
-      'Persona: ${personality.label} | '
+      'Chessiverse: ${personality.label} | '
       'Kandidaten: ${controller._personaCandidateCount} | '
       'Zug: $botMove';
 

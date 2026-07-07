@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../models/bot_opening_move.dart';
 import '../../models/bot_personality.dart';
+import '../../models/bot_personality_source.dart';
 import '../../models/engine_strength_mode.dart';
+import '../../models/fritz19_personality.dart';
 import '../../models/player_side.dart';
 
 const Color _analysisButtonForeground = Color(0xFFFF9800);
@@ -22,8 +24,12 @@ class ChessBoardControls extends StatelessWidget {
     required this.strengthMode,
     required this.botOpeningMove,
     required this.effectiveBotOpeningMove,
+    required this.botPersonalitySource,
+    required this.effectiveBotPersonalitySource,
     required this.botPersonality,
     required this.effectiveBotPersonality,
+    required this.fritz19Personality,
+    required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
     required this.isBotThinking,
     required this.isAnalysisMode,
@@ -42,6 +48,8 @@ class ChessBoardControls extends StatelessWidget {
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
+    required this.onFritz19PersonalityChanged,
+    required this.onAllPersonalitiesRandomChanged,
     required this.onPersonaCandidateCountChanged,
     super.key,
   });
@@ -53,8 +61,12 @@ class ChessBoardControls extends StatelessWidget {
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotOpeningMove effectiveBotOpeningMove;
+  final BotPersonalitySource botPersonalitySource;
+  final BotPersonalitySource effectiveBotPersonalitySource;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
+  final Fritz19Personality fritz19Personality;
+  final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
   final bool isBotThinking;
   final bool isAnalysisMode;
@@ -75,6 +87,8 @@ class ChessBoardControls extends StatelessWidget {
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
+  final ValueChanged<Fritz19Personality> onFritz19PersonalityChanged;
+  final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
 
   String get _strengthButtonText {
@@ -101,6 +115,23 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   String get _personalityButtonText {
+    if (botPersonalitySource == BotPersonalitySource.random) {
+      if (effectiveBotPersonalitySource == BotPersonalitySource.fritz19) {
+        return 'Alles Zufällig: Fritz19 '
+            '${effectiveFritz19Personality.label}';
+      }
+
+      return 'Alles Zufällig: ${effectiveBotPersonality.label}';
+    }
+
+    if (botPersonalitySource == BotPersonalitySource.fritz19) {
+      if (fritz19Personality == Fritz19Personality.random) {
+        return 'Fritz19 Zufällig: ${effectiveFritz19Personality.label}';
+      }
+
+      return 'Fritz19: ${fritz19Personality.label}';
+    }
+
     if (botPersonality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
       return 'Zufällig: ${effectiveBotPersonality.label}';
@@ -276,33 +307,30 @@ class ChessBoardControls extends StatelessWidget {
     required bool Function(int value) isSelected,
     required ValueChanged<int> onSelected,
   }) {
-    return Scrollbar(
-      thumbVisibility: true,
+    return SingleChildScrollView(
       child: SingleChildScrollView(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: columns.map((columnValues) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: SizedBox(
-                  width: columnWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: columnValues.map((value) {
-                      return _strengthValueButton(
-                        isSelected: isSelected(value),
-                        label: labelBuilder(value),
-                        onPressed: () => onSelected(value),
-                      );
-                    }).toList(),
-                  ),
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: columns.map((columnValues) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: SizedBox(
+                width: columnWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: columnValues.map((value) {
+                    return _strengthValueButton(
+                      isSelected: isSelected(value),
+                      label: labelBuilder(value),
+                      onPressed: () => onSelected(value),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -386,7 +414,7 @@ class ChessBoardControls extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: AlertDialog(
             title: const Text(
               'Persönlichkeit auswählen',
@@ -406,6 +434,7 @@ class ChessBoardControls extends StatelessWidget {
                     tabs: [
                       Tab(text: 'Chessiverse'),
                       Tab(text: 'Fritz19'),
+                      Tab(text: 'Sonstiges'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -413,7 +442,8 @@ class ChessBoardControls extends StatelessWidget {
                     child: TabBarView(
                       children: [
                         _buildChessiversePersonalityTab(dialogContext),
-                        const _EmptyFritz19PersonalityTab(),
+                        _buildFritz19PersonalityTab(dialogContext),
+                        _buildOtherPersonalityTab(dialogContext),
                       ],
                     ),
                   ),
@@ -429,7 +459,7 @@ class ChessBoardControls extends StatelessWidget {
   Widget _buildChessiversePersonalityTab(BuildContext context) {
     return ListView(
       padding: EdgeInsets.zero,
-      children: BotPersonality.values
+      children: BotPersonality.concretePersonalities
           .map(
             (personality) => _clickableDialogOption(
               onPressed: () {
@@ -438,11 +468,78 @@ class ChessBoardControls extends StatelessWidget {
               },
               child: _PersonalityDialogLabel(
                 personality: personality,
+                selectedPersonality: botPersonality,
+                source: botPersonalitySource,
                 effectiveBotPersonality: effectiveBotPersonality,
               ),
             ),
           )
           .toList(),
+    );
+  }
+
+  Widget _buildFritz19PersonalityTab(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: Fritz19Personality.concretePersonalities
+          .map(
+            (personality) => _clickableDialogOption(
+              onPressed: () {
+                onFritz19PersonalityChanged(personality);
+                Navigator.pop(context);
+              },
+              child: Text(
+                botPersonalitySource == BotPersonalitySource.fritz19 &&
+                        personality == fritz19Personality
+                    ? '✓ ${personality.label}'
+                    : personality.label,
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildOtherPersonalityTab(BuildContext context) {
+    final options = <_OtherPersonalityOption>[
+      _OtherPersonalityOption(
+        label: 'Ohne Persönlichkeit',
+        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
+            botPersonality == BotPersonality.none,
+        onSelected: () => onBotPersonalityChanged(BotPersonality.none),
+      ),
+      _OtherPersonalityOption(
+        label: 'Chessiverse Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
+            botPersonality == BotPersonality.random,
+        onSelected: () => onBotPersonalityChanged(BotPersonality.random),
+      ),
+      _OtherPersonalityOption(
+        label: 'Fritz19 Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.fritz19 &&
+            fritz19Personality == Fritz19Personality.random,
+        onSelected: () => onFritz19PersonalityChanged(
+          Fritz19Personality.random,
+        ),
+      ),
+      _OtherPersonalityOption(
+        label: 'Alles Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.random,
+        onSelected: onAllPersonalitiesRandomChanged,
+      ),
+    ];
+
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: options.map((option) {
+        return _clickableDialogOption(
+          onPressed: () {
+            option.onSelected();
+            Navigator.pop(context);
+          },
+          child: Text(option.isSelected ? '✓ ${option.label}' : option.label),
+        );
+      }).toList(),
     );
   }
 
@@ -526,7 +623,9 @@ class ChessBoardControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final personalityEnabled = botPersonality != BotPersonality.none;
+    final personalityEnabled =
+        botPersonalitySource != BotPersonalitySource.chessiverse ||
+        botPersonality != BotPersonality.none;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
     final normalControlsEnabled = !isBotThinking && !isAnalysisMode;
@@ -660,25 +759,37 @@ class _EmptyFritz19PersonalityTab extends StatelessWidget {
   }
 }
 
+class _OtherPersonalityOption {
+  const _OtherPersonalityOption({
+    required this.label,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onSelected;
+}
+
 class _PersonalityDialogLabel extends StatelessWidget {
   const _PersonalityDialogLabel({
     required this.personality,
+    required this.selectedPersonality,
+    required this.source,
     required this.effectiveBotPersonality,
   });
 
   final BotPersonality personality;
+  final BotPersonality selectedPersonality;
+  final BotPersonalitySource source;
   final BotPersonality effectiveBotPersonality;
 
   @override
   Widget build(BuildContext context) {
-    if (personality == BotPersonality.random &&
-        effectiveBotPersonality.isConcretePersonality) {
-      final effectiveText =
-          '${personality.label} (${effectiveBotPersonality.label})';
+    final isSelected =
+        source == BotPersonalitySource.chessiverse &&
+        personality == selectedPersonality;
 
-      return Text(effectiveText);
-    }
-
-    return Text(personality.label);
+    return Text(isSelected ? '✓ ${personality.label}' : personality.label);
   }
 }

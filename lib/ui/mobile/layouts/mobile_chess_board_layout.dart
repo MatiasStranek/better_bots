@@ -9,8 +9,10 @@ import '../../../models/board_annotation.dart';
 import '../../../models/board_highlights.dart';
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_personality.dart';
+import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_analysis_line.dart';
 import '../../../models/engine_strength_mode.dart';
+import '../../../models/fritz19_personality.dart';
 import '../../../models/player_side.dart';
 import '../widgets/chess_board/mobile_chess_board_view.dart';
 import '../widgets/mobile_chess_action_bar.dart';
@@ -45,8 +47,12 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.strengthMode,
     required this.botOpeningMove,
     required this.effectiveBotOpeningMove,
+    required this.botPersonalitySource,
+    required this.effectiveBotPersonalitySource,
     required this.botPersonality,
     required this.effectiveBotPersonality,
+    required this.fritz19Personality,
+    required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
     required this.isAnalysisMode,
     required this.isAnalysisBranchActive,
@@ -76,6 +82,8 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
+    required this.onFritz19PersonalityChanged,
+    required this.onAllPersonalitiesRandomChanged,
     required this.onPersonaCandidateCountChanged,
     this.controlsEnabled = true,
   });
@@ -112,8 +120,12 @@ class MobileChessBoardLayout extends StatefulWidget {
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotOpeningMove effectiveBotOpeningMove;
+  final BotPersonalitySource botPersonalitySource;
+  final BotPersonalitySource effectiveBotPersonalitySource;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
+  final Fritz19Personality fritz19Personality;
+  final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
 
   final bool isAnalysisMode;
@@ -147,6 +159,8 @@ class MobileChessBoardLayout extends StatefulWidget {
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
+  final ValueChanged<Fritz19Personality> onFritz19PersonalityChanged;
+  final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
 
   final bool controlsEnabled;
@@ -433,8 +447,14 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   strengthMode: widget.strengthMode,
                   botOpeningMove: widget.botOpeningMove,
                   effectiveBotOpeningMove: widget.effectiveBotOpeningMove,
+                  botPersonalitySource: widget.botPersonalitySource,
+                  effectiveBotPersonalitySource:
+                      widget.effectiveBotPersonalitySource,
                   botPersonality: widget.botPersonality,
                   effectiveBotPersonality: widget.effectiveBotPersonality,
+                  fritz19Personality: widget.fritz19Personality,
+                  effectiveFritz19Personality:
+                      widget.effectiveFritz19Personality,
                   personaCandidateCount: widget.personaCandidateCount,
                 ),
               ),
@@ -519,8 +539,14 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   strengthMode: widget.strengthMode,
                   botOpeningMove: widget.botOpeningMove,
                   effectiveBotOpeningMove: widget.effectiveBotOpeningMove,
+                  botPersonalitySource: widget.botPersonalitySource,
+                  effectiveBotPersonalitySource:
+                      widget.effectiveBotPersonalitySource,
                   botPersonality: widget.botPersonality,
                   effectiveBotPersonality: widget.effectiveBotPersonality,
+                  fritz19Personality: widget.fritz19Personality,
+                  effectiveFritz19Personality:
+                      widget.effectiveFritz19Personality,
                   personaCandidateCount: widget.personaCandidateCount,
                   onNewGame: widget.onNewGame,
                   onRestart: widget.onRestart,
@@ -532,6 +558,10 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onStrengthModeChanged: widget.onStrengthModeChanged,
                   onBotOpeningMoveChanged: widget.onBotOpeningMoveChanged,
                   onBotPersonalityChanged: widget.onBotPersonalityChanged,
+                  onFritz19PersonalityChanged:
+                      widget.onFritz19PersonalityChanged,
+                  onAllPersonalitiesRandomChanged:
+                      widget.onAllPersonalitiesRandomChanged,
                   onPersonaCandidateCountChanged:
                       widget.onPersonaCandidateCountChanged,
                   onClose: _closeSideMenu,

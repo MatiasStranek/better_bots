@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_personality.dart';
+import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_strength_mode.dart';
+import '../../../models/fritz19_personality.dart';
 
 class MobileChessGameInfoPanel extends StatelessWidget {
   const MobileChessGameInfoPanel({
@@ -14,8 +16,12 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.strengthMode,
     required this.botOpeningMove,
     required this.effectiveBotOpeningMove,
+    required this.botPersonalitySource,
+    required this.effectiveBotPersonalitySource,
     required this.botPersonality,
     required this.effectiveBotPersonality,
+    required this.fritz19Personality,
+    required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
   });
 
@@ -26,8 +32,12 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotOpeningMove effectiveBotOpeningMove;
+  final BotPersonalitySource botPersonalitySource;
+  final BotPersonalitySource effectiveBotPersonalitySource;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
+  final Fritz19Personality fritz19Personality;
+  final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
 
   String get _strengthText {
@@ -50,6 +60,23 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   }
 
   String get _personalityText {
+    if (botPersonalitySource == BotPersonalitySource.random) {
+      if (effectiveBotPersonalitySource == BotPersonalitySource.fritz19) {
+        return 'Alles Zufällig: Fritz19 '
+            '${effectiveFritz19Personality.label}';
+      }
+
+      return 'Alles Zufällig: ${effectiveBotPersonality.label}';
+    }
+
+    if (botPersonalitySource == BotPersonalitySource.fritz19) {
+      if (fritz19Personality == Fritz19Personality.random) {
+        return 'Fritz19 Zufällig: ${effectiveFritz19Personality.label}';
+      }
+
+      return 'Fritz19: ${fritz19Personality.label}';
+    }
+
     if (botPersonality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
       return 'Zufällig: ${effectiveBotPersonality.label}';
@@ -78,17 +105,14 @@ class MobileChessGameInfoPanel extends StatelessWidget {
           color: const Color(0xFF111111).withAlpha(205),
           border: Border.all(color: Colors.white.withAlpha(24), width: 1),
         ),
-        child: Scrollbar(
-          thumbVisibility: false,
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final row in rows) _GameInfoRow(data: row),
-              ],
-            ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final row in rows) _GameInfoRow(data: row),
+            ],
           ),
         ),
       ),

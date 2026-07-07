@@ -28,9 +28,21 @@ void _controllerRestorePersistedStateIfNeeded(
     .._botOpeningMove = _openingMoveFromName(state.botOpeningMoveName)
     .._resolvedRandomOpeningMove =
         _openingMoveFromNameOrNull(state.effectiveBotOpeningMoveName)
+    .._botPersonalitySource =
+        _botPersonalitySourceFromName(state.personalitySourceName)
+    .._resolvedRandomPersonalitySource =
+        _botPersonalitySourceFromNameOrNull(
+          state.effectivePersonalitySourceName,
+        )
     .._botPersonality = _botPersonalityFromName(state.botPersonalityName)
     .._resolvedRandomPersonality =
         _botPersonalityFromNameOrNull(state.effectiveBotPersonalityName)
+    .._fritz19Personality =
+        _fritz19PersonalityFromName(state.fritz19PersonalityName)
+    .._resolvedRandomFritz19Personality =
+        _fritz19PersonalityFromNameOrNull(
+          state.effectiveFritz19PersonalityName,
+        )
     .._personaCandidateCount =
         state.personaCandidateCount.clamp(4, 128).toInt()
     .._openingLogicAllowed = state.openingLogicAllowed != 0
@@ -46,8 +58,18 @@ void _controllerRestorePersistedStateIfNeeded(
     controller._resolvedRandomOpeningMove = null;
   }
 
-  if (controller._botPersonality != BotPersonality.random) {
+  if (controller._botPersonalitySource != BotPersonalitySource.random) {
+    controller._resolvedRandomPersonalitySource = null;
+  }
+
+  if (controller._botPersonality != BotPersonality.random &&
+      controller._botPersonalitySource != BotPersonalitySource.random) {
     controller._resolvedRandomPersonality = null;
+  }
+
+  if (controller._fritz19Personality != Fritz19Personality.random &&
+      controller._botPersonalitySource != BotPersonalitySource.random) {
+    controller._resolvedRandomFritz19Personality = null;
   }
 
   _restoreNormalGameFromState(controller, state);
@@ -60,7 +82,9 @@ void _controllerPersistCurrentState(ChessBoardController controller) {
   }
 
   final effectiveOpeningMove = controller.effectiveBotOpeningMove;
+  final effectivePersonalitySource = controller.effectiveBotPersonalitySource;
   final effectiveBotPersonality = controller.effectiveBotPersonality;
+  final effectiveFritz19Personality = controller.effectiveFritz19Personality;
 
   BetterBotsDatabase.instance.saveAppState(
     AppStateEntity(
@@ -74,8 +98,12 @@ void _controllerPersistCurrentState(ChessBoardController controller) {
           controller._cpLossUciSwitchFullMoveNumber,
       botOpeningMoveName: controller._botOpeningMove.name,
       effectiveBotOpeningMoveName: effectiveOpeningMove.name,
+      personalitySourceName: controller._botPersonalitySource.name,
+      effectivePersonalitySourceName: effectivePersonalitySource.name,
       botPersonalityName: controller._botPersonality.name,
       effectiveBotPersonalityName: effectiveBotPersonality.name,
+      fritz19PersonalityName: controller._fritz19Personality.name,
+      effectiveFritz19PersonalityName: effectiveFritz19Personality.name,
       personaCandidateCount: controller._personaCandidateCount,
       openingLogicAllowed: controller._openingLogicAllowed ? 1 : 0,
       startFen: controller._normalGameStartFen,
@@ -103,7 +131,8 @@ void _controllerRefreshTrainingCounterSnapshot(
     cpLossUciSwitchFullMoveNumber:
         controller._cpLossUciSwitchFullMoveNumber,
     effectiveOpeningMove: controller.effectiveBotOpeningMove,
-    effectiveBotPersonality: controller.effectiveBotPersonality,
+    personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
+    effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
   );
 }
@@ -132,7 +161,8 @@ void _controllerMaybeCountCompletedGame(ChessBoardController controller) {
     cpLossUciSwitchFullMoveNumber:
         controller._cpLossUciSwitchFullMoveNumber,
     effectiveOpeningMove: controller.effectiveBotOpeningMove,
-    effectiveBotPersonality: controller.effectiveBotPersonality,
+    personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
+    effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
   );
 
@@ -155,7 +185,8 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
     cpLossUciSwitchFullMoveNumber:
         controller._cpLossUciSwitchFullMoveNumber,
     effectiveOpeningMove: controller.effectiveBotOpeningMove,
-    effectiveBotPersonality: controller.effectiveBotPersonality,
+    personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
+    effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
   );
 
@@ -304,6 +335,20 @@ List<BoardMove> _decodeBoardMoves(String text) {
   return moves;
 }
 
+String _effectiveCounterPersonalitySourceName(
+  ChessBoardController controller,
+) {
+  return controller.effectiveBotPersonalitySource.name;
+}
+
+String _effectiveCounterPersonalityName(ChessBoardController controller) {
+  if (controller.effectiveBotPersonalitySource == BotPersonalitySource.fritz19) {
+    return controller.effectiveFritz19Personality.name;
+  }
+
+  return controller.effectiveBotPersonality.name;
+}
+
 PlayerSide _playerSideFromName(String name) {
   for (final side in PlayerSide.values) {
     if (side.name == name) {
@@ -358,6 +403,36 @@ BotPersonality? _botPersonalityFromNameOrNull(String name) {
   }
 
   return _botPersonalityFromName(name);
+}
+
+BotPersonalitySource _botPersonalitySourceFromName(String name) {
+  return _botPersonalitySourceFromNameOrNull(name) ??
+      BotPersonalitySource.chessiverse;
+}
+
+BotPersonalitySource? _botPersonalitySourceFromNameOrNull(String name) {
+  for (final source in BotPersonalitySource.values) {
+    if (source.name == name) {
+      return source;
+    }
+  }
+
+  return null;
+}
+
+Fritz19Personality _fritz19PersonalityFromName(String name) {
+  return _fritz19PersonalityFromNameOrNull(name) ??
+      Fritz19Personality.allrounder;
+}
+
+Fritz19Personality? _fritz19PersonalityFromNameOrNull(String name) {
+  for (final personality in Fritz19Personality.values) {
+    if (personality.name == name) {
+      return personality;
+    }
+  }
+
+  return null;
 }
 
 int _normalizedCpLossSwitchFullMoveNumber(int fullMoveNumber) {

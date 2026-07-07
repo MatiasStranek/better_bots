@@ -260,8 +260,14 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 strengthMode: _controller.strengthMode,
                 botOpeningMove: _controller.botOpeningMove,
                 effectiveBotOpeningMove: _controller.effectiveBotOpeningMove,
+                botPersonalitySource: _controller.botPersonalitySource,
+                effectiveBotPersonalitySource:
+                    _controller.effectiveBotPersonalitySource,
                 botPersonality: _controller.botPersonality,
                 effectiveBotPersonality: _controller.effectiveBotPersonality,
+                fritz19Personality: _controller.fritz19Personality,
+                effectiveFritz19Personality:
+                    _controller.effectiveFritz19Personality,
                 personaCandidateCount: _controller.personaCandidateCount,
                 controlsEnabled: !_controller.isBotThinking,
 
@@ -297,6 +303,10 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 onStrengthModeChanged: _controller.setStrengthMode,
                 onBotOpeningMoveChanged: _controller.setBotOpeningMove,
                 onBotPersonalityChanged: _controller.setBotPersonality,
+                onFritz19PersonalityChanged:
+                    _controller.setFritz19Personality,
+                onAllPersonalitiesRandomChanged:
+                    _controller.setAllPersonalitiesRandom,
                 onPersonaCandidateCountChanged:
                     _controller.setPersonaCandidateCount,
               ),

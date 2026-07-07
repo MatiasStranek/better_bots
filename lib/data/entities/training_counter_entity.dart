@@ -9,6 +9,7 @@ class TrainingCounterEntity {
     required this.strengthModeName,
     required this.strengthValue,
     required this.effectiveOpeningName,
+    required this.personalitySourceName,
     required this.effectivePersonalityName,
     required this.personaCandidateCount,
     required this.cpLossUciSwitchFullMoveNumber,
@@ -38,6 +39,7 @@ class TrainingCounterEntity {
   String strengthModeName;
   int strengthValue;
   String effectiveOpeningName;
+  String personalitySourceName;
   String effectivePersonalityName;
   int personaCandidateCount;
 

@@ -23,7 +23,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 2029198252723419798),
     name: 'AppStateEntity',
-    lastPropertyId: const obx_int.IdUid(21, 2253833567930609600),
+    lastPropertyId: const obx_int.IdUid(25, 295604198934769907),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -152,6 +152,30 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 2921482346686494004),
+        name: 'personalitySourceName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 6889282402006407764),
+        name: 'fritz19PersonalityName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 3913276451659410057),
+        name: 'effectivePersonalitySourceName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(25, 295604198934769907),
+        name: 'effectiveFritz19PersonalityName',
+        type: 9,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -159,7 +183,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(2, 746431534510069343),
     name: 'TrainingCounterEntity',
-    lastPropertyId: const obx_int.IdUid(23, 7355179185961557845),
+    lastPropertyId: const obx_int.IdUid(24, 7153153802251561993),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -301,6 +325,12 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(24, 7153153802251561993),
+        name: 'personalitySourceName',
+        type: 9,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -392,7 +422,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final currentFenOffset = fbb.writeString(object.currentFen);
         final lastFromOffset = fbb.writeString(object.lastFrom);
         final lastToOffset = fbb.writeString(object.lastTo);
-        fbb.startTable(22);
+        final personalitySourceNameOffset = fbb.writeString(
+          object.personalitySourceName,
+        );
+        final fritz19PersonalityNameOffset = fbb.writeString(
+          object.fritz19PersonalityName,
+        );
+        final effectivePersonalitySourceNameOffset = fbb.writeString(
+          object.effectivePersonalitySourceName,
+        );
+        final effectiveFritz19PersonalityNameOffset = fbb.writeString(
+          object.effectiveFritz19PersonalityName,
+        );
+        fbb.startTable(26);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, playerSideNameOffset);
         fbb.addInt64(2, object.skillLevel);
@@ -414,6 +456,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(18, object.analysisUsedDuringCurrentGame);
         fbb.addInt64(19, object.resultCountedForCurrentGame);
         fbb.addInt64(20, object.updatedAtMillis);
+        fbb.addOffset(21, personalitySourceNameOffset);
+        fbb.addOffset(22, fritz19PersonalityNameOffset);
+        fbb.addOffset(23, effectivePersonalitySourceNameOffset);
+        fbb.addOffset(24, effectiveFritz19PersonalityNameOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -458,12 +504,24 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final effectiveBotOpeningMoveNameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 20, '');
+        final personalitySourceNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 46, '');
+        final effectivePersonalitySourceNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 50, '');
         final botPersonalityNameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 22, '');
         final effectiveBotPersonalityNameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 24, '');
+        final fritz19PersonalityNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 48, '');
+        final effectiveFritz19PersonalityNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 52, '');
         final personaCandidateCountParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -511,8 +569,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumberParam,
           botOpeningMoveName: botOpeningMoveNameParam,
           effectiveBotOpeningMoveName: effectiveBotOpeningMoveNameParam,
+          personalitySourceName: personalitySourceNameParam,
+          effectivePersonalitySourceName: effectivePersonalitySourceNameParam,
           botPersonalityName: botPersonalityNameParam,
           effectiveBotPersonalityName: effectiveBotPersonalityNameParam,
+          fritz19PersonalityName: fritz19PersonalityNameParam,
+          effectiveFritz19PersonalityName: effectiveFritz19PersonalityNameParam,
           personaCandidateCount: personaCandidateCountParam,
           openingLogicAllowed: openingLogicAllowedParam,
           startFen: startFenParam,
@@ -546,7 +608,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final effectivePersonalityNameOffset = fbb.writeString(
           object.effectivePersonalityName,
         );
-        fbb.startTable(24);
+        final personalitySourceNameOffset = fbb.writeString(
+          object.personalitySourceName,
+        );
+        fbb.startTable(25);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, keyHashOffset);
         fbb.addOffset(2, canonicalKeyOffset);
@@ -570,6 +635,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(20, object.drawBlackCount);
         fbb.addInt64(21, object.trainedWhiteCount);
         fbb.addInt64(22, object.trainedBlackCount);
+        fbb.addOffset(23, personalitySourceNameOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -600,6 +666,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final effectiveOpeningNameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 14, '');
+        final personalitySourceNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 50, '');
         final effectivePersonalityNameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 16, '');
@@ -702,6 +771,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           strengthModeName: strengthModeNameParam,
           strengthValue: strengthValueParam,
           effectiveOpeningName: effectiveOpeningNameParam,
+          personalitySourceName: personalitySourceNameParam,
           effectivePersonalityName: effectivePersonalityNameParam,
           personaCandidateCount: personaCandidateCountParam,
           cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumberParam,
@@ -830,6 +900,24 @@ class AppStateEntity_ {
   static final updatedAtMillis = obx.QueryIntegerProperty<AppStateEntity>(
     _entities[0].properties[20],
   );
+
+  /// See [AppStateEntity.personalitySourceName].
+  static final personalitySourceName = obx.QueryStringProperty<AppStateEntity>(
+    _entities[0].properties[21],
+  );
+
+  /// See [AppStateEntity.fritz19PersonalityName].
+  static final fritz19PersonalityName = obx.QueryStringProperty<AppStateEntity>(
+    _entities[0].properties[22],
+  );
+
+  /// See [AppStateEntity.effectivePersonalitySourceName].
+  static final effectivePersonalitySourceName =
+      obx.QueryStringProperty<AppStateEntity>(_entities[0].properties[23]);
+
+  /// See [AppStateEntity.effectiveFritz19PersonalityName].
+  static final effectiveFritz19PersonalityName =
+      obx.QueryStringProperty<AppStateEntity>(_entities[0].properties[24]);
 }
 
 /// [TrainingCounterEntity] entity fields to define ObjectBox queries.
@@ -956,5 +1044,11 @@ class TrainingCounterEntity_ {
   static final trainedBlackCount =
       obx.QueryIntegerProperty<TrainingCounterEntity>(
         _entities[1].properties[22],
+      );
+
+  /// See [TrainingCounterEntity.personalitySourceName].
+  static final personalitySourceName =
+      obx.QueryStringProperty<TrainingCounterEntity>(
+        _entities[1].properties[23],
       );
 }

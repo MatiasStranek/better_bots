@@ -1,5 +1,8 @@
-* adding database (objectivebox)
-* add 6 (Fritz19 Personalities)
+* Opening & Personality Button:
+	* multiple selection
+	* random selection (random amount)
+	* random amount selection
+	* renaming "Ohne ..." with "Ohne ... / Auswahl entfernen"
 
 
 * Arrows forth and back also for the normal games
@@ -24,13 +27,6 @@ BUG SECTION:
 
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
-
-* Opening & Personality Button:
-	* multiple selection
-	* random selection (random amount)
-	* random amount selection
-	* renaming "Ohne ..." with "Ohne ... / Auswahl entfernen"
-
 
 * Strength Selection Button with 3 Tabs
 

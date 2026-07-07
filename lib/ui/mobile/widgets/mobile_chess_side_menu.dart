@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_personality.dart';
+import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_strength_mode.dart';
+import '../../../models/fritz19_personality.dart';
 import '../../../models/player_side.dart';
 
 class MobileChessSideMenu extends StatelessWidget {
@@ -16,8 +18,12 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.strengthMode,
     required this.botOpeningMove,
     required this.effectiveBotOpeningMove,
+    required this.botPersonalitySource,
+    required this.effectiveBotPersonalitySource,
     required this.botPersonality,
     required this.effectiveBotPersonality,
+    required this.fritz19Personality,
+    required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
     required this.onNewGame,
     required this.onRestart,
@@ -28,6 +34,8 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
     required this.onBotPersonalityChanged,
+    required this.onFritz19PersonalityChanged,
+    required this.onAllPersonalitiesRandomChanged,
     required this.onPersonaCandidateCountChanged,
     required this.onClose,
     this.isEnabled = true,
@@ -42,8 +50,12 @@ class MobileChessSideMenu extends StatelessWidget {
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotOpeningMove effectiveBotOpeningMove;
+  final BotPersonalitySource botPersonalitySource;
+  final BotPersonalitySource effectiveBotPersonalitySource;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
+  final Fritz19Personality fritz19Personality;
+  final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
 
   final ValueChanged<PlayerSide> onNewGame;
@@ -56,6 +68,8 @@ class MobileChessSideMenu extends StatelessWidget {
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
+  final ValueChanged<Fritz19Personality> onFritz19PersonalityChanged;
+  final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
 
   final VoidCallback onClose;
@@ -87,6 +101,23 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   String get _personalityButtonText {
+    if (botPersonalitySource == BotPersonalitySource.random) {
+      if (effectiveBotPersonalitySource == BotPersonalitySource.fritz19) {
+        return 'Alles Zufällig: Fritz19 '
+            '${effectiveFritz19Personality.label}';
+      }
+
+      return 'Alles Zufällig: ${effectiveBotPersonality.label}';
+    }
+
+    if (botPersonalitySource == BotPersonalitySource.fritz19) {
+      if (fritz19Personality == Fritz19Personality.random) {
+        return 'Fritz19 Zufällig: ${effectiveFritz19Personality.label}';
+      }
+
+      return 'Fritz19: ${fritz19Personality.label}';
+    }
+
     if (botPersonality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
       return 'Zufällig: ${effectiveBotPersonality.label}';
@@ -136,7 +167,11 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   List<List<BotPersonality>> get _personalityColumns {
-    return _columnsFromValues(BotPersonality.values, 10);
+    return _columnsFromValues(BotPersonality.concretePersonalities, 10);
+  }
+
+  List<List<Fritz19Personality>> get _fritz19PersonalityColumns {
+    return _columnsFromValues(Fritz19Personality.concretePersonalities, 10);
   }
 
   List<List<T>> _columnsFromValues<T>(
@@ -434,7 +469,7 @@ class MobileChessSideMenu extends StatelessWidget {
             (screenSize.height * 0.62).clamp(360.0, 540.0).toDouble();
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: AlertDialog(
             insetPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -454,6 +489,7 @@ class MobileChessSideMenu extends StatelessWidget {
                     tabs: [
                       Tab(text: 'Chessiverse'),
                       Tab(text: 'Fritz19'),
+                      Tab(text: 'Sonstiges'),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -461,7 +497,8 @@ class MobileChessSideMenu extends StatelessWidget {
                     child: TabBarView(
                       children: [
                         _buildChessiversePersonalityTab(dialogContext),
-                        const _EmptyFritz19PersonalityTab(),
+                        _buildFritz19PersonalityTab(dialogContext),
+                        _buildOtherPersonalityTab(dialogContext),
                       ],
                     ),
                   ),
@@ -478,21 +515,81 @@ class MobileChessSideMenu extends StatelessWidget {
     return _objectChoiceColumns<BotPersonality>(
       columns: _personalityColumns,
       columnWidth: 150,
-      labelBuilder: (personality) {
-        if (personality == BotPersonality.random &&
-            effectiveBotPersonality.isConcretePersonality) {
-          return '${personality.label} (${effectiveBotPersonality.label})';
-        }
-
-        return personality.label;
-      },
+      labelBuilder: (personality) => personality.label,
       isSelected: (personality) {
-        return personality == botPersonality;
+        return botPersonalitySource == BotPersonalitySource.chessiverse &&
+            personality == botPersonality;
       },
       onSelected: (personality) {
         onBotPersonalityChanged(personality);
         Navigator.of(context).pop();
       },
+    );
+  }
+
+  Widget _buildFritz19PersonalityTab(BuildContext context) {
+    return _objectChoiceColumns<Fritz19Personality>(
+      columns: _fritz19PersonalityColumns,
+      columnWidth: 150,
+      labelBuilder: (personality) => personality.label,
+      isSelected: (personality) {
+        return botPersonalitySource == BotPersonalitySource.fritz19 &&
+            personality == fritz19Personality;
+      },
+      onSelected: (personality) {
+        onFritz19PersonalityChanged(personality);
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  Widget _buildOtherPersonalityTab(BuildContext context) {
+    final options = <_OtherPersonalityOption>[
+      _OtherPersonalityOption(
+        label: 'Ohne Persönlichkeit',
+        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
+            botPersonality == BotPersonality.none,
+        onSelected: () => onBotPersonalityChanged(BotPersonality.none),
+      ),
+      _OtherPersonalityOption(
+        label: 'Chessiverse Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
+            botPersonality == BotPersonality.random,
+        onSelected: () => onBotPersonalityChanged(BotPersonality.random),
+      ),
+      _OtherPersonalityOption(
+        label: 'Fritz19 Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.fritz19 &&
+            fritz19Personality == Fritz19Personality.random,
+        onSelected: () => onFritz19PersonalityChanged(
+          Fritz19Personality.random,
+        ),
+      ),
+      _OtherPersonalityOption(
+        label: 'Alles Zufällig',
+        isSelected: botPersonalitySource == BotPersonalitySource.random,
+        onSelected: onAllPersonalitiesRandomChanged,
+      ),
+    ];
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < options.length; index++) ...[
+            _DialogChoiceBox(
+              label: options[index].label,
+              isSelected: options[index].isSelected,
+              onPressed: () {
+                options[index].onSelected();
+                Navigator.of(context).pop();
+              },
+            ),
+            if (index < options.length - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ),
     );
   }
 
@@ -554,7 +651,9 @@ class MobileChessSideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final personalityEnabled = botPersonality != BotPersonality.none;
+    final personalityEnabled =
+        botPersonalitySource != BotPersonalitySource.chessiverse ||
+        botPersonality != BotPersonality.none;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
 
@@ -657,6 +756,18 @@ class MobileChessSideMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OtherPersonalityOption {
+  const _OtherPersonalityOption({
+    required this.label,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onSelected;
 }
 
 class _DialogChoiceBox extends StatelessWidget {

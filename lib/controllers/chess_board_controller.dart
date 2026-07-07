@@ -10,14 +10,17 @@ import '../engine/chess_engine_factory.dart';
 import '../data/better_bots_database.dart';
 import '../data/entities/better_bots_app_state_entity.dart';
 import '../engine/personality/cp_loss_move_selector.dart';
+import '../engine/personality/fritz19_move_selector.dart';
 import '../engine/personality/persona_move_selector.dart';
 import '../models/analysis_session.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
 import '../models/bot_opening_move.dart';
 import '../models/bot_personality.dart';
+import '../models/bot_personality_source.dart';
 import '../models/engine_analysis_line.dart';
 import '../models/engine_strength_mode.dart';
+import '../models/fritz19_personality.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
 
@@ -72,8 +75,13 @@ class ChessBoardController extends ChangeNotifier {
   bool _openingLogicAllowed = true;
   BotOpeningMove? _resolvedRandomOpeningMove;
 
+  BotPersonalitySource _botPersonalitySource =
+      BotPersonalitySource.chessiverse;
+  BotPersonalitySource? _resolvedRandomPersonalitySource;
   BotPersonality _botPersonality = BotPersonality.random;
   BotPersonality? _resolvedRandomPersonality;
+  Fritz19Personality _fritz19Personality = Fritz19Personality.allrounder;
+  Fritz19Personality? _resolvedRandomFritz19Personality;
   int _personaCandidateCount = 64;
 
   bool _isBotThinking = false;
@@ -124,10 +132,26 @@ class ChessBoardController extends ChangeNotifier {
     return _resolveSelectedOpening(this);
   }
 
+  BotPersonalitySource get botPersonalitySource => _botPersonalitySource;
+
+  BotPersonalitySource get effectiveBotPersonalitySource {
+    return _controllerEffectiveBotPersonalitySource(this);
+  }
+
   BotPersonality get botPersonality => _botPersonality;
 
   BotPersonality get effectiveBotPersonality {
     return _controllerEffectiveBotPersonality(this);
+  }
+
+  Fritz19Personality get fritz19Personality => _fritz19Personality;
+
+  Fritz19Personality get effectiveFritz19Personality {
+    return _controllerEffectiveFritz19Personality(this);
+  }
+
+  String get activePersonalityLabel {
+    return _controllerActivePersonalityLabel(this);
   }
 
   int get personaCandidateCount => _personaCandidateCount;
@@ -308,6 +332,14 @@ class ChessBoardController extends ChangeNotifier {
 
   void setBotPersonality(BotPersonality personality) {
     return _controllerSetBotPersonality(this, personality);
+  }
+
+  void setFritz19Personality(Fritz19Personality personality) {
+    return _controllerSetFritz19Personality(this, personality);
+  }
+
+  void setAllPersonalitiesRandom() {
+    return _controllerSetAllPersonalitiesRandom(this);
   }
 
   void setPersonaCandidateCount(int candidateCount) {
