@@ -115,111 +115,101 @@ class MobileChessSideMenu extends StatelessWidget {
     return List.generate(32, (index) => 4 + index * 4);
   }
 
+  List<List<int>> get _levelColumns {
+    return _columnsFromValues(List.generate(21, (index) => index), 10);
+  }
+
+  List<List<int>> get _uciEloColumns {
+    return _columnsFromValues(_eloValues, 10);
+  }
+
+  List<List<int>> get _cpLossEloColumns {
+    return _columnsFromValues(_cpLossEloValues, 10);
+  }
+
+  List<List<int>> get _candidateColumns {
+    return _columnsFromValues(_candidateValues, 10);
+  }
+
+  List<List<BotOpeningMove>> get _openingColumns {
+    return _columnsFromValues(BotOpeningMove.values, 10);
+  }
+
+  List<List<BotPersonality>> get _personalityColumns {
+    return _columnsFromValues(BotPersonality.values, 10);
+  }
+
+  List<List<T>> _columnsFromValues<T>(
+    List<T> values,
+    int entriesPerColumn,
+  ) {
+    final columns = <List<T>>[];
+
+    for (var i = 0; i < values.length; i += entriesPerColumn) {
+      final end = (i + entriesPerColumn).clamp(0, values.length).toInt();
+      columns.add(values.sublist(i, end));
+    }
+
+    return columns;
+  }
+
+  int get _strengthDialogInitialTabIndex {
+    switch (strengthMode) {
+      case EngineStrengthMode.level:
+        return 0;
+      case EngineStrengthMode.uciElo:
+        return 1;
+      case EngineStrengthMode.cpLossElo:
+        return 2;
+    }
+  }
+
   Future<void> _showStrengthDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return SimpleDialog(
-          title: const Text('Spielstärke'),
-          children: [
-            SimpleDialogOption(
-              child: const Text('Level'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                onStrengthModeChanged(EngineStrengthMode.level);
-                _showLevelDialog(context);
-              },
+        final screenSize = MediaQuery.sizeOf(dialogContext);
+        final dialogWidth =
+            (screenSize.width - 32).clamp(320.0, 430.0).toDouble();
+        final dialogHeight =
+            (screenSize.height * 0.72).clamp(470.0, 620.0).toDouble();
+
+        return DefaultTabController(
+          initialIndex: _strengthDialogInitialTabIndex,
+          length: 3,
+          child: AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 20,
             ),
-            SimpleDialogOption(
-              child: const Text('UCI_ELO'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                onStrengthModeChanged(EngineStrengthMode.uciElo);
-                _showUciEloDialog(context);
-              },
-            ),
-            SimpleDialogOption(
-              child: const Text('CP_Loss_ELO'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                onStrengthModeChanged(EngineStrengthMode.cpLossElo);
-                _showCpLossEloDialog(context);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showLevelDialog(BuildContext context) async {
-    final levels = List.generate(21, (index) => index);
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return SimpleDialog(
-          title: const Text('Level auswählen'),
-          children: levels.map((level) {
-            return SimpleDialogOption(
-              onPressed: () {
-                onSkillLevelChanged(level);
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                level == skillLevel ? '✓ Level $level' : 'Level $level',
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Future<void> _showUciEloDialog(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return SimpleDialog(
-          title: const Text('UCI_ELO auswählen'),
-          children: _eloValues.map((elo) {
-            return SimpleDialogOption(
-              onPressed: () {
-                onUciEloChanged(elo);
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(elo == uciElo ? '✓ $elo' : '$elo'),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Future<void> _showCpLossEloDialog(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('CP_Loss_ELO auswählen'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _cpLossEloValues.map((elo) {
-                  final isSelected = elo == cpLossElo;
-
-                  return ChoiceChip(
-                    label: Text('$elo'),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      onCpLossEloChanged(elo);
-                      Navigator.of(dialogContext).pop();
-                    },
-                  );
-                }).toList(),
+            title: const Text('Spielstärke'),
+            contentPadding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
+            content: SizedBox(
+              width: dialogWidth,
+              height: dialogHeight,
+              child: Column(
+                children: [
+                  const TabBar(
+                    labelColor: _accentColor,
+                    unselectedLabelColor: Colors.black54,
+                    indicatorColor: _accentColor,
+                    tabs: [
+                      Tab(text: 'Level'),
+                      Tab(text: 'UCI_ELO'),
+                      Tab(text: 'CP_Loss'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildLevelStrengthTab(dialogContext),
+                        _buildUciEloStrengthTab(dialogContext),
+                        _buildCpLossEloStrengthTab(dialogContext),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -228,25 +218,168 @@ class MobileChessSideMenu extends StatelessWidget {
     );
   }
 
+  Widget _buildLevelStrengthTab(BuildContext context) {
+    return _choiceColumns(
+      columns: _levelColumns,
+      labelBuilder: (level) => 'Level $level',
+      isSelected: (level) {
+        return strengthMode == EngineStrengthMode.level && level == skillLevel;
+      },
+      onSelected: (level) {
+        onStrengthModeChanged(EngineStrengthMode.level);
+        onSkillLevelChanged(level);
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  Widget _buildUciEloStrengthTab(BuildContext context) {
+    return _choiceColumns(
+      columns: _uciEloColumns,
+      labelBuilder: (elo) => '$elo',
+      isSelected: (elo) {
+        return strengthMode == EngineStrengthMode.uciElo && elo == uciElo;
+      },
+      onSelected: (elo) {
+        onStrengthModeChanged(EngineStrengthMode.uciElo);
+        onUciEloChanged(elo);
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  Widget _buildCpLossEloStrengthTab(BuildContext context) {
+    return _choiceColumns(
+      columns: _cpLossEloColumns,
+      labelBuilder: (elo) => '$elo',
+      isSelected: (elo) {
+        return strengthMode == EngineStrengthMode.cpLossElo && elo == cpLossElo;
+      },
+      onSelected: (elo) {
+        onStrengthModeChanged(EngineStrengthMode.cpLossElo);
+        onCpLossEloChanged(elo);
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  Widget _choiceColumns({
+    required List<List<int>> columns,
+    required String Function(int value) labelBuilder,
+    required bool Function(int value) isSelected,
+    required ValueChanged<int> onSelected,
+    double columnWidth = 96,
+  }) {
+    return SingleChildScrollView(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var columnIndex = 0;
+                columnIndex < columns.length;
+                columnIndex++) ...[
+              SizedBox(
+                width: columnWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final value in columns[columnIndex])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _DialogChoiceBox(
+                          label: labelBuilder(value),
+                          isSelected: isSelected(value),
+                          onPressed: () => onSelected(value),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (columnIndex < columns.length - 1) const SizedBox(width: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _objectChoiceColumns<T>({
+    required List<List<T>> columns,
+    required String Function(T value) labelBuilder,
+    required bool Function(T value) isSelected,
+    required ValueChanged<T> onSelected,
+    double columnWidth = 126,
+  }) {
+    return SingleChildScrollView(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var columnIndex = 0;
+                columnIndex < columns.length;
+                columnIndex++) ...[
+              SizedBox(
+                width: columnWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final value in columns[columnIndex])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _DialogChoiceBox(
+                          label: labelBuilder(value),
+                          isSelected: isSelected(value),
+                          onPressed: () => onSelected(value),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (columnIndex < columns.length - 1) const SizedBox(width: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showCpLossUciSwitchMoveDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return SimpleDialog(
+        final screenSize = MediaQuery.sizeOf(dialogContext);
+        final dialogWidth =
+            (screenSize.width - 32).clamp(320.0, 430.0).toDouble();
+        final dialogHeight =
+            (screenSize.height * 0.42).clamp(250.0, 380.0).toDouble();
+
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
           title: const Text('UCI_ELO ab Zug'),
-          children: _cpLossUciSwitchMoveValues.map((moveNumber) {
-            return SimpleDialogOption(
-              onPressed: () {
+          contentPadding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+          content: SizedBox(
+            width: dialogWidth,
+            height: dialogHeight,
+            child: _choiceColumns(
+              columns: _columnsFromValues(_cpLossUciSwitchMoveValues, 10),
+              columnWidth: 118,
+              labelBuilder: (moveNumber) => 'Zug $moveNumber',
+              isSelected: (moveNumber) {
+                return moveNumber == cpLossUciSwitchFullMoveNumber;
+              },
+              onSelected: (moveNumber) {
                 onCpLossUciSwitchFullMoveNumberChanged(moveNumber);
                 Navigator.of(dialogContext).pop();
               },
-              child: Text(
-                moveNumber == cpLossUciSwitchFullMoveNumber
-                    ? '✓ Zug $moveNumber'
-                    : 'Zug $moveNumber',
-              ),
-            );
-          }).toList(),
+            ),
+          ),
         );
       },
     );
@@ -256,19 +389,35 @@ class MobileChessSideMenu extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return SimpleDialog(
+        final screenSize = MediaQuery.sizeOf(dialogContext);
+        final dialogWidth =
+            (screenSize.width - 32).clamp(320.0, 430.0).toDouble();
+        final dialogHeight =
+            (screenSize.height * 0.62).clamp(360.0, 540.0).toDouble();
+
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
           title: const Text('Eröffnung auswählen'),
-          children: BotOpeningMove.values.map((move) {
-            return SimpleDialogOption(
-              onPressed: () {
+          contentPadding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+          content: SizedBox(
+            width: dialogWidth,
+            height: dialogHeight,
+            child: _objectChoiceColumns<BotOpeningMove>(
+              columns: _openingColumns,
+              columnWidth: 126,
+              labelBuilder: (move) => move.label,
+              isSelected: (move) {
+                return move == botOpeningMove;
+              },
+              onSelected: (move) {
                 onBotOpeningMoveChanged(move);
                 Navigator.of(dialogContext).pop();
               },
-              child: Text(
-                move == botOpeningMove ? '✓ ${move.label}' : move.label,
-              ),
-            );
-          }).toList(),
+            ),
+          ),
         );
       },
     );
@@ -278,22 +427,71 @@ class MobileChessSideMenu extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return SimpleDialog(
-          title: const Text('Persönlichkeit auswählen'),
-          children: BotPersonality.values.map((personality) {
-            return SimpleDialogOption(
-              onPressed: () {
-                onBotPersonalityChanged(personality);
-                Navigator.of(dialogContext).pop();
-              },
-              child: _PersonalityDialogLabel(
-                personality: personality,
-                selectedPersonality: botPersonality,
-                effectiveBotPersonality: effectiveBotPersonality,
+        final screenSize = MediaQuery.sizeOf(dialogContext);
+        final dialogWidth =
+            (screenSize.width - 32).clamp(320.0, 430.0).toDouble();
+        final dialogHeight =
+            (screenSize.height * 0.62).clamp(360.0, 540.0).toDouble();
+
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 24,
+            ),
+            title: const Text('Persönlichkeit auswählen'),
+            contentPadding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
+            content: SizedBox(
+              width: dialogWidth,
+              height: dialogHeight,
+              child: Column(
+                children: [
+                  const TabBar(
+                    labelColor: _accentColor,
+                    unselectedLabelColor: Colors.black54,
+                    indicatorColor: _accentColor,
+                    tabs: [
+                      Tab(text: 'Chessiverse'),
+                      Tab(text: 'Fritz19'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildChessiversePersonalityTab(dialogContext),
+                        const _EmptyFritz19PersonalityTab(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            );
-          }).toList(),
+            ),
+          ),
         );
+      },
+    );
+  }
+
+  Widget _buildChessiversePersonalityTab(BuildContext context) {
+    return _objectChoiceColumns<BotPersonality>(
+      columns: _personalityColumns,
+      columnWidth: 150,
+      labelBuilder: (personality) {
+        if (personality == BotPersonality.random &&
+            effectiveBotPersonality.isConcretePersonality) {
+          return '${personality.label} (${effectiveBotPersonality.label})';
+        }
+
+        return personality.label;
+      },
+      isSelected: (personality) {
+        return personality == botPersonality;
+      },
+      onSelected: (personality) {
+        onBotPersonalityChanged(personality);
+        Navigator.of(context).pop();
       },
     );
   }
@@ -302,27 +500,33 @@ class MobileChessSideMenu extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Kandidatenzüge auswählen'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _candidateValues.map((candidateCount) {
-                  final isSelected = candidateCount == personaCandidateCount;
+        final screenSize = MediaQuery.sizeOf(dialogContext);
+        final dialogWidth =
+            (screenSize.width - 32).clamp(320.0, 430.0).toDouble();
+        final dialogHeight =
+            (screenSize.height * 0.68).clamp(430.0, 600.0).toDouble();
 
-                  return ChoiceChip(
-                    label: Text('$candidateCount'),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      onPersonaCandidateCountChanged(candidateCount);
-                      Navigator.of(dialogContext).pop();
-                    },
-                  );
-                }).toList(),
-              ),
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 20,
+          ),
+          title: const Text('Kandidatenzüge auswählen'),
+          contentPadding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+          content: SizedBox(
+            width: dialogWidth,
+            height: dialogHeight,
+            child: _choiceColumns(
+              columns: _candidateColumns,
+              columnWidth: 96,
+              labelBuilder: (candidateCount) => '$candidateCount',
+              isSelected: (candidateCount) {
+                return candidateCount == personaCandidateCount;
+              },
+              onSelected: (candidateCount) {
+                onPersonaCandidateCountChanged(candidateCount);
+                Navigator.of(dialogContext).pop();
+              },
             ),
           ),
         );
@@ -449,6 +653,75 @@ class MobileChessSideMenu extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogChoiceBox extends StatelessWidget {
+  const _DialogChoiceBox({
+    required this.label,
+    required this.isSelected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          foregroundColor: isSelected ? _SideMenuButton._accentColor : null,
+          backgroundColor: isSelected
+              ? _SideMenuButton._accentColor.withAlpha(24)
+              : null,
+          side: BorderSide(
+            color: isSelected
+                ? _SideMenuButton._accentColor.withAlpha(170)
+                : Colors.black.withAlpha(42),
+            width: isSelected ? 1.5 : 1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            isSelected ? '✓ $label' : label,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyFritz19PersonalityTab extends StatelessWidget {
+  const _EmptyFritz19PersonalityTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Noch keine Fritz19-Persönlichkeiten',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.black54,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

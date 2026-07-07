@@ -384,28 +384,65 @@ class ChessBoardControls extends StatelessWidget {
   Future<void> _showPersonalityDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
-      builder: (_) {
-        return SimpleDialog(
-          title: const Text(
-            'Persönlichkeit auswählen',
-            style: _dialogTitleTextStyle,
-          ),
-          children: BotPersonality.values
-              .map(
-                (personality) => _clickableDialogOption(
-                  onPressed: () {
-                    onBotPersonalityChanged(personality);
-                    Navigator.pop(context);
-                  },
-                  child: _PersonalityDialogLabel(
-                    personality: personality,
-                    effectiveBotPersonality: effectiveBotPersonality,
+      builder: (dialogContext) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: const Text(
+              'Persönlichkeit auswählen',
+              style: _dialogTitleTextStyle,
+            ),
+            contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            content: SizedBox(
+              width: 520,
+              height: 390,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const TabBar(
+                    labelColor: _dialogAccentBlue,
+                    unselectedLabelColor: Colors.black54,
+                    indicatorColor: _dialogAccentBlue,
+                    tabs: [
+                      Tab(text: 'Chessiverse'),
+                      Tab(text: 'Fritz19'),
+                    ],
                   ),
-                ),
-              )
-              .toList(),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildChessiversePersonalityTab(dialogContext),
+                        const _EmptyFritz19PersonalityTab(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildChessiversePersonalityTab(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: BotPersonality.values
+          .map(
+            (personality) => _clickableDialogOption(
+              onPressed: () {
+                onBotPersonalityChanged(personality);
+                Navigator.pop(context);
+              },
+              child: _PersonalityDialogLabel(
+                personality: personality,
+                effectiveBotPersonality: effectiveBotPersonality,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -603,6 +640,25 @@ final ButtonStyle _analysisButtonStyle = ButtonStyle(
     return SystemMouseCursors.click;
   }),
 );
+
+class _EmptyFritz19PersonalityTab extends StatelessWidget {
+  const _EmptyFritz19PersonalityTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Noch keine Fritz19-Persönlichkeiten',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.black54,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
 
 class _PersonalityDialogLabel extends StatelessWidget {
   const _PersonalityDialogLabel({
