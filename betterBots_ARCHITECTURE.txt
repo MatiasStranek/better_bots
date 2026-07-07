@@ -1,7 +1,9 @@
 BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
 	* Windows: entwickelte Dame wird als Pawn gedragt
+	* Android: Laggs by drag shadow view
 
+* Windows: darker green for circle markers
 
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
@@ -73,3 +75,5 @@ BUG SECTION:
 
 * counts the amount of trained games per Bot
 * counts the amount of won games per Bot
+
+* Guess the Bot (Online)

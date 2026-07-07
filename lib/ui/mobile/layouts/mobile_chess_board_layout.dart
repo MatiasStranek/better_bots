@@ -11,6 +11,7 @@ import '../../../models/player_side.dart';
 import '../widgets/chess_board/mobile_chess_board_view.dart';
 import '../widgets/mobile_chess_action_bar.dart';
 import '../widgets/mobile_chess_bottom_view.dart';
+import '../widgets/mobile_chess_move_strip.dart';
 import '../widgets/mobile_chess_side_menu.dart';
 
 class MobileChessBoardLayout extends StatefulWidget {
@@ -106,6 +107,7 @@ class MobileChessBoardLayout extends StatefulWidget {
 
 class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _screenPadding = 16;
+  static const double _moveStripHeight = 54;
   static const double _bottomViewHeight = 96;
   static const double _actionBarHeight = 64;
   static const double _bottomGap = 8;
@@ -187,18 +189,20 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
       return const SizedBox.shrink();
     }
 
+    final topStart = _moveStripHeight;
+    final topHeight = math.max(0.0, boardTop - topStart);
     final safeBottom = math.max(0.0, screenHeight - _actionBarHeight);
     final bottomTop = math.min(boardBottom, safeBottom);
     final bottomHeight = math.max(0.0, safeBottom - bottomTop);
 
     return Stack(
       children: [
-        if (boardTop > 0)
+        if (topHeight > 0)
           Positioned(
             left: 0,
-            top: 0,
+            top: topStart,
             width: _edgeSwipeWidth,
-            height: boardTop,
+            height: topHeight,
             child: _EdgeSwipeDetector(
               onHorizontalDragUpdate: _handleOpenSwipeUpdate,
               onHorizontalDragEnd: _handleOpenSwipeEnd,
@@ -259,6 +263,16 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 ),
               ),
             ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: _moveStripHeight,
+              child: MobileChessMoveStrip(
+                height: _moveStripHeight,
+                pgnText: widget.pgnText,
+              ),
+            ),
             if (canShowBottomView)
               Positioned(
                 left: 0,
@@ -315,6 +329,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _closeSideMenu,
+                  onHorizontalDragUpdate: _handleCloseSwipeUpdate,
+                  onHorizontalDragEnd: _handleCloseSwipeEnd,
                   child: ColoredBox(color: Colors.black.withAlpha(145)),
                 ),
               ),
