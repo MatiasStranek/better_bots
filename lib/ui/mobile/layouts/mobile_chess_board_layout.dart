@@ -11,6 +11,7 @@ import '../../../models/player_side.dart';
 import '../widgets/chess_board/mobile_chess_board_view.dart';
 import '../widgets/mobile_chess_action_bar.dart';
 import '../widgets/mobile_chess_analysis_button.dart';
+import '../widgets/mobile_chess_game_info_panel.dart';
 import '../widgets/mobile_chess_move_strip.dart';
 import '../widgets/mobile_chess_side_menu.dart';
 import '../widgets/mobile_chess_status_header.dart';
@@ -121,6 +122,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _actionBarHeight = 64;
   static const double _analysisButtonSize = 52;
   static const double _analysisButtonGap = 8;
+  static const double _gameInfoPanelHorizontalGap = 12;
   static const double _edgeSwipeWidth = 36;
   static const double _sideMenuWidthFactor = 0.72;
   static const double _swipeOpenThreshold = 54;
@@ -244,6 +246,16 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
     return math.min(preferredTop, math.max(0.0, maxTop));
   }
 
+  double _gameInfoPanelHeight({
+    required double top,
+    required double screenHeight,
+  }) {
+    final maxHeight =
+        screenHeight - top - _actionBarHeight - _analysisButtonGap;
+
+    return math.max(0.0, maxHeight);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -255,6 +267,14 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
         final boardBottom = boardTop + boardSize;
         final canShowActionBar = constraints.maxHeight >= _actionBarHeight;
         final sideMenuWidth = constraints.maxWidth * _sideMenuWidthFactor;
+        final analysisButtonTop = _analysisButtonTop(
+          boardBottom: boardBottom,
+          screenHeight: constraints.maxHeight,
+        );
+        final gameInfoPanelHeight = _gameInfoPanelHeight(
+          top: analysisButtonTop,
+          screenHeight: constraints.maxHeight,
+        );
 
         return Stack(
           children: [
@@ -294,12 +314,30 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 pgnText: widget.pgnText,
               ),
             ),
+            if (gameInfoPanelHeight > 0)
+              Positioned(
+                left: 12,
+                right: 12 +
+                    _analysisButtonSize +
+                    _gameInfoPanelHorizontalGap,
+                top: analysisButtonTop,
+                height: gameInfoPanelHeight,
+                child: MobileChessGameInfoPanel(
+                  skillLevel: widget.skillLevel,
+                  uciElo: widget.uciElo,
+                  cpLossElo: widget.cpLossElo,
+                  cpLossUciSwitchFullMoveNumber:
+                      widget.cpLossUciSwitchFullMoveNumber,
+                  strengthMode: widget.strengthMode,
+                  botOpeningMove: widget.botOpeningMove,
+                  botPersonality: widget.botPersonality,
+                  effectiveBotPersonality: widget.effectiveBotPersonality,
+                  personaCandidateCount: widget.personaCandidateCount,
+                ),
+              ),
             Positioned(
               right: 12,
-              top: _analysisButtonTop(
-                boardBottom: boardBottom,
-                screenHeight: constraints.maxHeight,
-              ),
+              top: analysisButtonTop,
               child: MobileChessAnalysisButton(
                 size: _analysisButtonSize,
                 isAnalysisMode: widget.isAnalysisMode,

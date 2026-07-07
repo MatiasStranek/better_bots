@@ -5,6 +5,8 @@ BUG SECTION:
 
 * Windows: darker green for circle markers
 * Windows & Android: Using notationArrows in normal games, but only allowed to move on actual position
+* Android: BackButon calls close request
+* Android: click only on board for deleting those arrows
 
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
