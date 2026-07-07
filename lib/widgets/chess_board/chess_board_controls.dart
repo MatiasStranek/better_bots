@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/bot_opening_move.dart';
 import '../../models/bot_personality.dart';
@@ -148,7 +149,7 @@ class ChessBoardControls extends StatelessWidget {
         return SimpleDialog(
           title: const Text('Spielstärke'),
           children: [
-            SimpleDialogOption(
+            _clickableDialogOption(
               child: const Text('Level'),
               onPressed: () {
                 Navigator.pop(context);
@@ -156,7 +157,7 @@ class ChessBoardControls extends StatelessWidget {
                 _showLevelDialog(context);
               },
             ),
-            SimpleDialogOption(
+            _clickableDialogOption(
               child: const Text('UCI_ELO'),
               onPressed: () {
                 Navigator.pop(context);
@@ -164,7 +165,7 @@ class ChessBoardControls extends StatelessWidget {
                 _showEloDialog(context);
               },
             ),
-            SimpleDialogOption(
+            _clickableDialogOption(
               child: const Text('CP_Loss_ELO'),
               onPressed: () {
                 Navigator.pop(context);
@@ -188,7 +189,7 @@ class ChessBoardControls extends StatelessWidget {
           title: const Text('Level auswählen'),
           children: levels
               .map(
-                (level) => SimpleDialogOption(
+                (level) => _clickableDialogOption(
                   onPressed: () {
                     onSkillLevelChanged(level);
                     Navigator.pop(context);
@@ -210,7 +211,7 @@ class ChessBoardControls extends StatelessWidget {
           title: const Text('UCI_ELO auswählen'),
           children: _eloValues
               .map(
-                (elo) => SimpleDialogOption(
+                (elo) => _clickableDialogOption(
                   onPressed: () {
                     onUciEloChanged(elo);
                     Navigator.pop(context);
@@ -279,7 +280,7 @@ class ChessBoardControls extends StatelessWidget {
           title: const Text('UCI_ELO ab Zug'),
           children: _cpLossUciSwitchMoveValues
               .map(
-                (moveNumber) => SimpleDialogOption(
+                (moveNumber) => _clickableDialogOption(
                   onPressed: () {
                     onCpLossUciSwitchFullMoveNumberChanged(moveNumber);
                     Navigator.pop(context);
@@ -305,7 +306,7 @@ class ChessBoardControls extends StatelessWidget {
           title: const Text('Eröffnung auswählen'),
           children: BotOpeningMove.values
               .map(
-                (move) => SimpleDialogOption(
+                (move) => _clickableDialogOption(
                   onPressed: () {
                     onBotOpeningMoveChanged(move);
                     Navigator.pop(context);
@@ -327,7 +328,7 @@ class ChessBoardControls extends StatelessWidget {
           title: const Text('Persönlichkeit auswählen'),
           children: BotPersonality.values
               .map(
-                (personality) => SimpleDialogOption(
+                (personality) => _clickableDialogOption(
                   onPressed: () {
                     onBotPersonalityChanged(personality);
                     Navigator.pop(context);
@@ -393,6 +394,19 @@ class ChessBoardControls extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _clickableDialogOption({
+    required Widget child,
+    required VoidCallback onPressed,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: SimpleDialogOption(
+        onPressed: onPressed,
+        child: child,
+      ),
     );
   }
 

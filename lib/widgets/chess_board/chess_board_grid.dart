@@ -177,14 +177,16 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
 
             final previewArrow = _previewArrow;
 
-            return Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (event) => _handlePointerDown(event, boardSize),
-              onPointerMove: (event) => _handlePointerMove(event, boardSize),
-              onPointerUp: (event) => _handlePointerUp(event, boardSize),
-              onPointerCancel: _handlePointerCancel,
-              child: Stack(
-                children: [
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (event) => _handlePointerDown(event, boardSize),
+                onPointerMove: (event) => _handlePointerMove(event, boardSize),
+                onPointerUp: (event) => _handlePointerUp(event, boardSize),
+                onPointerCancel: _handlePointerCancel,
+                child: Stack(
+                  children: [
                   Positioned.fill(
                     child: Image.asset(
                       'assets/board/maple.jpg',
@@ -241,7 +243,8 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -280,7 +283,7 @@ class _BoardAnnotationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final squareSize = math.min(size.width, size.height) / 8.0;
-    final markerStrokeWidth = squareSize * 0.22;
+    final markerStrokeWidth = squareSize * 0.11;
     final arrowStrokeWidth = squareSize * 0.18;
 
     final markerPaint = Paint()

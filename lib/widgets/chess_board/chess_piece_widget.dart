@@ -35,30 +35,36 @@ class ChessPieceWidget extends StatelessWidget {
         final fullSquareChild = SizedBox.expand(child: pieceVisual);
 
         if (!canDrag) {
-          return fullSquareChild;
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: fullSquareChild,
+          );
         }
 
-        return Draggable<String>(
-          data: square,
-          hitTestBehavior: HitTestBehavior.opaque,
-          dragAnchorStrategy: (_, _, _) {
-            return Offset(pieceSize / 2.0, pieceSize / 2.0);
-          },
-          feedback: SizedBox(
-            width: pieceSize,
-            height: pieceSize,
-            child: Material(
-              type: MaterialType.transparency,
-              child: _PieceVisual(
-                assetPath: assetPath,
-                keyValue: 'feedback-$keyValue',
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Draggable<String>(
+            data: square,
+            hitTestBehavior: HitTestBehavior.opaque,
+            dragAnchorStrategy: (_, _, _) {
+              return Offset(pieceSize / 2.0, pieceSize / 2.0);
+            },
+            feedback: SizedBox(
+              width: pieceSize,
+              height: pieceSize,
+              child: Material(
+                type: MaterialType.transparency,
+                child: _PieceVisual(
+                  assetPath: assetPath,
+                  keyValue: 'feedback-$keyValue',
+                ),
               ),
             ),
+            childWhenDragging: Opacity(opacity: 0.18, child: fullSquareChild),
+            onDragStarted: onDragStarted,
+            onDragEnd: (_) => onDragEnded(),
+            child: fullSquareChild,
           ),
-          childWhenDragging: Opacity(opacity: 0.18, child: fullSquareChild),
-          onDragStarted: onDragStarted,
-          onDragEnd: (_) => onDragEnded(),
-          child: fullSquareChild,
         );
       },
     );

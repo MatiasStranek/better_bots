@@ -46,89 +46,93 @@ class ChessBoardSquare extends StatelessWidget {
     final isLastMove = highlights.isLastMove(square);
     final isPremove = highlights.isPremove(square);
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) {
-        final from = details.data;
-        return canMoveTo(from: from, to: square);
-      },
-      onAcceptWithDetails: (details) async {
-        final from = details.data;
-        await onMove(from: from, to: square);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isDragTarget = candidateData.isNotEmpty;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) {
+          final from = details.data;
+          return canMoveTo(from: from, to: square);
+        },
+        onAcceptWithDetails: (details) async {
+          final from = details.data;
+          await onMove(from: from, to: square);
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isDragTarget = candidateData.isNotEmpty;
 
-        return GestureDetector(
-          onTap: () async {
-            await onSquareTap(square);
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              color: _squareColor(
-                isLightSquare: isLightSquare,
-                isSelected: isSelected,
-                isLegalTarget: isLegalTarget,
-                isLastMove: isLastMove,
-                isDragTarget: isDragTarget,
-                isPremove: isPremove,
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              await onSquareTap(square);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color: _squareColor(
+                  isLightSquare: isLightSquare,
+                  isSelected: isSelected,
+                  isLegalTarget: isLegalTarget,
+                  isLastMove: isLastMove,
+                  isDragTarget: isDragTarget,
+                  isPremove: isPremove,
+                ),
+                border: Border.all(
+                  color: isSelected ? Colors.blueAccent : Colors.transparent,
+                  width: 3,
+                ),
               ),
-              border: Border.all(
-                color: isSelected ? Colors.blueAccent : Colors.transparent,
-                width: 3,
-              ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (isLegalTarget && piece == null)
-                  Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(90),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                if (isLegalTarget && piece != null)
-                  Container(
-                    margin: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.black.withAlpha(90),
-                        width: 4,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                if (isPremove)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      width: 10,
-                      height: 10,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (isLegalTarget && piece == null)
+                    Container(
+                      width: 18,
+                      height: 18,
                       decoration: BoxDecoration(
-                        color: Colors.deepPurpleAccent.withAlpha(220),
+                        color: Colors.black.withAlpha(90),
                         shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                if (piece != null)
-                  Positioned.fill(
-                    child: ChessPieceWidget(
-                      piece: piece!,
-                      square: square,
-                      canDrag: canHumanMovePiece,
-                      onDragStarted: () => onPieceDragStarted(square),
-                      onDragEnded: onPieceDragEnded,
+                  if (isLegalTarget && piece != null)
+                    Container(
+                      margin: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.black.withAlpha(90),
+                          width: 4,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-              ],
+                  if (isPremove)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurpleAccent.withAlpha(220),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  if (piece != null)
+                    Positioned.fill(
+                      child: ChessPieceWidget(
+                        piece: piece!,
+                        square: square,
+                        canDrag: canHumanMovePiece,
+                        onDragStarted: () => onPieceDragStarted(square),
+                        onDragEnded: onPieceDragEnded,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

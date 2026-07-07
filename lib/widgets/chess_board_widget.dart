@@ -295,11 +295,25 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
-      focusNode: _keyboardFocusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: AnimatedBuilder(
+    final theme = Theme.of(context);
+
+    return Theme(
+      data: theme.copyWith(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: _buttonStyleWithClickCursor(theme.elevatedButtonTheme.style),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: _buttonStyleWithClickCursor(theme.outlinedButtonTheme.style),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: _buttonStyleWithClickCursor(theme.textButtonTheme.style),
+        ),
+      ),
+      child: KeyboardListener(
+        focusNode: _keyboardFocusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
           return Column(
@@ -405,9 +419,22 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             ],
           );
         },
+        ),
       ),
     );
   }
+}
+
+ButtonStyle _buttonStyleWithClickCursor(ButtonStyle? baseStyle) {
+  return (baseStyle ?? const ButtonStyle()).copyWith(
+    mouseCursor: WidgetStateProperty.resolveWith<MouseCursor?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return SystemMouseCursors.basic;
+      }
+
+      return SystemMouseCursors.click;
+    }),
+  );
 }
 
 class _PromotionButton extends StatelessWidget {
