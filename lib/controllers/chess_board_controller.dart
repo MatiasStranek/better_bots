@@ -125,6 +125,22 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get isAnalysisMode => _analysisSession != null;
 
+  bool get canStartAnalysisMode {
+    if (isAnalysisMode || _isBotThinking) {
+      return false;
+    }
+
+    if (isGameOver) {
+      return true;
+    }
+
+    return isPlayersTurn;
+  }
+
+  bool get canToggleAnalysisMode {
+    return isAnalysisMode || canStartAnalysisMode;
+  }
+
   bool get isAnalysisThinking => _analysisSession?.isAnalyzing ?? false;
 
   bool get canNavigateAnalysisBack {

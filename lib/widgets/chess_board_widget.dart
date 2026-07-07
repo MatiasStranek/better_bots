@@ -366,7 +366,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     }
 
     if (event.logicalKey == LogicalKeyboardKey.space) {
-      if (!_controller.isAnalysisMode) {
+      if (_controller.canStartAnalysisMode) {
         _controller.toggleAnalysisMode();
       }
 
@@ -432,6 +432,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                       personaCandidateCount: _controller.personaCandidateCount,
                       isBotThinking: _controller.isBotThinking,
                       isAnalysisMode: _controller.isAnalysisMode,
+                      canToggleAnalysisMode: _controller.canToggleAnalysisMode,
                       canNavigateAnalysisBack:
                           _controller.canNavigateAnalysisBack,
                       canNavigateAnalysisForward:

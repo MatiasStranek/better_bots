@@ -26,6 +26,7 @@ class ChessBoardControls extends StatelessWidget {
     required this.personaCandidateCount,
     required this.isBotThinking,
     required this.isAnalysisMode,
+    required this.canToggleAnalysisMode,
     required this.canNavigateAnalysisBack,
     required this.canNavigateAnalysisForward,
     required this.onNewGame,
@@ -55,6 +56,7 @@ class ChessBoardControls extends StatelessWidget {
   final int personaCandidateCount;
   final bool isBotThinking;
   final bool isAnalysisMode;
+  final bool canToggleAnalysisMode;
   final bool canNavigateAnalysisBack;
   final bool canNavigateAnalysisForward;
 
@@ -505,7 +507,7 @@ class ChessBoardControls extends StatelessWidget {
               child: const Text('Restart'),
             ),
             ElevatedButton(
-              onPressed: onToggleAnalysisMode,
+              onPressed: canToggleAnalysisMode ? onToggleAnalysisMode : null,
               style: _analysisButtonStyle,
               child: Text(_analysisButtonText),
             ),
@@ -569,10 +571,20 @@ class ChessBoardControls extends StatelessWidget {
 }
 
 final ButtonStyle _analysisButtonStyle = ButtonStyle(
-  foregroundColor: const WidgetStatePropertyAll<Color>(
-    _analysisButtonForeground,
-  ),
-  iconColor: const WidgetStatePropertyAll<Color>(_analysisButtonForeground),
+  foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+    if (states.contains(WidgetState.disabled)) {
+      return const Color(0xFF8D95A3);
+    }
+
+    return _analysisButtonForeground;
+  }),
+  iconColor: WidgetStateProperty.resolveWith<Color?>((states) {
+    if (states.contains(WidgetState.disabled)) {
+      return const Color(0xFF8D95A3);
+    }
+
+    return _analysisButtonForeground;
+  }),
   mouseCursor: WidgetStateProperty.resolveWith<MouseCursor?>((states) {
     if (states.contains(WidgetState.disabled)) {
       return SystemMouseCursors.basic;

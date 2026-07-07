@@ -5,6 +5,10 @@ const int _analysisDepth = 20;
 
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
+    if (!controller.canStartAnalysisMode) {
+      return;
+    }
+
     _controllerStartAnalysisMode(controller);
     return;
   }
@@ -13,6 +17,10 @@ void _controllerToggleAnalysisMode(ChessBoardController controller) {
 }
 
 void _controllerStartAnalysisMode(ChessBoardController controller) {
+  if (!controller.canStartAnalysisMode) {
+    return;
+  }
+
   controller._searchGeneration++;
   controller._analysisGeneration++;
   controller._isBotThinking = false;
