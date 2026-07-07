@@ -12,12 +12,15 @@ class AppStateEntity {
     this.cpLossUciSwitchFullMoveNumber = 11,
     this.botOpeningMoveName = 'random',
     this.effectiveBotOpeningMoveName = 'none',
+    this.selectedOpeningMoveNames = '',
     this.personalitySourceName = 'chessiverse',
     this.effectivePersonalitySourceName = 'chessiverse',
     this.botPersonalityName = 'random',
     this.effectiveBotPersonalityName = 'none',
     this.fritz19PersonalityName = 'allrounder',
     this.effectiveFritz19PersonalityName = 'allrounder',
+    this.selectedChessiversePersonalityNames = '',
+    this.selectedFritz19PersonalityNames = '',
     this.personaCandidateCount = 64,
     this.openingLogicAllowed = 1,
     this.startFen = '',
@@ -42,6 +45,7 @@ class AppStateEntity {
 
   String botOpeningMoveName;
   String effectiveBotOpeningMoveName;
+  String selectedOpeningMoveNames;
 
   String personalitySourceName;
   String effectivePersonalitySourceName;
@@ -49,6 +53,8 @@ class AppStateEntity {
   String effectiveBotPersonalityName;
   String fritz19PersonalityName;
   String effectiveFritz19PersonalityName;
+  String selectedChessiversePersonalityNames;
+  String selectedFritz19PersonalityNames;
 
   int personaCandidateCount;
   int openingLogicAllowed;

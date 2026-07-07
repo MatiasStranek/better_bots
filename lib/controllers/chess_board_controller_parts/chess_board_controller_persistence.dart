@@ -28,6 +28,8 @@ void _controllerRestorePersistedStateIfNeeded(
     .._botOpeningMove = _openingMoveFromName(state.botOpeningMoveName)
     .._resolvedRandomOpeningMove =
         _openingMoveFromNameOrNull(state.effectiveBotOpeningMoveName)
+    .._selectedOpeningMoves
+        .addAll(_openingMoveListFromNames(state.selectedOpeningMoveNames))
     .._botPersonalitySource =
         _botPersonalitySourceFromName(state.personalitySourceName)
     .._resolvedRandomPersonalitySource =
@@ -43,6 +45,12 @@ void _controllerRestorePersistedStateIfNeeded(
         _fritz19PersonalityFromNameOrNull(
           state.effectiveFritz19PersonalityName,
         )
+    .._selectedChessiversePersonalities.addAll(
+      _botPersonalityListFromNames(state.selectedChessiversePersonalityNames),
+    )
+    .._selectedFritz19Personalities.addAll(
+      _fritz19PersonalityListFromNames(state.selectedFritz19PersonalityNames),
+    )
     .._personaCandidateCount =
         state.personaCandidateCount.clamp(4, 128).toInt()
     .._openingLogicAllowed = state.openingLogicAllowed != 0
@@ -54,7 +62,9 @@ void _controllerRestorePersistedStateIfNeeded(
     .._selectedSquare = null
     .._premoves.clear();
 
-  if (controller._botOpeningMove != BotOpeningMove.random) {
+  if (controller._selectedOpeningMoves.length >= 2) {
+    controller._botOpeningMove = BotOpeningMove.random;
+  } else if (controller._botOpeningMove != BotOpeningMove.random) {
     controller._resolvedRandomOpeningMove = null;
   }
 
@@ -98,12 +108,21 @@ void _controllerPersistCurrentState(ChessBoardController controller) {
           controller._cpLossUciSwitchFullMoveNumber,
       botOpeningMoveName: controller._botOpeningMove.name,
       effectiveBotOpeningMoveName: effectiveOpeningMove.name,
+      selectedOpeningMoveNames: _encodeOpeningMoves(
+        controller._selectedOpeningMoves,
+      ),
       personalitySourceName: controller._botPersonalitySource.name,
       effectivePersonalitySourceName: effectivePersonalitySource.name,
       botPersonalityName: controller._botPersonality.name,
       effectiveBotPersonalityName: effectiveBotPersonality.name,
       fritz19PersonalityName: controller._fritz19Personality.name,
       effectiveFritz19PersonalityName: effectiveFritz19Personality.name,
+      selectedChessiversePersonalityNames: _encodeBotPersonalities(
+        controller._selectedChessiversePersonalities,
+      ),
+      selectedFritz19PersonalityNames: _encodeFritz19Personalities(
+        controller._selectedFritz19Personalities,
+      ),
       personaCandidateCount: controller._personaCandidateCount,
       openingLogicAllowed: controller._openingLogicAllowed ? 1 : 0,
       startFen: controller._normalGameStartFen,
@@ -333,6 +352,50 @@ List<BoardMove> _decodeBoardMoves(String text) {
   }
 
   return moves;
+}
+
+String _encodeOpeningMoves(List<BotOpeningMove> openingMoves) {
+  return openingMoves.map((openingMove) => openingMove.name).join(',');
+}
+
+List<BotOpeningMove> _openingMoveListFromNames(String names) {
+  return names
+      .split(',')
+      .map((name) => name.trim())
+      .where((name) => name.isNotEmpty)
+      .map(_openingMoveFromName)
+      .where((openingMove) => openingMove.isRealOpening)
+      .toList();
+}
+
+String _encodeBotPersonalities(List<BotPersonality> personalities) {
+  return personalities.map((personality) => personality.name).join(',');
+}
+
+List<BotPersonality> _botPersonalityListFromNames(String names) {
+  return names
+      .split(',')
+      .map((name) => name.trim())
+      .where((name) => name.isNotEmpty)
+      .map(_botPersonalityFromName)
+      .where((personality) => personality.isConcretePersonality)
+      .toList();
+}
+
+String _encodeFritz19Personalities(
+  List<Fritz19Personality> personalities,
+) {
+  return personalities.map((personality) => personality.name).join(',');
+}
+
+List<Fritz19Personality> _fritz19PersonalityListFromNames(String names) {
+  return names
+      .split(',')
+      .map((name) => name.trim())
+      .where((name) => name.isNotEmpty)
+      .map(_fritz19PersonalityFromName)
+      .where((personality) => personality.isConcretePersonality)
+      .toList();
 }
 
 String _effectiveCounterPersonalitySourceName(

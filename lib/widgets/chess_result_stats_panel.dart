@@ -20,21 +20,29 @@ class ChessResultStatsPanel extends StatelessWidget {
       ChessResultStatData(
         title: 'Gewonnen',
         value: '${counter.wonCount}',
+        whiteCount: counter.wonWhiteCount,
+        blackCount: counter.wonBlackCount,
         titleColor: wonColor,
       ),
       ChessResultStatData(
         title: 'Verloren',
         value: '${counter.lostCount}',
+        whiteCount: counter.lostWhiteCount,
+        blackCount: counter.lostBlackCount,
         titleColor: lostColor,
       ),
       ChessResultStatData(
         title: 'Remis',
         value: '${counter.drawCount}',
+        whiteCount: counter.drawWhiteCount,
+        blackCount: counter.drawBlackCount,
         titleColor: drawColor,
       ),
       ChessResultStatData(
         title: 'Trainiert',
         value: '${counter.trainedCount}',
+        whiteCount: counter.trainedWhiteCount,
+        blackCount: counter.trainedBlackCount,
         titleColor: trainedColor,
       ),
     ];
@@ -70,21 +78,29 @@ class ChessResultStatsTextView extends StatelessWidget {
       ChessResultStatData(
         title: 'Gewonnen',
         value: '${counter.wonCount}',
+        whiteCount: counter.wonWhiteCount,
+        blackCount: counter.wonBlackCount,
         titleColor: ChessResultStatsPanel.wonColor,
       ),
       ChessResultStatData(
         title: 'Verloren',
         value: '${counter.lostCount}',
+        whiteCount: counter.lostWhiteCount,
+        blackCount: counter.lostBlackCount,
         titleColor: ChessResultStatsPanel.lostColor,
       ),
       ChessResultStatData(
         title: 'Remis',
         value: '${counter.drawCount}',
+        whiteCount: counter.drawWhiteCount,
+        blackCount: counter.drawBlackCount,
         titleColor: ChessResultStatsPanel.drawColor,
       ),
       ChessResultStatData(
         title: 'Trainiert',
         value: '${counter.trainedCount}',
+        whiteCount: counter.trainedWhiteCount,
+        blackCount: counter.trainedBlackCount,
         titleColor: ChessResultStatsPanel.trainedColor,
       ),
     ];
@@ -131,11 +147,15 @@ class ChessResultStatData {
   const ChessResultStatData({
     required this.title,
     required this.value,
+    required this.whiteCount,
+    required this.blackCount,
     required this.titleColor,
   });
 
   final String title;
   final String value;
+  final int whiteCount;
+  final int blackCount;
   final Color titleColor;
 }
 
@@ -146,47 +166,55 @@ class _ResultStatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF111111).withAlpha(190),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withAlpha(28),
-          width: 1,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  data.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: data.titleColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
+    return Semantics(
+      button: true,
+      label: '${data.title}: ${data.value}. Details anzeigen.',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _showResultStatBreakdownDialog(context, data),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF111111).withAlpha(190),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withAlpha(28),
+              width: 1,
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: data.titleColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      data.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -202,29 +230,134 @@ class _ResultStatText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RichText(
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _showResultStatBreakdownDialog(context, data),
+        child: RichText(
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '${data.title}: ',
+                style: TextStyle(
+                  color: data.titleColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              TextSpan(
+                text: data.value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _showResultStatBreakdownDialog(
+  BuildContext context,
+  ChessResultStatData data,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(data.title),
+        content: _ResultStatBreakdownContent(data: data),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _ResultStatBreakdownContent extends StatelessWidget {
+  const _ResultStatBreakdownContent({required this.data});
+
+  final ChessResultStatData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTextStyle.merge(
+      style: const TextStyle(
+        fontSize: 16,
+        height: 1.35,
+        fontWeight: FontWeight.w700,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextSpan(
-            text: '${data.title}: ',
+          _BreakdownLine(
+            label: 'Mit Weiß',
+            value: data.whiteCount,
+            color: data.titleColor,
+          ),
+          const SizedBox(height: 8),
+          _BreakdownLine(
+            label: 'Mit Schwarz',
+            value: data.blackCount,
+            color: data.titleColor,
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Gesamt: ${data.value}',
             style: TextStyle(
               color: data.titleColor,
-              fontSize: 13,
               fontWeight: FontWeight.w900,
-            ),
-          ),
-          TextSpan(
-            text: data.value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BreakdownLine extends StatelessWidget {
+  const _BreakdownLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 96,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        Text(
+          '$value',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ],
     );
   }
 }

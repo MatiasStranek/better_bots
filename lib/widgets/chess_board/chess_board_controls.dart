@@ -24,12 +24,15 @@ class ChessBoardControls extends StatelessWidget {
     required this.strengthMode,
     required this.botOpeningMove,
     required this.effectiveBotOpeningMove,
+    required this.selectedOpeningMoves,
     required this.botPersonalitySource,
     required this.effectiveBotPersonalitySource,
     required this.botPersonality,
     required this.effectiveBotPersonality,
     required this.fritz19Personality,
     required this.effectiveFritz19Personality,
+    required this.selectedChessiversePersonalities,
+    required this.selectedFritz19Personalities,
     required this.personaCandidateCount,
     required this.isBotThinking,
     required this.isAnalysisMode,
@@ -47,8 +50,13 @@ class ChessBoardControls extends StatelessWidget {
     required this.onCpLossUciSwitchFullMoveNumberChanged,
     required this.onStrengthModeChanged,
     required this.onBotOpeningMoveChanged,
+    required this.onOpeningMoveSelectionToggled,
+    required this.onOpeningMoveSelectionCleared,
     required this.onBotPersonalityChanged,
     required this.onFritz19PersonalityChanged,
+    required this.onChessiversePersonalitySelectionToggled,
+    required this.onFritz19PersonalitySelectionToggled,
+    required this.onPersonalitySelectionCleared,
     required this.onAllPersonalitiesRandomChanged,
     required this.onPersonaCandidateCountChanged,
     super.key,
@@ -61,12 +69,15 @@ class ChessBoardControls extends StatelessWidget {
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
   final BotOpeningMove effectiveBotOpeningMove;
+  final List<BotOpeningMove> selectedOpeningMoves;
   final BotPersonalitySource botPersonalitySource;
   final BotPersonalitySource effectiveBotPersonalitySource;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
   final Fritz19Personality fritz19Personality;
   final Fritz19Personality effectiveFritz19Personality;
+  final List<BotPersonality> selectedChessiversePersonalities;
+  final List<Fritz19Personality> selectedFritz19Personalities;
   final int personaCandidateCount;
   final bool isBotThinking;
   final bool isAnalysisMode;
@@ -86,8 +97,13 @@ class ChessBoardControls extends StatelessWidget {
   final ValueChanged<int> onCpLossUciSwitchFullMoveNumberChanged;
   final ValueChanged<EngineStrengthMode> onStrengthModeChanged;
   final ValueChanged<BotOpeningMove> onBotOpeningMoveChanged;
+  final ValueChanged<BotOpeningMove> onOpeningMoveSelectionToggled;
+  final VoidCallback onOpeningMoveSelectionCleared;
   final ValueChanged<BotPersonality> onBotPersonalityChanged;
   final ValueChanged<Fritz19Personality> onFritz19PersonalityChanged;
+  final ValueChanged<BotPersonality> onChessiversePersonalitySelectionToggled;
+  final ValueChanged<Fritz19Personality> onFritz19PersonalitySelectionToggled;
+  final VoidCallback onPersonalitySelectionCleared;
   final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
 
@@ -160,6 +176,18 @@ class ChessBoardControls extends StatelessWidget {
 
   List<int> get _cpLossUciSwitchMoveValues {
     return const [6, 11, 16, 21, 26];
+  }
+
+  List<List<BotOpeningMove>> get _openingColumns {
+    final values = BotOpeningMove.realOpenings;
+    final columns = <List<BotOpeningMove>>[];
+
+    for (var i = 0; i < values.length; i += 10) {
+      final end = (i + 10).clamp(0, values.length).toInt();
+      columns.add(values.sublist(i, end));
+    }
+
+    return columns;
   }
 
   List<List<int>> get _levelColumns {
@@ -385,162 +413,528 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   Future<void> _showOpeningDialog(BuildContext context) async {
+    final localSelectedOpeningMoves = List<BotOpeningMove>.from(
+      selectedOpeningMoves,
+    );
+    var localBotOpeningMove = botOpeningMove;
+
+    void applyLocalOpeningSelection() {
+      if (localSelectedOpeningMoves.isEmpty) {
+        localBotOpeningMove = BotOpeningMove.none;
+      } else if (localSelectedOpeningMoves.length == 1) {
+        localBotOpeningMove = localSelectedOpeningMoves.first;
+      } else {
+        localBotOpeningMove = BotOpeningMove.random;
+      }
+    }
+
+    bool isOpeningSelected(BotOpeningMove openingMove) {
+      if (openingMove.isRealOpening) {
+        if (localSelectedOpeningMoves.isNotEmpty) {
+          return localSelectedOpeningMoves.contains(openingMove);
+        }
+
+        return localBotOpeningMove == openingMove;
+      }
+
+      return localSelectedOpeningMoves.isEmpty &&
+          localBotOpeningMove == openingMove;
+    }
+
+    void clearLocalOpeningSelection() {
+      localSelectedOpeningMoves.clear();
+      localBotOpeningMove = BotOpeningMove.none;
+    }
+
+    void selectOtherOpening(BotOpeningMove openingMove) {
+      localSelectedOpeningMoves.clear();
+      localBotOpeningMove = openingMove;
+    }
+
     await showDialog<void>(
       context: context,
       builder: (_) {
-        return SimpleDialog(
-          title: const Text(
-            'Eröffnung auswählen',
-            style: _dialogTitleTextStyle,
-          ),
-          children: BotOpeningMove.values
-              .map(
-                (move) => _clickableDialogOption(
-                  onPressed: () {
-                    onBotOpeningMoveChanged(move);
-                    Navigator.pop(context);
-                  },
-                  child: Text(move.label),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Widget buildOpeningsTab() {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _clearSelectionButton(
+                    isEnabled: localSelectedOpeningMoves.length >= 2,
+                    onPressed: () {
+                      setDialogState(clearLocalOpeningSelection);
+                      onOpeningMoveSelectionCleared();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _openingColumns.map((columnValues) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: SizedBox(
+                              width: 150,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: columnValues.map((move) {
+                                  return _selectableTextButton(
+                                    isSelected: isOpeningSelected(move),
+                                    label: move.label,
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        if (localSelectedOpeningMoves.isEmpty &&
+                                            localBotOpeningMove.isRealOpening) {
+                                          localSelectedOpeningMoves.add(
+                                            localBotOpeningMove,
+                                          );
+                                        }
+
+                                        if (localSelectedOpeningMoves.contains(
+                                          move,
+                                        )) {
+                                          localSelectedOpeningMoves.remove(
+                                            move,
+                                          );
+                                        } else {
+                                          localSelectedOpeningMoves.add(move);
+                                        }
+
+                                        applyLocalOpeningSelection();
+                                      });
+
+                                      onOpeningMoveSelectionToggled(move);
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            Widget buildOtherTab() {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _clearSelectionButton(
+                    isEnabled: false,
+                    onPressed: onOpeningMoveSelectionCleared,
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        _selectableTextButton(
+                          isSelected: isOpeningSelected(BotOpeningMove.none),
+                          label: 'Ohne Eröffnung',
+                          onPressed: () {
+                            setDialogState(() {
+                              selectOtherOpening(BotOpeningMove.none);
+                            });
+                            onBotOpeningMoveChanged(BotOpeningMove.none);
+                          },
+                        ),
+                        _selectableTextButton(
+                          isSelected: isOpeningSelected(BotOpeningMove.random),
+                          label: 'Zufällig',
+                          onPressed: () {
+                            setDialogState(() {
+                              selectOtherOpening(BotOpeningMove.random);
+                            });
+                            onBotOpeningMoveChanged(BotOpeningMove.random);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return DefaultTabController(
+              length: 2,
+              child: AlertDialog(
+                title: const Text(
+                  'Eröffnung auswählen',
+                  style: _dialogTitleTextStyle,
                 ),
-              )
-              .toList(),
+                contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                content: SizedBox(
+                  width: 520,
+                  height: 490,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const TabBar(
+                        labelColor: _dialogAccentBlue,
+                        unselectedLabelColor: Colors.black54,
+                        indicatorColor: _dialogAccentBlue,
+                        tabs: [
+                          Tab(text: 'Eröffnungen'),
+                          Tab(text: 'Sonstiges'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            buildOpeningsTab(),
+                            buildOtherTab(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
+  bool _isOpeningSelected(BotOpeningMove openingMove) {
+    if (openingMove.isRealOpening) {
+      if (selectedOpeningMoves.isNotEmpty) {
+        return selectedOpeningMoves.contains(openingMove);
+      }
+
+      return botOpeningMove == openingMove;
+    }
+
+    return selectedOpeningMoves.isEmpty && botOpeningMove == openingMove;
+  }
+
+  void _handleOpeningSelected(BotOpeningMove openingMove) {
+    if (openingMove.isRealOpening) {
+      onOpeningMoveSelectionToggled(openingMove);
+      return;
+    }
+
+    onBotOpeningMoveChanged(openingMove);
+  }
+
   Future<void> _showPersonalityDialog(BuildContext context) async {
+    var localSource = botPersonalitySource;
+    var localBotPersonality = botPersonality;
+    var localFritz19Personality = fritz19Personality;
+    final localChessiversePersonalities = List<BotPersonality>.from(
+      selectedChessiversePersonalities,
+    );
+    final localFritz19Personalities = List<Fritz19Personality>.from(
+      selectedFritz19Personalities,
+    );
+
+    void clearLocalPersonalitySelection() {
+      localSource = BotPersonalitySource.chessiverse;
+      localBotPersonality = BotPersonality.none;
+      localFritz19Personality = Fritz19Personality.allrounder;
+      localChessiversePersonalities.clear();
+      localFritz19Personalities.clear();
+    }
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return DefaultTabController(
-          length: 3,
-          child: AlertDialog(
-            title: const Text(
-              'Persönlichkeit auswählen',
-              style: _dialogTitleTextStyle,
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-            content: SizedBox(
-              width: 520,
-              height: 390,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Widget buildChessiverseTab() {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const TabBar(
-                    labelColor: _dialogAccentBlue,
-                    unselectedLabelColor: Colors.black54,
-                    indicatorColor: _dialogAccentBlue,
-                    tabs: [
-                      Tab(text: 'Chessiverse'),
-                      Tab(text: 'Fritz19'),
-                      Tab(text: 'Sonstiges'),
-                    ],
+                  _clearSelectionButton(
+                    isEnabled:
+                        localSource == BotPersonalitySource.chessiverse &&
+                            localChessiversePersonalities.length >= 2,
+                    onPressed: () {
+                      setDialogState(clearLocalPersonalitySelection);
+                      onPersonalitySelectionCleared();
+                    },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildChessiversePersonalityTab(dialogContext),
-                        _buildFritz19PersonalityTab(dialogContext),
-                        _buildOtherPersonalityTab(dialogContext),
-                      ],
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children:
+                          BotPersonality.concretePersonalities.map((personality) {
+                        final isSelected =
+                            localChessiversePersonalities.isNotEmpty
+                                ? localChessiversePersonalities.contains(
+                                    personality,
+                                  )
+                                : localSource ==
+                                        BotPersonalitySource.chessiverse &&
+                                    localBotPersonality == personality;
+
+                        return _selectableTextButton(
+                          isSelected: isSelected,
+                          label: personality.label,
+                          onPressed: () {
+                            setDialogState(() {
+                              if (localSource !=
+                                  BotPersonalitySource.chessiverse) {
+                                localChessiversePersonalities.clear();
+                              } else if (localChessiversePersonalities.isEmpty &&
+                                  localBotPersonality.isConcretePersonality) {
+                                localChessiversePersonalities.add(
+                                  localBotPersonality,
+                                );
+                              }
+
+                              if (localChessiversePersonalities.contains(
+                                personality,
+                              )) {
+                                localChessiversePersonalities.remove(
+                                  personality,
+                                );
+                              } else {
+                                localChessiversePersonalities.add(personality);
+                              }
+
+                              localSource = BotPersonalitySource.chessiverse;
+                              localFritz19Personalities.clear();
+
+                              if (localChessiversePersonalities.isEmpty) {
+                                localBotPersonality = BotPersonality.none;
+                              } else if (localChessiversePersonalities.length ==
+                                  1) {
+                                localBotPersonality =
+                                    localChessiversePersonalities.first;
+                              } else {
+                                localBotPersonality = BotPersonality.random;
+                              }
+                            });
+                            onChessiversePersonalitySelectionToggled(
+                              personality,
+                            );
+                          },
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
+              );
+            }
+
+            Widget buildFritz19Tab() {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _clearSelectionButton(
+                    isEnabled: localSource == BotPersonalitySource.fritz19 &&
+                        localFritz19Personalities.length >= 2,
+                    onPressed: () {
+                      setDialogState(clearLocalPersonalitySelection);
+                      onPersonalitySelectionCleared();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: Fritz19Personality.concretePersonalities
+                          .map((personality) {
+                        final isSelected = localFritz19Personalities.isNotEmpty
+                            ? localFritz19Personalities.contains(personality)
+                            : localSource == BotPersonalitySource.fritz19 &&
+                                localFritz19Personality == personality;
+
+                        return _selectableTextButton(
+                          isSelected: isSelected,
+                          label: personality.label,
+                          onPressed: () {
+                            setDialogState(() {
+                              if (localSource != BotPersonalitySource.fritz19) {
+                                localFritz19Personalities.clear();
+                              } else if (localFritz19Personalities.isEmpty &&
+                                  localFritz19Personality
+                                      .isConcretePersonality) {
+                                localFritz19Personalities.add(
+                                  localFritz19Personality,
+                                );
+                              }
+
+                              if (localFritz19Personalities.contains(
+                                personality,
+                              )) {
+                                localFritz19Personalities.remove(personality);
+                              } else {
+                                localFritz19Personalities.add(personality);
+                              }
+
+                              localSource = BotPersonalitySource.fritz19;
+                              localChessiversePersonalities.clear();
+
+                              if (localFritz19Personalities.isEmpty) {
+                                localSource = BotPersonalitySource.chessiverse;
+                                localBotPersonality = BotPersonality.none;
+                                localFritz19Personality =
+                                    Fritz19Personality.allrounder;
+                              } else if (localFritz19Personalities.length == 1) {
+                                localFritz19Personality =
+                                    localFritz19Personalities.first;
+                              } else {
+                                localFritz19Personality =
+                                    Fritz19Personality.random;
+                              }
+                            });
+                            onFritz19PersonalitySelectionToggled(personality);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            Widget buildOtherTab() {
+              final options = <_OtherPersonalityOption>[
+                _OtherPersonalityOption(
+                  label: 'Ohne Persönlichkeit',
+                  isSelected: localSource == BotPersonalitySource.chessiverse &&
+                      localBotPersonality == BotPersonality.none,
+                  onSelected: () {
+                    setDialogState(clearLocalPersonalitySelection);
+                    onBotPersonalityChanged(BotPersonality.none);
+                  },
+                ),
+                _OtherPersonalityOption(
+                  label: 'Chessiverse Zufällig',
+                  isSelected: localSource == BotPersonalitySource.chessiverse &&
+                      localBotPersonality == BotPersonality.random &&
+                      localChessiversePersonalities.isEmpty,
+                  onSelected: () {
+                    setDialogState(() {
+                      localSource = BotPersonalitySource.chessiverse;
+                      localBotPersonality = BotPersonality.random;
+                      localChessiversePersonalities.clear();
+                      localFritz19Personalities.clear();
+                    });
+                    onBotPersonalityChanged(BotPersonality.random);
+                  },
+                ),
+                _OtherPersonalityOption(
+                  label: 'Fritz19 Zufällig',
+                  isSelected: localSource == BotPersonalitySource.fritz19 &&
+                      localFritz19Personality == Fritz19Personality.random &&
+                      localFritz19Personalities.isEmpty,
+                  onSelected: () {
+                    setDialogState(() {
+                      localSource = BotPersonalitySource.fritz19;
+                      localFritz19Personality = Fritz19Personality.random;
+                      localChessiversePersonalities.clear();
+                      localFritz19Personalities.clear();
+                    });
+                    onFritz19PersonalityChanged(Fritz19Personality.random);
+                  },
+                ),
+                _OtherPersonalityOption(
+                  label: 'Alles Zufällig',
+                  isSelected: localSource == BotPersonalitySource.random,
+                  onSelected: () {
+                    setDialogState(() {
+                      localSource = BotPersonalitySource.random;
+                      localChessiversePersonalities.clear();
+                      localFritz19Personalities.clear();
+                    });
+                    onAllPersonalitiesRandomChanged();
+                  },
+                ),
+              ];
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _clearSelectionButton(
+                    isEnabled: false,
+                    onPressed: onPersonalitySelectionCleared,
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: options.map((option) {
+                        return _selectableTextButton(
+                          isSelected: option.isSelected,
+                          label: option.label,
+                          onPressed: option.onSelected,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return DefaultTabController(
+              length: 3,
+              child: AlertDialog(
+                title: const Text(
+                  'Persönlichkeit auswählen',
+                  style: _dialogTitleTextStyle,
+                ),
+                contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                content: SizedBox(
+                  width: 520,
+                  height: 390,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const TabBar(
+                        labelColor: _dialogAccentBlue,
+                        unselectedLabelColor: Colors.black54,
+                        indicatorColor: _dialogAccentBlue,
+                        tabs: [
+                          Tab(text: 'Chessiverse'),
+                          Tab(text: 'Fritz19'),
+                          Tab(text: 'Sonstiges'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            buildChessiverseTab(),
+                            buildFritz19Tab(),
+                            buildOtherTab(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildChessiversePersonalityTab(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: BotPersonality.concretePersonalities
-          .map(
-            (personality) => _clickableDialogOption(
-              onPressed: () {
-                onBotPersonalityChanged(personality);
-                Navigator.pop(context);
-              },
-              child: _PersonalityDialogLabel(
-                personality: personality,
-                selectedPersonality: botPersonality,
-                source: botPersonalitySource,
-                effectiveBotPersonality: effectiveBotPersonality,
-              ),
-            ),
-          )
-          .toList(),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildFritz19PersonalityTab(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: Fritz19Personality.concretePersonalities
-          .map(
-            (personality) => _clickableDialogOption(
-              onPressed: () {
-                onFritz19PersonalityChanged(personality);
-                Navigator.pop(context);
-              },
-              child: Text(
-                botPersonalitySource == BotPersonalitySource.fritz19 &&
-                        personality == fritz19Personality
-                    ? '✓ ${personality.label}'
-                    : personality.label,
-              ),
-            ),
-          )
-          .toList(),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildOtherPersonalityTab(BuildContext context) {
-    final options = <_OtherPersonalityOption>[
-      _OtherPersonalityOption(
-        label: 'Ohne Persönlichkeit',
-        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
-            botPersonality == BotPersonality.none,
-        onSelected: () => onBotPersonalityChanged(BotPersonality.none),
-      ),
-      _OtherPersonalityOption(
-        label: 'Chessiverse Zufällig',
-        isSelected: botPersonalitySource == BotPersonalitySource.chessiverse &&
-            botPersonality == BotPersonality.random,
-        onSelected: () => onBotPersonalityChanged(BotPersonality.random),
-      ),
-      _OtherPersonalityOption(
-        label: 'Fritz19 Zufällig',
-        isSelected: botPersonalitySource == BotPersonalitySource.fritz19 &&
-            fritz19Personality == Fritz19Personality.random,
-        onSelected: () => onFritz19PersonalityChanged(
-          Fritz19Personality.random,
-        ),
-      ),
-      _OtherPersonalityOption(
-        label: 'Alles Zufällig',
-        isSelected: botPersonalitySource == BotPersonalitySource.random,
-        onSelected: onAllPersonalitiesRandomChanged,
-      ),
-    ];
-
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: options.map((option) {
-        return _clickableDialogOption(
-          onPressed: () {
-            option.onSelected();
-            Navigator.pop(context);
-          },
-          child: Text(option.isSelected ? '✓ ${option.label}' : option.label),
-        );
-      }).toList(),
-    );
+    return const SizedBox.shrink();
   }
 
   Future<void> _showCandidateDialog(BuildContext context) async {
@@ -602,6 +996,70 @@ class ChessBoardControls extends StatelessWidget {
     );
   }
 
+  Widget _clearSelectionButton({
+    required bool isEnabled,
+    required VoidCallback onPressed,
+  }) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton(
+        onPressed: isEnabled ? onPressed : null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: isEnabled
+              ? _dialogAccentBlue
+              : Colors.black.withAlpha(95),
+          backgroundColor: isEnabled
+              ? _dialogAccentBlue.withAlpha(24)
+              : Colors.black.withAlpha(10),
+          side: BorderSide(
+            color: isEnabled
+                ? _dialogAccentBlue.withAlpha(150)
+                : Colors.black.withAlpha(28),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text('Auswahl entfernen'),
+      ),
+    );
+  }
+
+  Widget _selectableTextButton({
+    required bool isSelected,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? _dialogAccentBlue.withAlpha(26)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? _dialogAccentBlue.withAlpha(120)
+                : Colors.transparent,
+          ),
+        ),
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            foregroundColor: _dialogAccentBlue,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+          child: Text(label),
+        ),
+      ),
+    );
+  }
+
   Widget _clickableDialogOption({
     required Widget child,
     required VoidCallback onPressed,
@@ -625,7 +1083,9 @@ class ChessBoardControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final personalityEnabled =
         botPersonalitySource != BotPersonalitySource.chessiverse ||
-        botPersonality != BotPersonality.none;
+        botPersonality != BotPersonality.none ||
+        selectedChessiversePersonalities.isNotEmpty ||
+        selectedFritz19Personalities.isNotEmpty;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
     final normalControlsEnabled = !isBotThinking && !isAnalysisMode;

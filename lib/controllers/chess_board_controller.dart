@@ -1,6 +1,7 @@
 library chess_board_controller;
 
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/foundation.dart';
@@ -74,6 +75,7 @@ class ChessBoardController extends ChangeNotifier {
   BotOpeningMove _botOpeningMove = BotOpeningMove.random;
   bool _openingLogicAllowed = true;
   BotOpeningMove? _resolvedRandomOpeningMove;
+  final List<BotOpeningMove> _selectedOpeningMoves = [];
 
   BotPersonalitySource _botPersonalitySource =
       BotPersonalitySource.chessiverse;
@@ -82,7 +84,11 @@ class ChessBoardController extends ChangeNotifier {
   BotPersonality? _resolvedRandomPersonality;
   Fritz19Personality _fritz19Personality = Fritz19Personality.allrounder;
   Fritz19Personality? _resolvedRandomFritz19Personality;
+  final List<BotPersonality> _selectedChessiversePersonalities = [];
+  final List<Fritz19Personality> _selectedFritz19Personalities = [];
   int _personaCandidateCount = 64;
+
+  _PendingBotSettings? _pendingBotSettings;
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
@@ -132,6 +138,10 @@ class ChessBoardController extends ChangeNotifier {
     return _resolveSelectedOpening(this);
   }
 
+  UnmodifiableListView<BotOpeningMove> get selectedOpeningMoves {
+    return UnmodifiableListView(_selectedOpeningMoves);
+  }
+
   BotPersonalitySource get botPersonalitySource => _botPersonalitySource;
 
   BotPersonalitySource get effectiveBotPersonalitySource {
@@ -148,6 +158,14 @@ class ChessBoardController extends ChangeNotifier {
 
   Fritz19Personality get effectiveFritz19Personality {
     return _controllerEffectiveFritz19Personality(this);
+  }
+
+  UnmodifiableListView<BotPersonality> get selectedChessiversePersonalities {
+    return UnmodifiableListView(_selectedChessiversePersonalities);
+  }
+
+  UnmodifiableListView<Fritz19Personality> get selectedFritz19Personalities {
+    return UnmodifiableListView(_selectedFritz19Personalities);
   }
 
   String get activePersonalityLabel {
@@ -321,21 +339,35 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void setBotOpeningMove(BotOpeningMove move) {
-    if (_isBotThinking || isAnalysisMode) {
-      return;
-    }
+    return _controllerSetBotOpeningMove(this, move);
+  }
 
-    _botOpeningMove = move;
-    _resolvedRandomOpeningMove = null;
-    _safeNotify(this);
+  void toggleOpeningMoveSelection(BotOpeningMove move) {
+    return _controllerToggleOpeningMoveSelection(this, move);
+  }
+
+  void clearOpeningMoveSelection() {
+    return _controllerClearOpeningMoveSelection(this);
   }
 
   void setBotPersonality(BotPersonality personality) {
     return _controllerSetBotPersonality(this, personality);
   }
 
+  void toggleChessiversePersonalitySelection(BotPersonality personality) {
+    return _controllerToggleChessiversePersonalitySelection(this, personality);
+  }
+
   void setFritz19Personality(Fritz19Personality personality) {
     return _controllerSetFritz19Personality(this, personality);
+  }
+
+  void toggleFritz19PersonalitySelection(Fritz19Personality personality) {
+    return _controllerToggleFritz19PersonalitySelection(this, personality);
+  }
+
+  void clearPersonalitySelection() {
+    return _controllerClearPersonalitySelection(this);
   }
 
   void setAllPersonalitiesRandom() {

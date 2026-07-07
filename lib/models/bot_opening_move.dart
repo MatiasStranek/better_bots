@@ -35,13 +35,13 @@ enum BotOpeningMove {
   final String? whiteUci;
   final String? blackUci;
 
+  bool get isRealOpening {
+    return this != BotOpeningMove.none && this != BotOpeningMove.random;
+  }
+
   static List<BotOpeningMove> get realOpenings {
     return values
-        .where(
-          (move) =>
-              move != BotOpeningMove.none && move != BotOpeningMove.random,
-        )
+        .where((move) => move.isRealOpening)
         .toList();
   }
 }
-

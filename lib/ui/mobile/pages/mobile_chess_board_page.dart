@@ -260,6 +260,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 strengthMode: _controller.strengthMode,
                 botOpeningMove: _controller.botOpeningMove,
                 effectiveBotOpeningMove: _controller.effectiveBotOpeningMove,
+                selectedOpeningMoves: _controller.selectedOpeningMoves,
                 botPersonalitySource: _controller.botPersonalitySource,
                 effectiveBotPersonalitySource:
                     _controller.effectiveBotPersonalitySource,
@@ -268,6 +269,10 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 fritz19Personality: _controller.fritz19Personality,
                 effectiveFritz19Personality:
                     _controller.effectiveFritz19Personality,
+                selectedChessiversePersonalities:
+                    _controller.selectedChessiversePersonalities,
+                selectedFritz19Personalities:
+                    _controller.selectedFritz19Personalities,
                 personaCandidateCount: _controller.personaCandidateCount,
                 controlsEnabled: !_controller.isBotThinking,
 
@@ -302,9 +307,19 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                     _controller.setCpLossUciSwitchFullMoveNumber,
                 onStrengthModeChanged: _controller.setStrengthMode,
                 onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+                onOpeningMoveSelectionToggled:
+                    _controller.toggleOpeningMoveSelection,
+                onOpeningMoveSelectionCleared:
+                    _controller.clearOpeningMoveSelection,
                 onBotPersonalityChanged: _controller.setBotPersonality,
                 onFritz19PersonalityChanged:
                     _controller.setFritz19Personality,
+                onChessiversePersonalitySelectionToggled:
+                    _controller.toggleChessiversePersonalitySelection,
+                onFritz19PersonalitySelectionToggled:
+                    _controller.toggleFritz19PersonalitySelection,
+                onPersonalitySelectionCleared:
+                    _controller.clearPersonalitySelection,
                 onAllPersonalitiesRandomChanged:
                     _controller.setAllPersonalitiesRandom,
                 onPersonaCandidateCountChanged:

@@ -409,14 +409,31 @@ BotOpeningMove _resolveSelectedOpening(ChessBoardController controller) {
     return controller._botOpeningMove;
   }
 
-  controller._resolvedRandomOpeningMove ??= _randomOpeningMove();
+  controller._resolvedRandomOpeningMove ??=
+      controller._selectedOpeningMoves.length >= 2
+          ? _randomOpeningMoveFromSelection(controller._selectedOpeningMoves)
+          : _randomOpeningMove();
 
   return controller._resolvedRandomOpeningMove!;
 }
 
 BotOpeningMove _randomOpeningMove() {
-  final openings = List<BotOpeningMove>.from(BotOpeningMove.realOpenings);
+  return _randomOpeningMoveFromSelection(BotOpeningMove.realOpenings);
+}
+
+BotOpeningMove _randomOpeningMoveFromSelection(
+  List<BotOpeningMove> openingMoves,
+) {
+  final openings = openingMoves
+      .where((openingMove) => openingMove.isRealOpening)
+      .toList();
+
+  if (openings.isEmpty) {
+    return BotOpeningMove.realOpenings.first;
+  }
+
   openings.shuffle();
+
   return openings.first;
 }
 
