@@ -135,7 +135,11 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
         final sideName = playerSide == PlayerSide.white ? 'Weiß' : 'Schwarz';
 
         return AlertDialog(
-          title: const Text('Bauernumwandlung'),
+          title: const Text(
+            'Bauernumwandlung',
+            style: _dialogTitleTextStyle,
+          ),
+          contentTextStyle: const TextStyle(color: Colors.black87),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -216,7 +220,11 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
         barrierDismissible: true,
         builder: (context) {
           return AlertDialog(
-            title: const Text('FEN laden'),
+            title: const Text(
+              'FEN laden',
+              style: _dialogTitleTextStyle,
+            ),
+            contentTextStyle: const TextStyle(color: Colors.black87),
             content: SizedBox(
               width: 520,
               child: TextField(
@@ -234,12 +242,18 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  foregroundColor: _dialogAccentBlue,
+                ),
                 child: const Text('Abbrechen'),
               ),
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop(fenController.text);
                 },
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: _dialogAccentBlue,
+                ),
                 icon: const Icon(Icons.check),
                 label: const Text('FEN bestätigen'),
               ),
@@ -301,134 +315,277 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appTheme = _darkBackgroundTheme(theme);
 
     return Theme(
-      data: theme.copyWith(
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: _buttonStyleWithClickCursor(theme.elevatedButtonTheme.style),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: _buttonStyleWithClickCursor(theme.outlinedButtonTheme.style),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: _buttonStyleWithClickCursor(theme.textButtonTheme.style),
-        ),
-      ),
-      child: KeyboardListener(
-        focusNode: _keyboardFocusNode,
-        autofocus: true,
-        onKeyEvent: _handleKeyEvent,
-        child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ChessStatusText(text: _controller.statusText),
-              const SizedBox(height: 12),
-              ChessBoardControls(
-                skillLevel: _controller.skillLevel,
-                uciElo: _controller.uciElo,
-                cpLossElo: _controller.cpLossElo,
-                cpLossUciSwitchFullMoveNumber:
-                    _controller.cpLossUciSwitchFullMoveNumber,
-                strengthMode: _controller.strengthMode,
-                botOpeningMove: _controller.botOpeningMove,
-                botPersonality: _controller.botPersonality,
-                effectiveBotPersonality: _controller.effectiveBotPersonality,
-                personaCandidateCount: _controller.personaCandidateCount,
-                isBotThinking: _controller.isBotThinking,
-                isAnalysisMode: _controller.isAnalysisMode,
-                canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,
-                canNavigateAnalysisForward:
-                    _controller.canNavigateAnalysisForward,
-                onNewGame: _controller.newGame,
-                onRestart: _controller.restartGame,
-                onToggleAnalysisMode: _controller.toggleAnalysisMode,
-                onAnalysisBack: _controller.stepAnalysisBack,
-                onAnalysisForward: _controller.stepAnalysisForward,
-                onSkillLevelChanged: _controller.setSkillLevel,
-                onUciEloChanged: _controller.setUciElo,
-                onCpLossEloChanged: _controller.setCpLossElo,
-                onCpLossUciSwitchFullMoveNumberChanged:
-                    _controller.setCpLossUciSwitchFullMoveNumber,
-                onStrengthModeChanged: _controller.setStrengthMode,
-                onBotOpeningMoveChanged: _controller.setBotOpeningMove,
-                onBotPersonalityChanged: _controller.setBotPersonality,
-                onPersonaCandidateCountChanged:
-                    _controller.setPersonaCandidateCount,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ChessBoardGrid(
-                    playerIsWhite: _controller.playerIsWhite,
-                    isAnalysisMode: _controller.isAnalysisMode,
-                    highlights: _controller.highlights,
-                    pieceAt: _controller.pieceAt,
-                    canHumanMovePiece: _controller.canHumanMovePiece,
-                    canMoveTo: _controller.canMoveTo,
-                    legalTargetsFromSquare: _controller.legalTargetsFromSquare,
-                    onSquareTap: _controller.onSquareTap,
-                    onMove: _controller.tryHumanMove,
-                    onPieceDragStarted: _controller.selectSquare,
-                    onPieceDragEnded: _controller.clearSelectedSquare,
-                    annotationModeEnabled: true,
-                    annotationMarkedSquares: _activeAnnotationMarkedSquares,
-                    annotationArrows: _activeAnnotationArrows,
-                    onClearAnnotations: _clearBoardAnnotations,
-                    onToggleAnnotationSquare: _toggleAnnotationSquare,
-                    onToggleAnnotationArrow: _toggleAnnotationArrow,
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ChessBoardDebugPanel(
-                            playerSide: _controller.playerSide,
-                            fen: _controller.fen,
-                            pgn: _controller.pgn,
-                            engineOutput: _controller.engineOutput,
-                            isAnalysisMode: _controller.isAnalysisMode,
-                            isAnalysisThinking: _controller.isAnalysisThinking,
-                            analysisLines: _controller.analysisLines,
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _copyPgnToClipboard,
-                                icon: const Icon(Icons.copy),
-                                label: const Text('PGN kopieren'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: _controller.isAnalysisMode
-                                    ? null
-                                    : _showLoadFenDialog,
-                                icon: const Icon(Icons.input),
-                                label: const Text('FEN laden'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+      data: appTheme,
+      child: DefaultTextStyle(
+        style: appTheme.textTheme.bodyMedium ?? const TextStyle(),
+        child: IconTheme(
+          data: const IconThemeData(color: _lightBlueForeground),
+          child: KeyboardListener(
+            focusNode: _keyboardFocusNode,
+            autofocus: true,
+            onKeyEvent: _handleKeyEvent,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ChessStatusText(text: _controller.statusText),
+                    const SizedBox(height: 12),
+                    ChessBoardControls(
+                      skillLevel: _controller.skillLevel,
+                      uciElo: _controller.uciElo,
+                      cpLossElo: _controller.cpLossElo,
+                      cpLossUciSwitchFullMoveNumber:
+                          _controller.cpLossUciSwitchFullMoveNumber,
+                      strengthMode: _controller.strengthMode,
+                      botOpeningMove: _controller.botOpeningMove,
+                      botPersonality: _controller.botPersonality,
+                      effectiveBotPersonality:
+                          _controller.effectiveBotPersonality,
+                      personaCandidateCount: _controller.personaCandidateCount,
+                      isBotThinking: _controller.isBotThinking,
+                      isAnalysisMode: _controller.isAnalysisMode,
+                      canNavigateAnalysisBack:
+                          _controller.canNavigateAnalysisBack,
+                      canNavigateAnalysisForward:
+                          _controller.canNavigateAnalysisForward,
+                      onNewGame: _controller.newGame,
+                      onRestart: _controller.restartGame,
+                      onToggleAnalysisMode: _controller.toggleAnalysisMode,
+                      onAnalysisBack: _controller.stepAnalysisBack,
+                      onAnalysisForward: _controller.stepAnalysisForward,
+                      onSkillLevelChanged: _controller.setSkillLevel,
+                      onUciEloChanged: _controller.setUciElo,
+                      onCpLossEloChanged: _controller.setCpLossElo,
+                      onCpLossUciSwitchFullMoveNumberChanged:
+                          _controller.setCpLossUciSwitchFullMoveNumber,
+                      onStrengthModeChanged: _controller.setStrengthMode,
+                      onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+                      onBotPersonalityChanged: _controller.setBotPersonality,
+                      onPersonaCandidateCountChanged:
+                          _controller.setPersonaCandidateCount,
                     ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ChessBoardGrid(
+                          playerIsWhite: _controller.playerIsWhite,
+                          isAnalysisMode: _controller.isAnalysisMode,
+                          highlights: _controller.highlights,
+                          pieceAt: _controller.pieceAt,
+                          canHumanMovePiece: _controller.canHumanMovePiece,
+                          canMoveTo: _controller.canMoveTo,
+                          legalTargetsFromSquare:
+                              _controller.legalTargetsFromSquare,
+                          onSquareTap: _controller.onSquareTap,
+                          onMove: _controller.tryHumanMove,
+                          onPieceDragStarted: _controller.selectSquare,
+                          onPieceDragEnded: _controller.clearSelectedSquare,
+                          annotationModeEnabled: true,
+                          annotationMarkedSquares:
+                              _activeAnnotationMarkedSquares,
+                          annotationArrows: _activeAnnotationArrows,
+                          onClearAnnotations: _clearBoardAnnotations,
+                          onToggleAnnotationSquare: _toggleAnnotationSquare,
+                          onToggleAnnotationArrow: _toggleAnnotationArrow,
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 760),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ChessBoardDebugPanel(
+                                  playerSide: _controller.playerSide,
+                                  fen: _controller.fen,
+                                  pgn: _controller.pgn,
+                                  engineOutput: _controller.engineOutput,
+                                  isAnalysisMode: _controller.isAnalysisMode,
+                                  isAnalysisThinking:
+                                      _controller.isAnalysisThinking,
+                                  analysisLines: _controller.analysisLines,
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _copyPgnToClipboard,
+                                      icon: const Icon(Icons.copy),
+                                      label: const Text('PGN kopieren'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _controller.isAnalysisMode
+                                          ? null
+                                          : _showLoadFenDialog,
+                                      icon: const Icon(Icons.input),
+                                      label: const Text('FEN laden'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
   }
+}
+
+const Color _lightBlueForeground = Color(0xFFAEDBFF);
+const Color _dialogAccentBlue = Color(0xFF2E5F93);
+const TextStyle _dialogTitleTextStyle = TextStyle(color: Colors.black);
+const Color _enabledButtonBackground = Color(0xF2FFFFFF);
+const Color _disabledButtonBackground = Color(0x22FFFFFF);
+const Color _disabledButtonForeground = Color(0xFF8D95A3);
+
+ThemeData _darkBackgroundTheme(ThemeData baseTheme) {
+  final colorScheme = baseTheme.colorScheme.copyWith(
+    primary: _lightBlueForeground,
+    onPrimary: _lightBlueForeground,
+    onSurface: Colors.white,
+    surface: Colors.white,
+  );
+
+  return baseTheme.copyWith(
+    colorScheme: colorScheme,
+    textTheme: _whiteTextTheme(baseTheme.textTheme),
+    iconTheme: baseTheme.iconTheme.copyWith(color: _lightBlueForeground),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: _filledButtonStyleWithClickCursor(
+        baseTheme.elevatedButtonTheme.style,
+        baseTheme.colorScheme.primary,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: _outlinedButtonStyleWithClickCursor(
+        baseTheme.outlinedButtonTheme.style,
+        _lightBlueForeground,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: _textButtonStyleWithClickCursor(
+        baseTheme.textButtonTheme.style,
+        baseTheme.colorScheme.primary,
+      ),
+    ),
+  );
+}
+
+TextTheme _whiteTextTheme(TextTheme textTheme) {
+  TextStyle? makeWhite(TextStyle? style) {
+    return style?.copyWith(color: Colors.white, shadows: const <Shadow>[]);
+  }
+
+  return textTheme.copyWith(
+    displayLarge: makeWhite(textTheme.displayLarge),
+    displayMedium: makeWhite(textTheme.displayMedium),
+    displaySmall: makeWhite(textTheme.displaySmall),
+    headlineLarge: makeWhite(textTheme.headlineLarge),
+    headlineMedium: makeWhite(textTheme.headlineMedium),
+    headlineSmall: makeWhite(textTheme.headlineSmall),
+    titleLarge: makeWhite(textTheme.titleLarge),
+    titleMedium: makeWhite(textTheme.titleMedium),
+    titleSmall: makeWhite(textTheme.titleSmall),
+    bodyLarge: makeWhite(textTheme.bodyLarge),
+    bodyMedium: makeWhite(textTheme.bodyMedium),
+    bodySmall: makeWhite(textTheme.bodySmall),
+    labelLarge: makeWhite(textTheme.labelLarge),
+    labelMedium: makeWhite(textTheme.labelMedium),
+    labelSmall: makeWhite(textTheme.labelSmall),
+  );
+}
+
+ButtonStyle _filledButtonStyleWithClickCursor(
+  ButtonStyle? baseStyle,
+  Color buttonForeground,
+) {
+  return _buttonStyleWithClickCursor(baseStyle).copyWith(
+    foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return _disabledButtonForeground;
+      }
+
+      return buttonForeground;
+    }),
+    iconColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return _disabledButtonForeground;
+      }
+
+      return buttonForeground;
+    }),
+    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return _disabledButtonBackground;
+      }
+
+      return _enabledButtonBackground;
+    }),
+    shadowColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
+    surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
+  );
+}
+
+ButtonStyle _outlinedButtonStyleWithClickCursor(
+  ButtonStyle? baseStyle,
+  Color buttonForeground,
+) {
+  return _buttonStyleWithClickCursor(baseStyle).copyWith(
+    foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return _disabledButtonForeground;
+      }
+
+      return buttonForeground;
+    }),
+    iconColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return _disabledButtonForeground;
+      }
+
+      return buttonForeground;
+    }),
+    side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return BorderSide(color: _disabledButtonForeground.withAlpha(100));
+      }
+
+      return BorderSide(color: buttonForeground.withAlpha(210));
+    }),
+    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return Colors.white.withAlpha(12);
+      }
+
+      return Colors.white.withAlpha(16);
+    }),
+  );
+}
+
+ButtonStyle _textButtonStyleWithClickCursor(
+  ButtonStyle? baseStyle,
+  Color buttonForeground,
+) {
+  return _buttonStyleWithClickCursor(baseStyle).copyWith(
+    foregroundColor: WidgetStatePropertyAll<Color>(buttonForeground),
+    iconColor: WidgetStatePropertyAll<Color>(buttonForeground),
+  );
 }
 
 ButtonStyle _buttonStyleWithClickCursor(ButtonStyle? baseStyle) {
@@ -460,6 +617,9 @@ class _PromotionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () => onSelected(notation),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _dialogAccentBlue,
+      ),
       icon: Icon(icon),
       label: Text(label),
     );

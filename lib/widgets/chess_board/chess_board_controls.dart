@@ -6,6 +6,13 @@ import '../../models/bot_personality.dart';
 import '../../models/engine_strength_mode.dart';
 import '../../models/player_side.dart';
 
+const Color _analysisButtonForeground = Color(0xFFFF9800);
+const Color _dialogAccentBlue = Color(0xFF2E5F93);
+const TextStyle _dialogTitleTextStyle = TextStyle(color: Colors.black);
+const TextStyle _dialogSelectableTextStyle = TextStyle(
+  color: _dialogAccentBlue,
+);
+
 class ChessBoardControls extends StatelessWidget {
   const ChessBoardControls({
     required this.skillLevel,
@@ -100,7 +107,7 @@ class ChessBoardControls extends StatelessWidget {
 
   List<int> get _eloValues => [
     1320,
-    ...List.generate(18, (i) => 1400 + i * 100),
+    ...List.generate(18, (index) => 1400 + index * 100),
     3190,
   ];
 
@@ -112,17 +119,16 @@ class ChessBoardControls extends StatelessWidget {
     return const [6, 11, 16, 21, 26];
   }
 
+  List<List<int>> get _levelColumns {
+    return _columnsFromValues(List.generate(21, (index) => index), 5);
+  }
+
+  List<List<int>> get _uciEloColumns {
+    return _columnsFromValues(_eloValues, 5);
+  }
+
   List<List<int>> get _cpLossEloColumns {
-    const entriesPerColumn = 10;
-    final values = _cpLossEloValues;
-    final columns = <List<int>>[];
-
-    for (var i = 0; i < values.length; i += entriesPerColumn) {
-      final end = (i + entriesPerColumn).clamp(0, values.length).toInt();
-      columns.add(values.sublist(i, end));
-    }
-
-    return columns;
+    return _columnsFromValues(_cpLossEloValues, 10);
   }
 
   List<int> get _candidateValues {
@@ -130,8 +136,10 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   List<List<int>> get _candidateColumns {
-    const entriesPerColumn = 10;
-    final values = _candidateValues;
+    return _columnsFromValues(_candidateValues, 10);
+  }
+
+  List<List<int>> _columnsFromValues(List<int> values, int entriesPerColumn) {
     final columns = <List<int>>[];
 
     for (var i = 0; i < values.length; i += entriesPerColumn) {
@@ -142,133 +150,168 @@ class ChessBoardControls extends StatelessWidget {
     return columns;
   }
 
+  int get _strengthDialogInitialTabIndex {
+    switch (strengthMode) {
+      case EngineStrengthMode.level:
+        return 0;
+      case EngineStrengthMode.uciElo:
+        return 1;
+      case EngineStrengthMode.cpLossElo:
+        return 2;
+    }
+  }
+
   Future<void> _showStrengthDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
-      builder: (_) {
-        return SimpleDialog(
-          title: const Text('Spielstärke'),
-          children: [
-            _clickableDialogOption(
-              child: const Text('Level'),
-              onPressed: () {
-                Navigator.pop(context);
-                onStrengthModeChanged(EngineStrengthMode.level);
-                _showLevelDialog(context);
-              },
+      builder: (dialogContext) {
+        return DefaultTabController(
+          initialIndex: _strengthDialogInitialTabIndex,
+          length: 3,
+          child: AlertDialog(
+            title: const Text(
+              'Spielstärke',
+              style: _dialogTitleTextStyle,
             ),
-            _clickableDialogOption(
-              child: const Text('UCI_ELO'),
-              onPressed: () {
-                Navigator.pop(context);
-                onStrengthModeChanged(EngineStrengthMode.uciElo);
-                _showEloDialog(context);
-              },
-            ),
-            _clickableDialogOption(
-              child: const Text('CP_Loss_ELO'),
-              onPressed: () {
-                Navigator.pop(context);
-                onStrengthModeChanged(EngineStrengthMode.cpLossElo);
-                _showCpLossEloDialog(context);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showLevelDialog(BuildContext context) async {
-    final levels = List.generate(21, (i) => i);
-
-    await showDialog<void>(
-      context: context,
-      builder: (_) {
-        return SimpleDialog(
-          title: const Text('Level auswählen'),
-          children: levels
-              .map(
-                (level) => _clickableDialogOption(
-                  onPressed: () {
-                    onSkillLevelChanged(level);
-                    Navigator.pop(context);
-                  },
-                  child: Text('Level $level'),
-                ),
-              )
-              .toList(),
-        );
-      },
-    );
-  }
-
-  Future<void> _showEloDialog(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) {
-        return SimpleDialog(
-          title: const Text('UCI_ELO auswählen'),
-          children: _eloValues
-              .map(
-                (elo) => _clickableDialogOption(
-                  onPressed: () {
-                    onUciEloChanged(elo);
-                    Navigator.pop(context);
-                  },
-                  child: Text('$elo'),
-                ),
-              )
-              .toList(),
-        );
-      },
-    );
-  }
-
-  Future<void> _showCpLossEloDialog(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: const Text('CP_Loss_ELO auswählen'),
-          content: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _cpLossEloColumns.map((columnValues) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: SizedBox(
-                    width: 120,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: columnValues.map((elo) {
-                        final isSelected = elo == cpLossElo;
-
-                        return TextButton(
-                          onPressed: () {
-                            onCpLossEloChanged(elo);
-                            Navigator.pop(context);
-                          },
-                          style: TextButton.styleFrom(
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ),
-                          ),
-                          child: Text(isSelected ? '✓ $elo' : '$elo'),
-                        );
-                      }).toList(),
+            contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            content: SizedBox(
+              width: 920,
+              height: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const TabBar(
+                    labelColor: _dialogAccentBlue,
+                    unselectedLabelColor: Colors.black54,
+                    indicatorColor: _dialogAccentBlue,
+                    tabs: [
+                      Tab(text: 'Level'),
+                      Tab(text: 'UCI_ELO'),
+                      Tab(text: 'CP_Loss_ELO'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildLevelStrengthTab(dialogContext),
+                        _buildUciEloStrengthTab(dialogContext),
+                        _buildCpLossEloStrengthTab(dialogContext),
+                      ],
                     ),
                   ),
-                );
-              }).toList(),
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLevelStrengthTab(BuildContext context) {
+    return _strengthValueColumns(
+      columns: _levelColumns,
+      columnWidth: 128,
+      labelBuilder: (level) => 'Level $level',
+      isSelected: (level) {
+        return strengthMode == EngineStrengthMode.level && level == skillLevel;
+      },
+      onSelected: (level) {
+        onStrengthModeChanged(EngineStrengthMode.level);
+        onSkillLevelChanged(level);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _buildUciEloStrengthTab(BuildContext context) {
+    return _strengthValueColumns(
+      columns: _uciEloColumns,
+      columnWidth: 132,
+      labelBuilder: (elo) => '$elo',
+      isSelected: (elo) {
+        return strengthMode == EngineStrengthMode.uciElo && elo == uciElo;
+      },
+      onSelected: (elo) {
+        onStrengthModeChanged(EngineStrengthMode.uciElo);
+        onUciEloChanged(elo);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _buildCpLossEloStrengthTab(BuildContext context) {
+    return _strengthValueColumns(
+      columns: _cpLossEloColumns,
+      columnWidth: 158,
+      labelBuilder: (elo) => '$elo',
+      isSelected: (elo) {
+        return strengthMode == EngineStrengthMode.cpLossElo && elo == cpLossElo;
+      },
+      onSelected: (elo) {
+        onStrengthModeChanged(EngineStrengthMode.cpLossElo);
+        onCpLossEloChanged(elo);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _strengthValueColumns({
+    required List<List<int>> columns,
+    required double columnWidth,
+    required String Function(int value) labelBuilder,
+    required bool Function(int value) isSelected,
+    required ValueChanged<int> onSelected,
+  }) {
+    return Scrollbar(
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: columns.map((columnValues) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: SizedBox(
+                  width: columnWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: columnValues.map((value) {
+                      return _strengthValueButton(
+                        isSelected: isSelected(value),
+                        label: labelBuilder(value),
+                        onPressed: () => onSelected(value),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _strengthValueButton({
+    required bool isSelected,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          foregroundColor: _dialogAccentBlue,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        ),
+        child: Text(isSelected ? '✓ $label' : label),
+      ),
     );
   }
 
@@ -277,7 +320,10 @@ class ChessBoardControls extends StatelessWidget {
       context: context,
       builder: (_) {
         return SimpleDialog(
-          title: const Text('UCI_ELO ab Zug'),
+          title: const Text(
+            'UCI_ELO ab Zug',
+            style: _dialogTitleTextStyle,
+          ),
           children: _cpLossUciSwitchMoveValues
               .map(
                 (moveNumber) => _clickableDialogOption(
@@ -303,7 +349,10 @@ class ChessBoardControls extends StatelessWidget {
       context: context,
       builder: (_) {
         return SimpleDialog(
-          title: const Text('Eröffnung auswählen'),
+          title: const Text(
+            'Eröffnung auswählen',
+            style: _dialogTitleTextStyle,
+          ),
           children: BotOpeningMove.values
               .map(
                 (move) => _clickableDialogOption(
@@ -325,7 +374,10 @@ class ChessBoardControls extends StatelessWidget {
       context: context,
       builder: (_) {
         return SimpleDialog(
-          title: const Text('Persönlichkeit auswählen'),
+          title: const Text(
+            'Persönlichkeit auswählen',
+            style: _dialogTitleTextStyle,
+          ),
           children: BotPersonality.values
               .map(
                 (personality) => _clickableDialogOption(
@@ -350,7 +402,10 @@ class ChessBoardControls extends StatelessWidget {
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: const Text('Kandidatenzüge auswählen'),
+          title: const Text(
+            'Kandidatenzüge auswählen',
+            style: _dialogTitleTextStyle,
+          ),
           content: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -367,22 +422,26 @@ class ChessBoardControls extends StatelessWidget {
                         final isSelected =
                             candidateCount == personaCandidateCount;
 
-                        return TextButton(
-                          onPressed: () {
-                            onPersonaCandidateCountChanged(candidateCount);
-                            Navigator.pop(context);
-                          },
-                          style: TextButton.styleFrom(
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
+                        return MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: TextButton(
+                            onPressed: () {
+                              onPersonaCandidateCountChanged(candidateCount);
+                              Navigator.pop(context);
+                            },
+                            style: TextButton.styleFrom(
+                              alignment: Alignment.centerLeft,
+                              foregroundColor: _dialogAccentBlue,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 10,
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            isSelected
-                                ? '✓ $candidateCount Kandidaten'
-                                : '$candidateCount Kandidaten',
+                            child: Text(
+                              isSelected
+                                  ? '✓ $candidateCount Kandidaten'
+                                  : '$candidateCount Kandidaten',
+                            ),
                           ),
                         );
                       }).toList(),
@@ -405,7 +464,13 @@ class ChessBoardControls extends StatelessWidget {
       cursor: SystemMouseCursors.click,
       child: SimpleDialogOption(
         onPressed: onPressed,
-        child: child,
+        child: DefaultTextStyle.merge(
+          style: _dialogSelectableTextStyle,
+          child: IconTheme(
+            data: const IconThemeData(color: _dialogAccentBlue),
+            child: child,
+          ),
+        ),
       ),
     );
   }
@@ -417,9 +482,8 @@ class ChessBoardControls extends StatelessWidget {
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
     final normalControlsEnabled = !isBotThinking && !isAnalysisMode;
 
-    final personalityButtonColor = effectiveBotPersonality.isAbstract
-        ? Colors.orange
-        : null;
+    final personalityButtonColor =
+        effectiveBotPersonality.isAbstract ? Colors.orange : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,6 +506,7 @@ class ChessBoardControls extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: onToggleAnalysisMode,
+              style: _analysisButtonStyle,
               child: Text(_analysisButtonText),
             ),
             OutlinedButton.icon(
@@ -466,9 +531,8 @@ class ChessBoardControls extends StatelessWidget {
           runSpacing: 8,
           children: [
             ElevatedButton(
-              onPressed: normalControlsEnabled
-                  ? () => _showStrengthDialog(context)
-                  : null,
+              onPressed:
+                  normalControlsEnabled ? () => _showStrengthDialog(context) : null,
               child: Text(_strengthButtonText),
             ),
             ElevatedButton(
@@ -478,9 +542,8 @@ class ChessBoardControls extends StatelessWidget {
               child: Text(_uciSwitchButtonText),
             ),
             ElevatedButton(
-              onPressed: normalControlsEnabled
-                  ? () => _showOpeningDialog(context)
-                  : null,
+              onPressed:
+                  normalControlsEnabled ? () => _showOpeningDialog(context) : null,
               child: Text(botOpeningMove.label),
             ),
             ElevatedButton(
@@ -505,6 +568,20 @@ class ChessBoardControls extends StatelessWidget {
   }
 }
 
+final ButtonStyle _analysisButtonStyle = ButtonStyle(
+  foregroundColor: const WidgetStatePropertyAll<Color>(
+    _analysisButtonForeground,
+  ),
+  iconColor: const WidgetStatePropertyAll<Color>(_analysisButtonForeground),
+  mouseCursor: WidgetStateProperty.resolveWith<MouseCursor?>((states) {
+    if (states.contains(WidgetState.disabled)) {
+      return SystemMouseCursors.basic;
+    }
+
+    return SystemMouseCursors.click;
+  }),
+);
+
 class _PersonalityDialogLabel extends StatelessWidget {
   const _PersonalityDialogLabel({
     required this.personality,
@@ -516,23 +593,14 @@ class _PersonalityDialogLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAbstract = personality.isAbstract;
-    final style = isAbstract ? const TextStyle(color: Colors.orange) : null;
-
     if (personality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
-      final effectiveText = effectiveBotPersonality.isAbstract
-          ? '${personality.label} (${effectiveBotPersonality.label})'
-          : '${personality.label} (${effectiveBotPersonality.label})';
+      final effectiveText =
+          '${personality.label} (${effectiveBotPersonality.label})';
 
-      return Text(
-        effectiveText,
-        style: effectiveBotPersonality.isAbstract
-            ? const TextStyle(color: Colors.orange)
-            : null,
-      );
+      return Text(effectiveText);
     }
 
-    return Text(personality.label, style: style);
+    return Text(personality.label);
   }
 }

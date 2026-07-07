@@ -11,7 +11,17 @@ class ChessBoardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Better Bots')),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Better Bots'),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -20,13 +30,8 @@ class ChessBoardPage extends StatelessWidget {
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface.withAlpha(38),
-            ),
-          ),
           const SingleChildScrollView(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 16),
             child: ChessBoardWidget(),
           ),
         ],
