@@ -8,6 +8,7 @@ import 'chess_board/chess_board_controls.dart';
 import 'chess_board/chess_board_debug_panel.dart';
 import 'chess_board/chess_board_grid.dart';
 import 'chess_board/chess_status_text.dart';
+import 'chess_result_stats_panel.dart';
 
 class ChessBoardWidget extends StatefulWidget {
   const ChessBoardWidget({super.key});
@@ -531,6 +532,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 10),
+                                const ChessResultStatsTextView(),
                               ],
                             ),
                           ),

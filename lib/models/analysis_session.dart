@@ -311,17 +311,26 @@ class AnalysisSession {
     final moveData = <String, String>{'from': from, 'to': to};
 
     if (promotion.isNotEmpty) {
-      moveData['promotion'] = promotion;
+      moveData['promotion'] = promotion.toLowerCase();
     }
 
     final moved = scratch.move(moveData);
 
-    if (moved && scratch.history.isNotEmpty) {
-      final san = scratch.history.last.toString().trim();
+    if (moved) {
+      if (scratch.history.isNotEmpty) {
+        final san = scratch.history.last.toString().trim();
 
-      if (_looksLikeSan(san)) {
-        return san;
+        if (_looksLikeSan(san)) {
+          return _withCheckOrMateSuffix(san, scratch);
+        }
       }
+
+      return _fallbackShortMoveFromUci(
+        uciMove,
+        movingPiece: piece,
+        targetPiece: targetPiece,
+        postMoveGame: scratch,
+      );
     }
 
     return _fallbackShortMoveFromUci(
@@ -352,6 +361,7 @@ class AnalysisSession {
     String uciMove, {
     chess.Piece? movingPiece,
     chess.Piece? targetPiece,
+    chess.Chess? postMoveGame,
   }) {
     if (uciMove.length < 4 || uciMove == '(none)') {
       return uciMove;
@@ -374,19 +384,42 @@ class AnalysisSession {
     final isPawn = movingPiece == null || _isPawn(movingPiece);
     final isCapture = targetPiece != null || (isPawn && from[0] != to[0]);
     final promotionText = promotion.isEmpty ? '' : '=${promotion.toUpperCase()}';
+    final checkSuffix = postMoveGame == null
+        ? ''
+        : _checkOrMateSuffix(postMoveGame);
 
     if (isPawn) {
       if (isCapture) {
-        return '${from[0]}x$to$promotionText';
+        return '${from[0]}x$to$promotionText$checkSuffix';
       }
 
-      return '$to$promotionText';
+      return '$to$promotionText$checkSuffix';
     }
 
     final pieceLetter = _pieceLetter(movingPiece);
     final captureText = isCapture ? 'x' : '';
 
-    return '$pieceLetter$captureText$to$promotionText';
+    return '$pieceLetter$captureText$to$promotionText$checkSuffix';
+  }
+
+  String _withCheckOrMateSuffix(String san, chess.Chess postMoveGame) {
+    if (san.endsWith('#') || san.endsWith('+')) {
+      return san;
+    }
+
+    return '$san${_checkOrMateSuffix(postMoveGame)}';
+  }
+
+  String _checkOrMateSuffix(chess.Chess postMoveGame) {
+    if (postMoveGame.in_checkmate) {
+      return '#';
+    }
+
+    if (postMoveGame.in_check) {
+      return '+';
+    }
+
+    return '';
   }
 
   String _pieceLetter(chess.Piece? piece) {

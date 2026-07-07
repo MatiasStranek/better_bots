@@ -261,6 +261,7 @@ void _requestAnalysisForCurrentPosition(ChessBoardController controller) {
 
   if (controller._analysisSearchInFlight) {
     controller._analysisSearchQueued = true;
+    unawaited(controller._analysisEngine.cancelSearch());
     return;
   }
 

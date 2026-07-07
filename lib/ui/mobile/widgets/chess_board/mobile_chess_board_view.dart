@@ -66,7 +66,7 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   static const double _dragHoverCircleRadiusInSquares = 1.0;
   static const double _annotationDragStartThreshold = 20.0;
   static const Duration _annotationLongPressDuration =
-      Duration(milliseconds: 470);
+      Duration(milliseconds: 300);
   static const ColorFilter _analysisBoardTextureColorFilter =
       ColorFilter.matrix(<double>[
         0.78, 0.16, 0.06, 0, 0,
