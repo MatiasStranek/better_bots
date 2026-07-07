@@ -35,6 +35,7 @@ class StockfishPluginEngine implements ChessEngine {
 
   bool _isRunning = false;
   bool _isStarting = false;
+  int _searchCancelGeneration = 0;
 
   @override
   Stream<String> get output => _outputController.stream;
@@ -243,7 +244,13 @@ class StockfishPluginEngine implements ChessEngine {
     int depth = 20,
     EngineAnalysisUpdate? onUpdate,
   }) async {
+    final cancelGeneration = _searchCancelGeneration;
+
     await _ensureStarted();
+
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
+    }
 
     final safeMultiPv = multiPv.clamp(1, 5).toInt();
     final safeDepth = depth.clamp(1, 20).toInt();
@@ -252,7 +259,15 @@ class StockfishPluginEngine implements ChessEngine {
     _sendCommand('setoption name Skill Level value 20');
     await _waitForReadyOk();
 
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
+    }
+
     await setMultiPv(safeMultiPv);
+
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
+    }
 
     return _searchAnalysisLines(
       positionCommand: _positionCommandFromFen(fen),
@@ -263,7 +278,26 @@ class StockfishPluginEngine implements ChessEngine {
   }
 
   @override
+  Future<void> cancelSearch() async {
+    _searchCancelGeneration++;
+    _cancelPendingSearches();
+
+    final stockfish = _stockfish;
+    if (stockfish == null || !_isRunning) {
+      _addOutput('StockfishPluginEngine Suche abgebrochen, Engine läuft nicht.');
+      return;
+    }
+
+    try {
+      _sendCommand('stop');
+    } catch (error) {
+      _addOutput('StockfishPluginEngine Suchabbruch fehlgeschlagen: $error');
+    }
+  }
+
+  @override
   Future<void> stop() async {
+    _searchCancelGeneration++;
     final stockfish = _stockfish;
 
     if (stockfish == null) {

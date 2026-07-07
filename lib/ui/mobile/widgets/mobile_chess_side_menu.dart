@@ -15,6 +15,7 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.cpLossUciSwitchFullMoveNumber,
     required this.strengthMode,
     required this.botOpeningMove,
+    required this.effectiveBotOpeningMove,
     required this.botPersonality,
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
@@ -40,6 +41,7 @@ class MobileChessSideMenu extends StatelessWidget {
   final int cpLossUciSwitchFullMoveNumber;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
+  final BotOpeningMove effectiveBotOpeningMove;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
   final int personaCandidateCount;
@@ -74,6 +76,14 @@ class MobileChessSideMenu extends StatelessWidget {
 
   String get _uciSwitchButtonText {
     return 'UCI ab Zug $cpLossUciSwitchFullMoveNumber';
+  }
+
+  String get _openingButtonText {
+    if (botOpeningMove == BotOpeningMove.random) {
+      return 'Zufällig: ${effectiveBotOpeningMove.label}';
+    }
+
+    return botOpeningMove.label;
   }
 
   String get _personalityButtonText {
@@ -387,7 +397,7 @@ class MobileChessSideMenu extends StatelessWidget {
                 _SideMenuButton(
                   icon: Icons.call_split,
                   label: 'Eröffnung',
-                  value: botOpeningMove.label,
+                  value: _openingButtonText,
                   onTap: () => _showOpeningDialog(context),
                   isEnabled: isEnabled,
                 ),

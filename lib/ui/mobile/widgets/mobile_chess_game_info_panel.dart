@@ -13,6 +13,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.cpLossUciSwitchFullMoveNumber,
     required this.strengthMode,
     required this.botOpeningMove,
+    required this.effectiveBotOpeningMove,
     required this.botPersonality,
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
@@ -24,6 +25,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final int cpLossUciSwitchFullMoveNumber;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
+  final BotOpeningMove effectiveBotOpeningMove;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
   final int personaCandidateCount;
@@ -39,6 +41,14 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     }
   }
 
+  String get _openingText {
+    if (botOpeningMove == BotOpeningMove.random) {
+      return 'Zufällig: ${effectiveBotOpeningMove.label}';
+    }
+
+    return botOpeningMove.label;
+  }
+
   String get _personalityText {
     if (botPersonality == BotPersonality.random &&
         effectiveBotPersonality.isConcretePersonality) {
@@ -52,7 +62,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <_GameInfoRowData>[
       _GameInfoRowData(label: 'Spielstärke', value: _strengthText),
-      _GameInfoRowData(label: 'Eröffnung', value: botOpeningMove.label),
+      _GameInfoRowData(label: 'Eröffnung', value: _openingText),
       _GameInfoRowData(label: 'Persönlichkeit', value: _personalityText),
       _GameInfoRowData(label: 'Kandidaten', value: '$personaCandidateCount'),
       _GameInfoRowData(

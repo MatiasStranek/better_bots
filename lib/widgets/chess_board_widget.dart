@@ -441,6 +441,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                           _controller.cpLossUciSwitchFullMoveNumber,
                       strengthMode: _controller.strengthMode,
                       botOpeningMove: _controller.botOpeningMove,
+                      effectiveBotOpeningMove:
+                          _controller.effectiveBotOpeningMove,
                       botPersonality: _controller.botPersonality,
                       effectiveBotPersonality:
                           _controller.effectiveBotPersonality,

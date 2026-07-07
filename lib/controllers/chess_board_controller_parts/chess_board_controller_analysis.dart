@@ -55,7 +55,7 @@ void _controllerStopAnalysisMode(ChessBoardController controller) {
   controller._selectedSquare = null;
   controller._premoves.clear();
 
-  unawaited(controller._analysisEngine.stop());
+  unawaited(controller._analysisEngine.cancelSearch());
 
   _safeNotify(controller);
 }

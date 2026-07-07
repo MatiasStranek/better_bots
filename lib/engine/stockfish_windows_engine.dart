@@ -26,6 +26,7 @@ class StockfishWindowsEngine implements ChessEngine {
 
   int _analysisRequestedMultiPv = 5;
   int _lastEmittedAnalysisDepth = 0;
+  int _searchCancelGeneration = 0;
 
   final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
   final Map<int, EngineAnalysisLine> _latestAnalysisLinesByMultiPv = {};
@@ -210,8 +211,14 @@ class StockfishWindowsEngine implements ChessEngine {
     int depth = 20,
     EngineAnalysisUpdate? onUpdate,
   }) async {
+    final cancelGeneration = _searchCancelGeneration;
+
     if (_process == null) {
       await start();
+    }
+
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
     }
 
     final safeMultiPv = multiPv.clamp(1, 5).toInt();
@@ -221,7 +228,15 @@ class StockfishWindowsEngine implements ChessEngine {
     _sendCommand('setoption name Skill Level value 20');
     await _waitUntilReady();
 
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
+    }
+
     await setMultiPv(safeMultiPv);
+
+    if (cancelGeneration != _searchCancelGeneration) {
+      return const <EngineAnalysisLine>[];
+    }
 
     _bestMoveCompleter = null;
     _candidateCompleter = null;
@@ -576,7 +591,21 @@ class StockfishWindowsEngine implements ChessEngine {
   }
 
   @override
+  Future<void> cancelSearch() async {
+    _searchCancelGeneration++;
+    _completePendingSearchesOnStop();
+
+    if (_process == null) {
+      return;
+    }
+
+    _sendCommand('stop');
+  }
+
+  @override
   Future<void> stop() async {
+    _searchCancelGeneration++;
+
     if (_process == null) {
       return;
     }

@@ -16,6 +16,7 @@ import '../widgets/mobile_chess_analysis_button.dart';
 import '../widgets/mobile_chess_analysis_lines_bar.dart';
 import '../widgets/mobile_chess_game_info_panel.dart';
 import '../widgets/mobile_chess_move_strip.dart';
+import '../widgets/mobile_chess_result_stats_panel.dart';
 import '../widgets/mobile_chess_side_menu.dart';
 import '../widgets/mobile_chess_status_header.dart';
 
@@ -41,6 +42,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.cpLossUciSwitchFullMoveNumber,
     required this.strengthMode,
     required this.botOpeningMove,
+    required this.effectiveBotOpeningMove,
     required this.botPersonality,
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
@@ -101,6 +103,7 @@ class MobileChessBoardLayout extends StatefulWidget {
   final int cpLossUciSwitchFullMoveNumber;
   final EngineStrengthMode strengthMode;
   final BotOpeningMove botOpeningMove;
+  final BotOpeningMove effectiveBotOpeningMove;
   final BotPersonality botPersonality;
   final BotPersonality effectiveBotPersonality;
   final int personaCandidateCount;
@@ -143,12 +146,14 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _statusHeaderHeight = 48;
   static const double _moveStripTop = 48;
   static const double _moveStripHeight = 54;
+  static const double _resultStatsHeight = 70;
   static const double _analysisLinesBarHeight = 66;
   static const double _analysisLinesBarGap = 8;
   static const double _actionBarHeight = 64;
   static const double _analysisButtonSize = 52;
   static const double _analysisButtonGap = 8;
-  static const double _analysisIconVisualTopInset = 11;
+  static const double _analysisIconVisualSize = 30;
+  static const double _analysisIconGlyphTopCorrection = 3;
   static const double _gameInfoPanelHorizontalGap = 12;
   static const double _edgeSwipeWidth = 36;
   static const double _sideMenuWidthFactor = 0.72;
@@ -298,7 +303,10 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           boardBottom: boardBottom,
           screenHeight: constraints.maxHeight,
         );
-        final gameInfoPanelTop = analysisButtonTop + _analysisIconVisualTopInset;
+        final gameInfoPanelTop =
+            analysisButtonTop +
+            ((_analysisButtonSize - _analysisIconVisualSize) / 2) +
+            _analysisIconGlyphTopCorrection;
         final gameInfoPanelHeight = _gameInfoPanelHeight(
           top: gameInfoPanelTop,
           screenHeight: constraints.maxHeight,
@@ -353,6 +361,14 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 pgnText: widget.pgnText,
               ),
             ),
+            if (!widget.isAnalysisMode)
+              const Positioned(
+                left: 8,
+                right: 8,
+                top: _moveStripTop + _moveStripHeight,
+                height: _resultStatsHeight,
+                child: MobileChessResultStatsPanel(),
+              ),
             if (widget.isAnalysisMode)
               Positioned(
                 left: 8,
@@ -379,6 +395,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                       widget.cpLossUciSwitchFullMoveNumber,
                   strengthMode: widget.strengthMode,
                   botOpeningMove: widget.botOpeningMove,
+                  effectiveBotOpeningMove: widget.effectiveBotOpeningMove,
                   botPersonality: widget.botPersonality,
                   effectiveBotPersonality: widget.effectiveBotPersonality,
                   personaCandidateCount: widget.personaCandidateCount,
@@ -451,6 +468,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                       widget.cpLossUciSwitchFullMoveNumber,
                   strengthMode: widget.strengthMode,
                   botOpeningMove: widget.botOpeningMove,
+                  effectiveBotOpeningMove: widget.effectiveBotOpeningMove,
                   botPersonality: widget.botPersonality,
                   effectiveBotPersonality: widget.effectiveBotPersonality,
                   personaCandidateCount: widget.personaCandidateCount,

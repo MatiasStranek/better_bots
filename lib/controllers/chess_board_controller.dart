@@ -111,6 +111,10 @@ class ChessBoardController extends ChangeNotifier {
 
   BotOpeningMove get botOpeningMove => _botOpeningMove;
 
+  BotOpeningMove get effectiveBotOpeningMove {
+    return _resolveSelectedOpening(this);
+  }
+
   BotPersonality get botPersonality => _botPersonality;
 
   BotPersonality get effectiveBotPersonality {

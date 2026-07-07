@@ -119,10 +119,23 @@ class _AnalysisMoveColumn extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Expanded(
-          child: _AnalysisMoveBox(
-            rank: rank,
-            line: line,
-            isBestMove: isBestMove,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final boxSize = constraints.maxWidth < constraints.maxHeight
+                  ? constraints.maxWidth
+                  : constraints.maxHeight;
+
+              return Center(
+                child: SizedBox.square(
+                  dimension: boxSize,
+                  child: _AnalysisMoveBox(
+                    rank: rank,
+                    line: line,
+                    isBestMove: isBestMove,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

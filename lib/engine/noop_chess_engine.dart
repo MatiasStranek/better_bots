@@ -83,6 +83,13 @@ class NoopChessEngine implements ChessEngine {
   }
 
   @override
+  Future<void> cancelSearch() async {
+    if (!_outputController.isClosed) {
+      _outputController.add('NoopChessEngine: Suche abgebrochen.');
+    }
+  }
+
+  @override
   Future<void> stop() async {
     _isRunning = false;
 

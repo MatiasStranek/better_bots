@@ -105,8 +105,9 @@ class MobileChessMoreSheet extends StatelessWidget {
             ),
             _SheetAction(
               icon: Icons.refresh,
-              label: 'RESET BOARD',
+              label: 'Neustart Zähler',
               isEnabled: !isAnalysisMode,
+              foregroundColor: const Color(0xFFFF9800),
               onTap: () => _resetBoard(context),
             ),
             _SheetAction(
@@ -159,17 +160,20 @@ class _SheetAction extends StatelessWidget {
     required this.icon,
     required this.label,
     this.isEnabled = true,
+    this.foregroundColor,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool isEnabled;
+  final Color? foregroundColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = isEnabled ? Colors.white : Colors.white.withAlpha(70);
+    final baseColor = foregroundColor ?? Colors.white;
+    final color = isEnabled ? baseColor : baseColor.withAlpha(70);
 
     return InkWell(
       onTap: isEnabled ? onTap : null,

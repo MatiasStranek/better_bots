@@ -43,5 +43,9 @@ abstract class ChessEngine {
     EngineAnalysisUpdate? onUpdate,
   });
 
+  /// Bricht nur eine aktuell laufende Suche ab, lässt die Engine aber geladen.
+  /// Das ist für Analyse-Ende gedacht. Für echtes Beenden weiterhin [stop] nutzen.
+  Future<void> cancelSearch();
+
   Future<void> stop();
 }
