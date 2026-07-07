@@ -107,6 +107,7 @@ class MobileChessBoardLayout extends StatefulWidget {
 
 class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _screenPadding = 16;
+  static const double _moveStripTop = 48;
   static const double _moveStripHeight = 54;
   static const double _bottomViewHeight = 96;
   static const double _actionBarHeight = 64;
@@ -189,7 +190,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
       return const SizedBox.shrink();
     }
 
-    final topStart = _moveStripHeight;
+    final topStart = _moveStripTop + _moveStripHeight;
     final topHeight = math.max(0.0, boardTop - topStart);
     final safeBottom = math.max(0.0, screenHeight - _actionBarHeight);
     final bottomTop = math.min(boardBottom, safeBottom);
@@ -266,7 +267,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
             Positioned(
               left: 0,
               right: 0,
-              top: 0,
+              top: _moveStripTop,
               height: _moveStripHeight,
               child: MobileChessMoveStrip(
                 height: _moveStripHeight,
