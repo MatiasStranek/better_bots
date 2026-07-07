@@ -47,6 +47,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
     required this.isAnalysisMode,
+    required this.isAnalysisBranchActive,
     required this.analysisLines,
     required this.canToggleAnalysisMode,
     required this.canNavigateAnalysisBack,
@@ -111,6 +112,7 @@ class MobileChessBoardLayout extends StatefulWidget {
   final int personaCandidateCount;
 
   final bool isAnalysisMode;
+  final bool isAnalysisBranchActive;
   final List<EngineAnalysisLine> analysisLines;
   final bool canToggleAnalysisMode;
   final bool canNavigateAnalysisBack;
@@ -342,6 +344,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 child: MobileChessBoardView(
                   playerIsWhite: widget.playerIsWhite,
                   isAnalysisMode: widget.isAnalysisMode,
+                  isAnalysisBranchActive: widget.isAnalysisBranchActive,
                   pieceAt: widget.pieceAt,
                   highlights: widget.highlights,
                   canHumanMovePiece: widget.canHumanMovePiece,
@@ -377,6 +380,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
               child: MobileChessMoveStrip(
                 height: _moveStripHeight,
                 pgnText: widget.pgnText,
+                isAnalysisBranchActive: widget.isAnalysisBranchActive,
               ),
             ),
             if (!widget.isAnalysisMode)

@@ -26,14 +26,22 @@ class AnalysisSession {
   /// Ausgangs-FEN der Originalpartie.
   /// Bei einer normalen Partie ist das die Startstellung; bei einer geladenen
   /// FEN ist es genau diese geladene FEN. Die aktuelle Stellung entsteht durch
-  /// Replay von [_analysisMoves] bis [currentPly].
+  /// Replay der Hauptvariante oder des temporären Analysezweigs.
   final String startFen;
 
   /// Komplett getrenntes Analysebrett. Dieses Objekt darf nie in _game kopiert
   /// werden und _game darf nie aus diesem Objekt ersetzt werden.
   final chess.Chess analysisGame;
 
+  /// Hauptvariante der übernommenen Partie. Diese Liste wird durch temporäre
+  /// Analysezweige nicht mehr überschrieben.
   final List<BoardMove> _analysisMoves = [];
+
+  /// Temporärer Zweig ab [_branchStartPly]. Der Zweig lebt nur innerhalb der
+  /// Analyse-Session und wird verworfen, sobald man zurück bis zum Abzweigpunkt
+  /// navigiert.
+  final List<BoardMove> _branchMoves = [];
+  int? _branchStartPly;
 
   /// Fertige Tiefe-20-Analysen pro Analyse-FEN.
   /// Diese Map lebt nur innerhalb der AnalysisSession und wird beim Verlassen
@@ -48,8 +56,12 @@ class AnalysisSession {
 
   String statusText = 'Analysemodus aktiv.';
 
+  bool get isBranchActive {
+    return _branchStartPly != null;
+  }
+
   List<BoardMove> get analysisMoves {
-    return List.unmodifiable(_analysisMoves);
+    return List.unmodifiable(_activeMoves);
   }
 
   bool get canStepBack {
@@ -57,7 +69,7 @@ class AnalysisSession {
   }
 
   bool get canStepForward {
-    return currentPly < _analysisMoves.length;
+    return currentPly < _activeMoveCount;
   }
 
   String get fen {
@@ -77,19 +89,19 @@ class AnalysisSession {
   }
 
   String? get lastFrom {
-    if (currentPly <= 0 || currentPly > _analysisMoves.length) {
+    if (currentPly <= 0 || currentPly > _activeMoveCount) {
       return null;
     }
 
-    return _analysisMoves[currentPly - 1].from;
+    return _activeMoveAt(currentPly - 1).from;
   }
 
   String? get lastTo {
-    if (currentPly <= 0 || currentPly > _analysisMoves.length) {
+    if (currentPly <= 0 || currentPly > _activeMoveCount) {
       return null;
     }
 
-    return _analysisMoves[currentPly - 1].to;
+    return _activeMoveAt(currentPly - 1).to;
   }
 
   String get sideToMoveText {
@@ -142,10 +154,6 @@ class AnalysisSession {
   }
 
   bool playMove({required String from, required String to, String? promotion}) {
-    if (currentPly < _analysisMoves.length) {
-      _analysisMoves.removeRange(currentPly, _analysisMoves.length);
-    }
-
     final normalizedPromotion = promotion == null || promotion.isEmpty
         ? null
         : promotion.toLowerCase();
@@ -162,13 +170,23 @@ class AnalysisSession {
       return false;
     }
 
-    _analysisMoves.add(
-      BoardMove(from: from, to: to, promotion: normalizedPromotion),
+    final newMove = BoardMove(
+      from: from,
+      to: to,
+      promotion: normalizedPromotion,
     );
-    currentPly = _analysisMoves.length;
+
+    if (isBranchActive) {
+      _playMoveInsideBranch(newMove);
+    } else if (currentPly < _analysisMoves.length) {
+      _playMoveFromMainlinePast(newMove);
+    } else {
+      _analysisMoves.add(newMove);
+      currentPly = _analysisMoves.length;
+      statusText = 'Analysezug gespielt: $from$to${normalizedPromotion ?? ''}';
+    }
 
     restoreCompletedLinesForCurrentFen();
-    statusText = 'Analysezug gespielt: $from$to${normalizedPromotion ?? ''}';
 
     return true;
   }
@@ -179,11 +197,27 @@ class AnalysisSession {
     }
 
     currentPly -= 1;
+
+    final branchStartPly = _branchStartPly;
+    final leftBranch = branchStartPly != null && currentPly <= branchStartPly;
+
+    if (leftBranch) {
+      currentPly = branchStartPly;
+      _clearBranch();
+    }
+
     _rebuildCurrentPosition();
     restoreCompletedLinesForCurrentFen();
-    statusText = hasCompletedLinesForCurrentFen()
-        ? 'Analyse: einen Zug zurück. Gespeicherte Tiefe-20-Analyse geladen.'
-        : 'Analyse: einen Zug zurück.';
+
+    if (leftBranch) {
+      statusText = hasCompletedLinesForCurrentFen()
+          ? 'Analysezweig verlassen. Hauptvariante geladen.'
+          : 'Analysezweig verlassen.';
+    } else {
+      statusText = hasCompletedLinesForCurrentFen()
+          ? 'Analyse: einen Zug zurück. Gespeicherte Tiefe-20-Analyse geladen.'
+          : 'Analyse: einen Zug zurück.';
+    }
 
     return true;
   }
@@ -209,6 +243,7 @@ class AnalysisSession {
     }
 
     currentPly = 0;
+    _clearBranch();
     _rebuildCurrentPosition();
     restoreCompletedLinesForCurrentFen();
     statusText = hasCompletedLinesForCurrentFen()
@@ -223,7 +258,7 @@ class AnalysisSession {
       return false;
     }
 
-    currentPly = _analysisMoves.length;
+    currentPly = _activeMoveCount;
     _rebuildCurrentPosition();
     restoreCompletedLinesForCurrentFen();
     statusText = hasCompletedLinesForCurrentFen()
@@ -295,6 +330,88 @@ class AnalysisSession {
 
   void clearTopLines() {
     topLines = const [];
+  }
+
+  int get _activeMoveCount {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null) {
+      return _analysisMoves.length;
+    }
+
+    return branchStartPly + _branchMoves.length;
+  }
+
+  List<BoardMove> get _activeMoves {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null) {
+      return List<BoardMove>.from(_analysisMoves);
+    }
+
+    return <BoardMove>[
+      ..._analysisMoves.take(branchStartPly),
+      ..._branchMoves,
+    ];
+  }
+
+  BoardMove _activeMoveAt(int index) {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null || index < branchStartPly) {
+      return _analysisMoves[index];
+    }
+
+    return _branchMoves[index - branchStartPly];
+  }
+
+  void _playMoveInsideBranch(BoardMove newMove) {
+    final branchStartPly = _branchStartPly!;
+    final relativePly = currentPly - branchStartPly;
+
+    if (relativePly < _branchMoves.length) {
+      final nextBranchMove = _branchMoves[relativePly];
+
+      if (_sameMove(nextBranchMove, newMove)) {
+        currentPly += 1;
+        statusText = 'Analysezweig: vorhandenen Zug gespielt.';
+        return;
+      }
+
+      _branchMoves.removeRange(relativePly, _branchMoves.length);
+    }
+
+    _branchMoves.add(newMove);
+    currentPly = branchStartPly + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig gespielt: $newMove';
+  }
+
+  void _playMoveFromMainlinePast(BoardMove newMove) {
+    final nextMainMove = _analysisMoves[currentPly];
+
+    if (_sameMove(nextMainMove, newMove)) {
+      currentPly += 1;
+      statusText = 'Analyse: Hauptvariante fortgesetzt.';
+      return;
+    }
+
+    _branchStartPly = currentPly;
+    _branchMoves
+      ..clear()
+      ..add(newMove);
+    currentPly = _branchStartPly! + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig erstellt: $newMove';
+  }
+
+  void _clearBranch() {
+    _branchStartPly = null;
+    _branchMoves.clear();
+  }
+
+  bool _sameMove(BoardMove left, BoardMove right) {
+    return left.from == right.from &&
+        left.to == right.to &&
+        (left.promotion ?? '') == (right.promotion ?? '');
   }
 
   List<EngineAnalysisLine> _formatLinesForFen({
@@ -459,23 +576,33 @@ class AnalysisSession {
 
     final typeText = piece.type.toString().toLowerCase();
 
-    if (typeText == 'n' || typeText.endsWith('.n') || typeText.contains('knight')) {
+    if (typeText == 'n' ||
+        typeText.endsWith('.n') ||
+        typeText.contains('knight')) {
       return 'N';
     }
 
-    if (typeText == 'b' || typeText.endsWith('.b') || typeText.contains('bishop')) {
+    if (typeText == 'b' ||
+        typeText.endsWith('.b') ||
+        typeText.contains('bishop')) {
       return 'B';
     }
 
-    if (typeText == 'r' || typeText.endsWith('.r') || typeText.contains('rook')) {
+    if (typeText == 'r' ||
+        typeText.endsWith('.r') ||
+        typeText.contains('rook')) {
       return 'R';
     }
 
-    if (typeText == 'q' || typeText.endsWith('.q') || typeText.contains('queen')) {
+    if (typeText == 'q' ||
+        typeText.endsWith('.q') ||
+        typeText.contains('queen')) {
       return 'Q';
     }
 
-    if (typeText == 'k' || typeText.endsWith('.k') || typeText.contains('king')) {
+    if (typeText == 'k' ||
+        typeText.endsWith('.k') ||
+        typeText.contains('king')) {
       return 'K';
     }
 
@@ -506,7 +633,7 @@ class AnalysisSession {
     }
 
     for (var index = 0; index < currentPly; index += 1) {
-      final move = _analysisMoves[index];
+      final move = _activeMoveAt(index);
       final moveData = <String, String>{'from': move.from, 'to': move.to};
       final promotion = move.promotion;
 

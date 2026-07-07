@@ -262,6 +262,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 controlsEnabled: !_controller.isBotThinking,
 
                 isAnalysisMode: _controller.isAnalysisMode,
+                isAnalysisBranchActive: _controller.isAnalysisBranchActive,
                 analysisLines: _controller.analysisLines,
                 canToggleAnalysisMode: _controller.canToggleAnalysisMode,
                 canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,

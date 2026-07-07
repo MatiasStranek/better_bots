@@ -4,10 +4,12 @@ class MobileChessMoveStrip extends StatefulWidget {
   const MobileChessMoveStrip({
     super.key,
     required this.pgnText,
+    this.isAnalysisBranchActive = false,
     this.height = 54,
   });
 
   final String pgnText;
+  final bool isAnalysisBranchActive;
   final double height;
 
   @override
@@ -133,7 +135,10 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
                   final token = _tokens[index];
 
                   return Center(
-                    child: _MoveStripChip(token: token),
+                    child: _MoveStripChip(
+                      token: token,
+                      isAnalysisBranchActive: widget.isAnalysisBranchActive,
+                    ),
                   );
                 },
               ),
@@ -165,11 +170,16 @@ class _EmptyMoveStrip extends StatelessWidget {
 }
 
 class _MoveStripChip extends StatelessWidget {
-  const _MoveStripChip({required this.token});
+  const _MoveStripChip({
+    required this.token,
+    required this.isAnalysisBranchActive,
+  });
 
   final _MoveStripToken token;
+  final bool isAnalysisBranchActive;
 
   static const Color _accentColor = Color(0xFF5C9DFF);
+  static const Color _branchColor = Color(0xFF9A9A9A);
 
   @override
   Widget build(BuildContext context) {
@@ -187,16 +197,16 @@ class _MoveStripChip extends StatelessWidget {
       );
     }
 
+    final currentColor = isAnalysisBranchActive ? _branchColor : _accentColor;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: token.isCurrentMove
-            ? _accentColor.withAlpha(28)
-            : Colors.transparent,
+        color: token.isCurrentMove ? currentColor.withAlpha(30) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: token.isCurrentMove ? _accentColor : Colors.transparent,
+          color: token.isCurrentMove ? currentColor : Colors.transparent,
           width: 2,
         ),
       ),

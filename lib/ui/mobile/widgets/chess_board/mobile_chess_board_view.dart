@@ -13,6 +13,7 @@ class MobileChessBoardView extends StatefulWidget {
     super.key,
     required this.playerIsWhite,
     this.isAnalysisMode = false,
+    this.isAnalysisBranchActive = false,
     required this.pieceAt,
     required this.highlights,
     required this.canHumanMovePiece,
@@ -31,6 +32,7 @@ class MobileChessBoardView extends StatefulWidget {
 
   final bool playerIsWhite;
   final bool isAnalysisMode;
+  final bool isAnalysisBranchActive;
   final chess.Piece? Function(String square) pieceAt;
 
   final BoardHighlights highlights;
@@ -487,6 +489,12 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   );
                 },
               ),
+              if (widget.isAnalysisBranchActive)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ColoredBox(color: Colors.grey.withAlpha(118)),
+                  ),
+                ),
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(
@@ -517,7 +525,7 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
       fit: BoxFit.cover,
     );
 
-    if (!widget.isAnalysisMode) {
+    if (!widget.isAnalysisMode || widget.isAnalysisBranchActive) {
       return image;
     }
 
