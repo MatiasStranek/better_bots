@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import '../../../models/board_highlights.dart';
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_personality.dart';
+import '../../../models/engine_analysis_line.dart';
 import '../../../models/engine_strength_mode.dart';
 import '../../../models/player_side.dart';
 import '../widgets/chess_board/mobile_chess_board_view.dart';
 import '../widgets/mobile_chess_action_bar.dart';
 import '../widgets/mobile_chess_analysis_button.dart';
+import '../widgets/mobile_chess_analysis_lines_bar.dart';
 import '../widgets/mobile_chess_game_info_panel.dart';
 import '../widgets/mobile_chess_move_strip.dart';
 import '../widgets/mobile_chess_side_menu.dart';
@@ -42,8 +44,13 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.effectiveBotPersonality,
     required this.personaCandidateCount,
     required this.isAnalysisMode,
+    required this.analysisLines,
     required this.canToggleAnalysisMode,
+    required this.canNavigateAnalysisBack,
+    required this.canNavigateAnalysisForward,
     required this.onToggleAnalysisMode,
+    required this.onAnalysisBack,
+    required this.onAnalysisForward,
     required this.onNewGame,
     required this.onRestart,
     required this.onSkillLevelChanged,
@@ -93,8 +100,13 @@ class MobileChessBoardLayout extends StatefulWidget {
   final int personaCandidateCount;
 
   final bool isAnalysisMode;
+  final List<EngineAnalysisLine> analysisLines;
   final bool canToggleAnalysisMode;
+  final bool canNavigateAnalysisBack;
+  final bool canNavigateAnalysisForward;
   final VoidCallback onToggleAnalysisMode;
+  final Future<void> Function() onAnalysisBack;
+  final Future<void> Function() onAnalysisForward;
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
@@ -119,6 +131,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _statusHeaderHeight = 48;
   static const double _moveStripTop = 48;
   static const double _moveStripHeight = 54;
+  static const double _analysisLinesBarHeight = 44;
+  static const double _analysisLinesBarGap = 8;
   static const double _actionBarHeight = 64;
   static const double _analysisButtonSize = 52;
   static const double _analysisButtonGap = 8;
@@ -275,6 +289,10 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           top: analysisButtonTop,
           screenHeight: constraints.maxHeight,
         );
+        final analysisLinesBarTop = math.max(
+          _moveStripTop + _moveStripHeight + _analysisLinesBarGap,
+          boardTop - _analysisLinesBarHeight - _analysisLinesBarGap,
+        );
 
         return Stack(
           children: [
@@ -283,6 +301,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 dimension: boardSize,
                 child: MobileChessBoardView(
                   playerIsWhite: widget.playerIsWhite,
+                  isAnalysisMode: widget.isAnalysisMode,
                   pieceAt: widget.pieceAt,
                   highlights: widget.highlights,
                   canHumanMovePiece: widget.canHumanMovePiece,
@@ -314,6 +333,16 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 pgnText: widget.pgnText,
               ),
             ),
+            if (widget.isAnalysisMode)
+              Positioned(
+                left: 8,
+                right: 8,
+                top: analysisLinesBarTop,
+                height: _analysisLinesBarHeight,
+                child: MobileChessAnalysisLinesBar(
+                  analysisLines: widget.analysisLines,
+                ),
+              ),
             if (gameInfoPanelHeight > 0)
               Positioned(
                 left: 12,
@@ -358,8 +387,13 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onRestart: widget.onRestart,
                   onMenuPressed: _toggleSideMenu,
                   isSideMenuOpen: _isSideMenuOpen,
+                  isAnalysisMode: widget.isAnalysisMode,
                   canToggleAnalysisMode: widget.canToggleAnalysisMode,
+                  canNavigateAnalysisBack: widget.canNavigateAnalysisBack,
+                  canNavigateAnalysisForward: widget.canNavigateAnalysisForward,
                   onToggleAnalysisMode: widget.onToggleAnalysisMode,
+                  onAnalysisBack: widget.onAnalysisBack,
+                  onAnalysisForward: widget.onAnalysisForward,
                 ),
               ),
             _buildClosedEdgeSwipeAreas(
@@ -413,7 +447,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onPersonaCandidateCountChanged:
                       widget.onPersonaCandidateCountChanged,
                   onClose: _closeSideMenu,
-                  isEnabled: widget.controlsEnabled,
+                  isEnabled: widget.controlsEnabled && !widget.isAnalysisMode,
                 ),
               ),
             ),

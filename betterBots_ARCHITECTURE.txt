@@ -1,3 +1,5 @@
+* infoBox selbe Höhe
+
 BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
 	* Windows: entwickelte Dame wird als Pawn gedragt

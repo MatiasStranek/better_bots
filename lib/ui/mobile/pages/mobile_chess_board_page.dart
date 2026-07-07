@@ -67,6 +67,14 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     _controller.toggleAnalysisMode();
   }
 
+  Future<void> _handleAnalysisBack() async {
+    await _controller.stepAnalysisBack();
+  }
+
+  Future<void> _handleAnalysisForward() async {
+    await _controller.stepAnalysisForward();
+  }
+
   void _handleSystemBackWhileInAnalysisMode() {
     if (!_controller.isAnalysisMode) {
       return;
@@ -124,8 +132,13 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 controlsEnabled: !_controller.isBotThinking,
 
                 isAnalysisMode: _controller.isAnalysisMode,
+                analysisLines: _controller.analysisLines,
                 canToggleAnalysisMode: _controller.canToggleAnalysisMode,
+                canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,
+                canNavigateAnalysisForward: _controller.canNavigateAnalysisForward,
                 onToggleAnalysisMode: _handleToggleAnalysisMode,
+                onAnalysisBack: _handleAnalysisBack,
+                onAnalysisForward: _handleAnalysisForward,
 
                 onNewGame: _controller.newGame,
                 onRestart: _controller.restartGame,

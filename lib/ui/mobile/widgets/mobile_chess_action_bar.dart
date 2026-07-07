@@ -10,8 +10,13 @@ class MobileChessActionBar extends StatelessWidget {
     required this.onRestart,
     required this.onMenuPressed,
     required this.isSideMenuOpen,
+    required this.isAnalysisMode,
     required this.canToggleAnalysisMode,
+    required this.canNavigateAnalysisBack,
+    required this.canNavigateAnalysisForward,
     required this.onToggleAnalysisMode,
+    required this.onAnalysisBack,
+    required this.onAnalysisForward,
     this.height = 64,
   });
 
@@ -20,8 +25,13 @@ class MobileChessActionBar extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onMenuPressed;
   final bool isSideMenuOpen;
+  final bool isAnalysisMode;
   final bool canToggleAnalysisMode;
+  final bool canNavigateAnalysisBack;
+  final bool canNavigateAnalysisForward;
   final VoidCallback onToggleAnalysisMode;
+  final Future<void> Function() onAnalysisBack;
+  final Future<void> Function() onAnalysisForward;
   final double height;
 
   Future<void> _showMoreSheet(BuildContext context) async {
@@ -36,11 +46,20 @@ class MobileChessActionBar extends StatelessWidget {
           pgnText: pgnText,
           fenText: fenText,
           onRestart: onRestart,
+          isAnalysisMode: isAnalysisMode,
           canToggleAnalysisMode: canToggleAnalysisMode,
           onToggleAnalysisMode: onToggleAnalysisMode,
         );
       },
     );
+  }
+
+  void _goAnalysisBack() {
+    onAnalysisBack();
+  }
+
+  void _goAnalysisForward() {
+    onAnalysisForward();
   }
 
   @override
@@ -70,18 +89,20 @@ class MobileChessActionBar extends StatelessWidget {
               isEnabled: false,
             ),
           ),
-          const Expanded(
+          Expanded(
             child: _ActionBarButton(
               icon: Icons.keyboard_double_arrow_left,
-              tooltip: 'Zurück kommt bald',
-              isEnabled: false,
+              tooltip: 'Analyse zurück',
+              isEnabled: isAnalysisMode && canNavigateAnalysisBack,
+              onPressed: _goAnalysisBack,
             ),
           ),
-          const Expanded(
+          Expanded(
             child: _ActionBarButton(
               icon: Icons.keyboard_double_arrow_right,
-              tooltip: 'Vor kommt bald',
-              isEnabled: false,
+              tooltip: 'Analyse vor',
+              isEnabled: isAnalysisMode && canNavigateAnalysisForward,
+              onPressed: _goAnalysisForward,
             ),
           ),
           Expanded(

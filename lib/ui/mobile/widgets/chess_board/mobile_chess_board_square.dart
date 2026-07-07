@@ -10,6 +10,7 @@ class MobileChessBoardSquare extends StatelessWidget {
     super.key,
     required this.square,
     required this.isLightSquare,
+    required this.isAnalysisMode,
     required this.pieceCode,
     required this.highlights,
     required this.canDrag,
@@ -22,7 +23,10 @@ class MobileChessBoardSquare extends StatelessWidget {
   });
 
   final String square;
+  static const Color _analysisSquareOverlayColor = Color(0x4D7A8880);
+
   final bool isLightSquare;
+  final bool isAnalysisMode;
   final String? pieceCode;
 
   final BoardHighlights highlights;
@@ -94,6 +98,15 @@ class MobileChessBoardSquare extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                if (isAnalysisMode)
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _analysisSquareOverlayColor,
+                      ),
+                    ),
+                  ),
+
                 if (isLegalTarget && pieceCode == null)
                   Container(
                     width: 18,

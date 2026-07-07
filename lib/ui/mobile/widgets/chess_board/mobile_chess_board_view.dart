@@ -8,6 +8,7 @@ class MobileChessBoardView extends StatefulWidget {
   const MobileChessBoardView({
     super.key,
     required this.playerIsWhite,
+    this.isAnalysisMode = false,
     required this.pieceAt,
     required this.highlights,
     required this.canHumanMovePiece,
@@ -19,6 +20,7 @@ class MobileChessBoardView extends StatefulWidget {
   });
 
   final bool playerIsWhite;
+  final bool isAnalysisMode;
   final chess.Piece? Function(String square) pieceAt;
 
   final BoardHighlights highlights;
@@ -45,6 +47,13 @@ class MobileChessBoardView extends StatefulWidget {
 class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   static const List<String> _files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   static const double _dragHoverCircleRadiusInSquares = 1.0;
+  static const ColorFilter _analysisBoardTextureColorFilter =
+      ColorFilter.matrix(<double>[
+        0.78, 0.16, 0.06, 0, 0,
+        0.12, 0.86, 0.06, 0, 0,
+        0.12, 0.16, 0.74, 0, 0,
+        0, 0, 0, 1, 0,
+      ]);
 
   String? _hoveredDragTargetSquare;
 
@@ -151,17 +160,11 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
         final boardSize = constraints.biggest.shortestSide;
         final squareSize = boardSize / 8.0;
 
-        return DecoratedBox(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/board/maple.jpg'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GridView.builder(
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: _buildBoardTextureLayer()),
+            GridView.builder(
                 padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 64,
@@ -176,9 +179,10 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   return MobileChessBoardSquare(
                     square: square,
                     isLightSquare: _isLightSquare(square),
+                    isAnalysisMode: widget.isAnalysisMode,
                     pieceCode: pieceCode,
                     highlights: widget.highlights,
-                    canDrag: widget.canHumanMovePiece(square),
+                    canDrag: !widget.isAnalysisMode && widget.canHumanMovePiece(square),
                     canMoveTo: widget.canMoveTo,
                     onSquareTap: _handleSquareTap,
                     onMove: widget.onMove,
@@ -188,15 +192,30 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   );
                 },
               ),
-              if (_hoveredDragTargetSquare != null)
-                _MobileDragHoverCircle(
-                  center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
-                  radius: squareSize * _dragHoverCircleRadiusInSquares,
-                ),
-            ],
-          ),
+            if (_hoveredDragTargetSquare != null)
+              _MobileDragHoverCircle(
+                center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
+                radius: squareSize * _dragHoverCircleRadiusInSquares,
+              ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildBoardTextureLayer() {
+    final image = Image.asset(
+      'assets/board/maple.jpg',
+      fit: BoxFit.cover,
+    );
+
+    if (!widget.isAnalysisMode) {
+      return image;
+    }
+
+    return ColorFiltered(
+      colorFilter: _analysisBoardTextureColorFilter,
+      child: image,
     );
   }
 }

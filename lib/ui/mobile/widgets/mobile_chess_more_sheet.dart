@@ -7,6 +7,7 @@ class MobileChessMoreSheet extends StatelessWidget {
     required this.pgnText,
     required this.fenText,
     required this.onRestart,
+    required this.isAnalysisMode,
     required this.canToggleAnalysisMode,
     required this.onToggleAnalysisMode,
   });
@@ -14,6 +15,7 @@ class MobileChessMoreSheet extends StatelessWidget {
   final String pgnText;
   final String fenText;
   final VoidCallback onRestart;
+  final bool isAnalysisMode;
   final bool canToggleAnalysisMode;
   final VoidCallback onToggleAnalysisMode;
 
@@ -70,6 +72,10 @@ class MobileChessMoreSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final analysisLabel = isAnalysisMode
+        ? 'FINISH ANALYSIS'
+        : 'ANALYZE CURRENT PGN';
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF151515),
@@ -100,6 +106,7 @@ class MobileChessMoreSheet extends StatelessWidget {
             _SheetAction(
               icon: Icons.refresh,
               label: 'RESET BOARD',
+              isEnabled: !isAnalysisMode,
               onTap: () => _resetBoard(context),
             ),
             _SheetAction(
@@ -131,7 +138,7 @@ class MobileChessMoreSheet extends StatelessWidget {
             ),
             _SheetAction(
               icon: Icons.analytics_outlined,
-              label: 'ANALYZE CURRENT PGN',
+              label: analysisLabel,
               isEnabled: canToggleAnalysisMode,
               onTap: () => _toggleAnalysis(context),
             ),
