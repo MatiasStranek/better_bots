@@ -21,6 +21,7 @@ class ChessBoardGrid extends StatefulWidget {
     required this.onMove,
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
+    this.isAnalysisMode = false,
     this.annotationModeEnabled = false,
     this.annotationMarkedSquares = const <String>{},
     this.annotationArrows = const <BoardArrowAnnotation>{},
@@ -31,6 +32,7 @@ class ChessBoardGrid extends StatefulWidget {
   });
 
   final bool playerIsWhite;
+  final bool isAnalysisMode;
   final BoardHighlights highlights;
   final chess.Piece? Function(String square) pieceAt;
   final bool Function(String square) canHumanMovePiece;
@@ -60,6 +62,17 @@ class ChessBoardGrid extends StatefulWidget {
 }
 
 class _ChessBoardGridState extends State<ChessBoardGrid> {
+  static const ColorFilter _analysisBoardColorFilter = ColorFilter.matrix(
+    <double>[
+      0.78, 0.16, 0.06, 0, 0,
+      0.12, 0.86, 0.06, 0, 0,
+      0.12, 0.16, 0.74, 0, 0,
+      0, 0, 0, 1, 0,
+    ],
+  );
+
+  static const Color _analysisBoardOverlayColor = Color(0x407A8880);
+
   String? _annotationDragStartSquare;
   String? _annotationDragCurrentSquare;
 
@@ -187,42 +200,18 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                 onPointerCancel: _handlePointerCancel,
                 child: Stack(
                   children: [
-                  Positioned.fill(
-                    child: Image.asset(
-                      'assets/board/maple.jpg',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  GridView.builder(
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 64,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 8,
+                    Positioned.fill(child: _buildBoardLayer()),
+                    if (widget.isAnalysisMode)
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: _analysisBoardOverlayColor,
+                            ),
+                          ),
                         ),
-                    itemBuilder: (context, index) {
-                      final square = squareNameFromIndex(
-                        index: index,
-                        playerIsWhite: widget.playerIsWhite,
-                      );
-
-                      return ChessBoardSquare(
-                        square: square,
-                        piece: widget.pieceAt(square),
-                        isLightSquare: isLightSquareFromIndex(index),
-                        highlights: widget.highlights,
-                        canHumanMovePiece: widget.canHumanMovePiece(square),
-                        canMoveTo: widget.canMoveTo,
-                        legalTargetsFromSquare: widget.legalTargetsFromSquare,
-                        onSquareTap: widget.onSquareTap,
-                        onMove: widget.onMove,
-                        onPieceDragStarted: widget.onPieceDragStarted,
-                        onPieceDragEnded: widget.onPieceDragEnded,
-                      );
-                    },
-                  ),
-                  Positioned.fill(
+                      ),
+                    Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(
                         painter: _BoardAnnotationPainter(
@@ -250,6 +239,55 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildBoardLayer() {
+    final boardLayer = Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/board/maple.jpg',
+          fit: BoxFit.cover,
+        ),
+        GridView.builder(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 64,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 8,
+          ),
+          itemBuilder: (context, index) {
+            final square = squareNameFromIndex(
+              index: index,
+              playerIsWhite: widget.playerIsWhite,
+            );
+
+            return ChessBoardSquare(
+              square: square,
+              piece: widget.pieceAt(square),
+              isLightSquare: isLightSquareFromIndex(index),
+              highlights: widget.highlights,
+              canHumanMovePiece: widget.canHumanMovePiece(square),
+              canMoveTo: widget.canMoveTo,
+              legalTargetsFromSquare: widget.legalTargetsFromSquare,
+              onSquareTap: widget.onSquareTap,
+              onMove: widget.onMove,
+              onPieceDragStarted: widget.onPieceDragStarted,
+              onPieceDragEnded: widget.onPieceDragEnded,
+            );
+          },
+        ),
+      ],
+    );
+
+    if (!widget.isAnalysisMode) {
+      return boardLayer;
+    }
+
+    return ColorFiltered(
+      colorFilter: _analysisBoardColorFilter,
+      child: boardLayer,
     );
   }
 

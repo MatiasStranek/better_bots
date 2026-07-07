@@ -24,6 +24,7 @@ BUG SECTION:
 		* continue playing from actual position
 	* arrows with right click hold
 
+* Hotkey for opening Analysis
 * drag & drop bigger size effect
 
 * adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative) as Button (standard: 11)

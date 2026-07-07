@@ -359,6 +359,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                 children: [
                   ChessBoardGrid(
                     playerIsWhite: _controller.playerIsWhite,
+                    isAnalysisMode: _controller.isAnalysisMode,
                     highlights: _controller.highlights,
                     pieceAt: _controller.pieceAt,
                     canHumanMovePiece: _controller.canHumanMovePiece,

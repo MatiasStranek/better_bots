@@ -60,18 +60,18 @@ class ChessBoardController extends ChangeNotifier {
   final PremoveQueue _premoves = PremoveQueue();
 
   int _skillLevel = 0;
-  EngineStrengthMode _strengthMode = EngineStrengthMode.level;
+  EngineStrengthMode _strengthMode = EngineStrengthMode.cpLossElo;
   int _uciElo = 1320;
-  int _cpLossElo = 1300;
+  int _cpLossElo = 1600;
   int _cpLossUciSwitchFullMoveNumber = 11;
 
-  BotOpeningMove _botOpeningMove = BotOpeningMove.e4e5;
+  BotOpeningMove _botOpeningMove = BotOpeningMove.random;
   bool _openingLogicAllowed = true;
   BotOpeningMove? _resolvedRandomOpeningMove;
 
-  BotPersonality _botPersonality = BotPersonality.none;
+  BotPersonality _botPersonality = BotPersonality.random;
   BotPersonality? _resolvedRandomPersonality;
-  int _personaCandidateCount = 12;
+  int _personaCandidateCount = 64;
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
