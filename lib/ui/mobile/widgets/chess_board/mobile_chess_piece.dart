@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../../widgets/chess_board/chess_piece_visual.dart';
 
 class MobileChessPiece extends StatelessWidget {
   const MobileChessPiece({super.key, required this.pieceCode});
@@ -8,12 +9,11 @@ class MobileChessPiece extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(3),
-      child: SvgPicture.asset(
-        'assets/pieces/$pieceCode.svg',
-        fit: BoxFit.contain,
-      ),
+    final assetPath = 'assets/pieces/$pieceCode.svg';
+
+    return ChessPieceVisual(
+      assetPath: assetPath,
+      keyValue: 'mobile-$pieceCode-$assetPath',
     );
   }
 }

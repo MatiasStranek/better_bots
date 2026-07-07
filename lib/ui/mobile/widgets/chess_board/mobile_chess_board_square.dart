@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../models/board_highlights.dart';
@@ -16,6 +18,7 @@ class MobileChessBoardSquare extends StatelessWidget {
     required this.onMove,
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
+    required this.onDragTargetHoverChanged,
   });
 
   final String square;
@@ -39,6 +42,7 @@ class MobileChessBoardSquare extends StatelessWidget {
 
   final ValueChanged<String> onPieceDragStarted;
   final VoidCallback onPieceDragEnded;
+  final ValueChanged<String?> onDragTargetHoverChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +53,18 @@ class MobileChessBoardSquare extends StatelessWidget {
 
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) {
+        onDragTargetHoverChanged(square);
+
         return canMoveTo(from: details.data, to: square);
       },
+      onMove: (_) {
+        onDragTargetHoverChanged(square);
+      },
+      onLeave: (_) {
+        onDragTargetHoverChanged(null);
+      },
       onAcceptWithDetails: (details) async {
+        onDragTargetHoverChanged(null);
         await onMove(from: details.data, to: square);
       },
       builder: (context, candidateData, rejectedData) {
@@ -123,7 +136,10 @@ class MobileChessBoardSquare extends StatelessWidget {
                     pieceCode: pieceCode!,
                     canDrag: canDrag,
                     onPieceDragStarted: onPieceDragStarted,
-                    onPieceDragEnded: onPieceDragEnded,
+                    onPieceDragEnded: () {
+                      onDragTargetHoverChanged(null);
+                      onPieceDragEnded();
+                    },
                   ),
               ],
             ),
@@ -141,10 +157,6 @@ class MobileChessBoardSquare extends StatelessWidget {
     required bool isDragTarget,
     required bool isPremove,
   }) {
-    if (isDragTarget) {
-      return Colors.greenAccent.withAlpha(100);
-    }
-
     if (isSelected) {
       return Colors.blueAccent.withAlpha(90);
     }
@@ -153,19 +165,11 @@ class MobileChessBoardSquare extends StatelessWidget {
       return Colors.deepPurpleAccent.withAlpha(90);
     }
 
-    if (isLegalTarget) {
-      return Colors.green.withAlpha(70);
-    }
-
     if (isLastMove) {
       return Colors.yellow.withAlpha(80);
     }
 
-    if (isLightSquare) {
-      return const Color(0x99F0D9B5);
-    }
-
-    return const Color(0x99946F51);
+    return Colors.transparent;
   }
 }
 
@@ -185,6 +189,9 @@ class _DraggableMobilePiece extends StatelessWidget {
   final ValueChanged<String> onPieceDragStarted;
   final VoidCallback onPieceDragEnded;
 
+  static const double _dragFeedbackScale = 2.0;
+  static const double _dragFingerAnchorY = 0.94;
+
   @override
   Widget build(BuildContext context) {
     final piece = MobileChessPiece(pieceCode: pieceCode);
@@ -193,25 +200,35 @@ class _DraggableMobilePiece extends StatelessWidget {
       return piece;
     }
 
-    return Draggable<String>(
-      data: square,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final squareSize = _resolvedSquareSize(constraints);
+        final feedbackSize = squareSize * _dragFeedbackScale;
 
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: 72,
-          height: 72,
-          child: Transform.scale(scale: 1.18, child: piece),
-        ),
-      ),
-
-      childWhenDragging: Opacity(opacity: .25, child: piece),
-
-      onDragStarted: () => onPieceDragStarted(square),
-      onDragEnd: (_) => onPieceDragEnded(),
-      onDraggableCanceled: (_, __) => onPieceDragEnded(),
-
-      child: piece,
+        return Draggable<String>(
+          data: square,
+          hitTestBehavior: HitTestBehavior.opaque,
+          dragAnchorStrategy: (_, _, _) {
+            return Offset(feedbackSize / 2.0, feedbackSize * _dragFingerAnchorY);
+          },
+          feedback: SizedBox.square(
+            dimension: feedbackSize,
+            child: Material(type: MaterialType.transparency, child: piece),
+          ),
+          childWhenDragging: Opacity(opacity: 0.18, child: piece),
+          onDragStarted: () => onPieceDragStarted(square),
+          onDragEnd: (_) => onPieceDragEnded(),
+          onDraggableCanceled: (_, __) => onPieceDragEnded(),
+          child: piece,
+        );
+      },
     );
+  }
+
+  double _resolvedSquareSize(BoxConstraints constraints) {
+    final maxWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : 80.0;
+    final maxHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : 80.0;
+
+    return math.min(maxWidth, maxHeight).clamp(48.0, 220.0).toDouble();
   }
 }

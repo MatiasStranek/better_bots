@@ -108,9 +108,8 @@ class MobileChessBoardLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth - (_screenPadding * 2);
         final availableHeight = constraints.maxHeight - (_screenPadding * 2);
-        final boardSize = math.min(availableWidth, availableHeight);
+        final boardSize = math.min(constraints.maxWidth, availableHeight);
 
         final verticalFreeSpace = constraints.maxHeight - boardSize;
         final spaceAboveBoard = math.max(0.0, (verticalFreeSpace / 2) - 8);

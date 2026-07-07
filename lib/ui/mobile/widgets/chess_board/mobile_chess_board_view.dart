@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../models/board_highlights.dart';
 import 'mobile_chess_board_square.dart';
 
-class MobileChessBoardView extends StatelessWidget {
+class MobileChessBoardView extends StatefulWidget {
   const MobileChessBoardView({
     super.key,
     required this.playerIsWhite,
@@ -38,14 +38,22 @@ class MobileChessBoardView extends StatelessWidget {
   final ValueChanged<String> onPieceDragStarted;
   final VoidCallback onPieceDragEnded;
 
+  @override
+  State<MobileChessBoardView> createState() => _MobileChessBoardViewState();
+}
+
+class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   static const List<String> _files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  static const double _dragHoverCircleRadiusInSquares = 1.0;
+
+  String? _hoveredDragTargetSquare;
 
   String _squareForIndex(int index) {
     final row = index ~/ 8;
     final column = index % 8;
 
-    final fileIndex = playerIsWhite ? column : 7 - column;
-    final rank = playerIsWhite ? 8 - row : row + 1;
+    final fileIndex = widget.playerIsWhite ? column : 7 - column;
+    final rank = widget.playerIsWhite ? 8 - row : row + 1;
 
     return '${_files[fileIndex]}$rank';
   }
@@ -112,45 +120,108 @@ class MobileChessBoardView extends StatelessWidget {
   }
 
   Future<void> _handleSquareTap(String square) async {
-    await onSquareTap(square);
+    await widget.onSquareTap(square);
+  }
+
+  void _setHoveredDragTargetSquare(String? square) {
+    if (_hoveredDragTargetSquare == square) {
+      return;
+    }
+
+    setState(() {
+      _hoveredDragTargetSquare = square;
+    });
+  }
+
+  Offset _squareCenter(String square, double squareSize) {
+    final file = square.substring(0, 1);
+    final rank = int.parse(square.substring(1, 2));
+    final fileIndex = _files.indexOf(file);
+
+    final column = widget.playerIsWhite ? fileIndex : 7 - fileIndex;
+    final row = widget.playerIsWhite ? 8 - rank : rank - 1;
+
+    return Offset((column + 0.5) * squareSize, (row + 0.5) * squareSize);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/board/maple.jpg'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: GridView.builder(
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 64,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 8,
-          ),
-          itemBuilder: (context, index) {
-            final square = _squareForIndex(index);
-            final piece = pieceAt(square);
-            final pieceCode = _pieceCodeForPiece(piece);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boardSize = constraints.biggest.shortestSide;
+        final squareSize = boardSize / 8.0;
 
-            return MobileChessBoardSquare(
-              square: square,
-              isLightSquare: _isLightSquare(square),
-              pieceCode: pieceCode,
-              highlights: highlights,
-              canDrag: canHumanMovePiece(square),
-              canMoveTo: canMoveTo,
-              onSquareTap: _handleSquareTap,
-              onMove: onMove,
-              onPieceDragStarted: onPieceDragStarted,
-              onPieceDragEnded: onPieceDragEnded,
-            );
-          },
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/board/maple.jpg'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GridView.builder(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 64,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 8,
+                ),
+                itemBuilder: (context, index) {
+                  final square = _squareForIndex(index);
+                  final piece = widget.pieceAt(square);
+                  final pieceCode = _pieceCodeForPiece(piece);
+
+                  return MobileChessBoardSquare(
+                    square: square,
+                    isLightSquare: _isLightSquare(square),
+                    pieceCode: pieceCode,
+                    highlights: widget.highlights,
+                    canDrag: widget.canHumanMovePiece(square),
+                    canMoveTo: widget.canMoveTo,
+                    onSquareTap: _handleSquareTap,
+                    onMove: widget.onMove,
+                    onPieceDragStarted: widget.onPieceDragStarted,
+                    onPieceDragEnded: widget.onPieceDragEnded,
+                    onDragTargetHoverChanged: _setHoveredDragTargetSquare,
+                  );
+                },
+              ),
+              if (_hoveredDragTargetSquare != null)
+                _MobileDragHoverCircle(
+                  center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
+                  radius: squareSize * _dragHoverCircleRadiusInSquares,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileDragHoverCircle extends StatelessWidget {
+  const _MobileDragHoverCircle({required this.center, required this.radius});
+
+  final Offset center;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final diameter = radius * 2.0;
+
+    return Positioned(
+      left: center.dx - radius,
+      top: center.dy - radius,
+      width: diameter,
+      height: diameter,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withAlpha(48),
+            shape: BoxShape.circle,
+          ),
         ),
       ),
     );
