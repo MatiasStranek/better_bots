@@ -365,6 +365,25 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
       return KeyEventResult.ignored;
     }
 
+    if (_controller.isAnalysisMode) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _controller.stepAnalysisBack();
+        return KeyEventResult.handled;
+      }
+
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _controller.stepAnalysisForward();
+        return KeyEventResult.handled;
+      }
+
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _controller.toggleAnalysisMode();
+        return KeyEventResult.handled;
+      }
+
+      return KeyEventResult.ignored;
+    }
+
     if (event.logicalKey == LogicalKeyboardKey.space) {
       if (_controller.canStartAnalysisMode) {
         _controller.toggleAnalysisMode();
@@ -373,22 +392,18 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
       return KeyEventResult.handled;
     }
 
-    if (!_controller.isAnalysisMode) {
-      return KeyEventResult.ignored;
-    }
-
-    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      _controller.stepAnalysisBack();
+    if (event.logicalKey == LogicalKeyboardKey.keyR) {
+      _controller.restartGame();
       return KeyEventResult.handled;
     }
 
-    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-      _controller.stepAnalysisForward();
+    if (event.logicalKey == LogicalKeyboardKey.keyW) {
+      _controller.newGame(PlayerSide.white);
       return KeyEventResult.handled;
     }
 
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      _controller.toggleAnalysisMode();
+    if (event.logicalKey == LogicalKeyboardKey.keyB) {
+      _controller.newGame(PlayerSide.black);
       return KeyEventResult.handled;
     }
 
