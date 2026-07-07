@@ -3,8 +3,6 @@ BUG SECTION:
 	* Windows: entwickelte Dame wird als Pawn gedragt
 
 
-* Button for 11 Move (choose amount)
-* MAX_CP_Loss for 0-1200 in 15 % case
 * adding premoves with taking pieces
 * setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
 

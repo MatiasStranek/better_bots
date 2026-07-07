@@ -82,7 +82,7 @@ class _AnalysisLinesView extends StatelessWidget {
         if (analysisLines.isEmpty)
           SelectableText(
             isAnalysisThinking
-                ? 'Engine analysiert bis Tiefe 20. Live-Linien erscheinen ab Tiefe 10 und werden nur nach abgeschlossenen Tiefen aktualisiert.'
+                ? 'Engine analysiert bis Tiefe 20. Live-Linien erscheinen ab Tiefe 1 und werden nur nach abgeschlossenen Tiefen aktualisiert.'
                 : 'Noch keine Analyse-Linien vorhanden.',
           )
         else

@@ -22,7 +22,7 @@ class StockfishWindowsEngine implements ChessEngine {
   Completer<List<EngineAnalysisLine>>? _analysisCompleter;
   EngineAnalysisUpdate? _analysisUpdateCallback;
 
-  static const int _analysisLiveUpdateMinDepth = 10;
+  static const int _analysisLiveUpdateMinDepth = 1;
 
   int _analysisRequestedMultiPv = 5;
   int _lastEmittedAnalysisDepth = 0;
