@@ -17,6 +17,8 @@ class MobileChessActionBar extends StatelessWidget {
     required this.onToggleAnalysisMode,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
+    required this.onAnalysisBackToStart,
+    required this.onAnalysisForwardToEnd,
     this.height = 64,
   });
 
@@ -32,6 +34,8 @@ class MobileChessActionBar extends StatelessWidget {
   final VoidCallback onToggleAnalysisMode;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
+  final Future<void> Function() onAnalysisBackToStart;
+  final Future<void> Function() onAnalysisForwardToEnd;
   final double height;
 
   Future<void> _showMoreSheet(BuildContext context) async {
@@ -60,6 +64,14 @@ class MobileChessActionBar extends StatelessWidget {
 
   void _goAnalysisForward() {
     onAnalysisForward();
+  }
+
+  void _goAnalysisBackToStart() {
+    onAnalysisBackToStart();
+  }
+
+  void _goAnalysisForwardToEnd() {
+    onAnalysisForwardToEnd();
   }
 
   @override
@@ -95,6 +107,7 @@ class MobileChessActionBar extends StatelessWidget {
               tooltip: 'Analyse zurück',
               isEnabled: isAnalysisMode && canNavigateAnalysisBack,
               onPressed: _goAnalysisBack,
+              onLongPress: _goAnalysisBackToStart,
             ),
           ),
           Expanded(
@@ -103,6 +116,7 @@ class MobileChessActionBar extends StatelessWidget {
               tooltip: 'Analyse vor',
               isEnabled: isAnalysisMode && canNavigateAnalysisForward,
               onPressed: _goAnalysisForward,
+              onLongPress: _goAnalysisForwardToEnd,
             ),
           ),
           Expanded(
@@ -125,12 +139,14 @@ class _ActionBarButton extends StatelessWidget {
     required this.tooltip,
     required this.isEnabled,
     this.onPressed,
+    this.onLongPress,
   });
 
   final IconData icon;
   final String tooltip;
   final bool isEnabled;
   final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
 
   static const Color _activeColor = Color(0xFF5C9DFF);
 
@@ -142,6 +158,7 @@ class _ActionBarButton extends StatelessWidget {
       message: tooltip,
       child: InkResponse(
         onTap: isEnabled ? onPressed : null,
+        onLongPress: isEnabled ? onLongPress : null,
         radius: 28,
         child: Center(
           child: Icon(icon, size: 32, color: color),

@@ -83,7 +83,9 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   Timer? _annotationLongPressTimer;
   bool _annotationPointerMoved = false;
   bool _annotationLongPressTriggered = false;
+  bool? _annotationCirclePaintAdds;
   bool _suppressNextSquareTap = false;
+  final Set<String> _annotationCirclePaintVisitedSquares = <String>{};
 
   @override
   void didUpdateWidget(covariant MobileChessBoardView oldWidget) {
@@ -235,7 +237,7 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   }
 
   void _handlePointerDown(PointerDownEvent event, double boardSize) {
-    if (!widget.annotationModeEnabled) {
+    if (!widget.annotationModeEnabled || _annotationPointer != null) {
       return;
     }
 
@@ -267,13 +269,25 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
 
       _suppressFollowingSquareTapBriefly();
       _annotationLongPressTriggered = true;
-      widget.onToggleAnnotationSquare?.call(_annotationDragStartSquare!);
-      _resetAnnotationDragPreviewOnly();
+      _beginAnnotationCirclePaint(_annotationDragStartSquare!);
     });
   }
 
   void _handlePointerMove(PointerMoveEvent event, double boardSize) {
     if (!widget.annotationModeEnabled || _annotationPointer != event.pointer) {
+      return;
+    }
+
+    if (_annotationLongPressTriggered) {
+      final square = _squareFromLocalPosition(
+        position: event.localPosition,
+        boardSize: boardSize,
+      );
+
+      if (square != null) {
+        _paintAnnotationCircleSquare(square);
+      }
+
       return;
     }
 
@@ -308,8 +322,12 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   }
 
   void _handlePointerUp(PointerUpEvent event, double boardSize) {
-    if (!widget.annotationModeEnabled || _annotationPointer != event.pointer) {
+    if (!widget.annotationModeEnabled) {
       _resetAnnotationGestureState();
+      return;
+    }
+
+    if (_annotationPointer != event.pointer) {
       return;
     }
 
@@ -350,12 +368,40 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
     _resetAnnotationGestureState();
   }
 
+  void _beginAnnotationCirclePaint(String square) {
+    _annotationCirclePaintAdds = !widget.annotationMarkedSquares.contains(square);
+    _annotationCirclePaintVisitedSquares.clear();
+    _paintAnnotationCircleSquare(square);
+  }
+
+  void _paintAnnotationCircleSquare(String square) {
+    final shouldAdd = _annotationCirclePaintAdds;
+
+    if (shouldAdd == null ||
+        !_annotationCirclePaintVisitedSquares.add(square)) {
+      return;
+    }
+
+    final isMarked = widget.annotationMarkedSquares.contains(square);
+
+    if (shouldAdd && !isMarked) {
+      widget.onToggleAnnotationSquare?.call(square);
+      return;
+    }
+
+    if (!shouldAdd && isMarked) {
+      widget.onToggleAnnotationSquare?.call(square);
+    }
+  }
+
   void _resetAnnotationGestureState() {
     _annotationLongPressTimer?.cancel();
     _annotationPointer = null;
     _annotationPointerStartPosition = null;
     _annotationPointerMoved = false;
     _annotationLongPressTriggered = false;
+    _annotationCirclePaintAdds = null;
+    _annotationCirclePaintVisitedSquares.clear();
     _resetAnnotationDragPreviewOnly();
   }
 
@@ -376,6 +422,7 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
     final to = _annotationDragCurrentSquare;
 
     if (!widget.annotationModeEnabled ||
+        _annotationLongPressTriggered ||
         !_annotationPointerMoved ||
         from == null ||
         to == null ||

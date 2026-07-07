@@ -100,6 +100,46 @@ Future<void> _controllerStepAnalysisForward(
   _requestAnalysisForCurrentPosition(controller);
 }
 
+Future<void> _controllerJumpAnalysisToStart(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final jumped = session.jumpToStart();
+
+  if (!jumped) {
+    return;
+  }
+
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+Future<void> _controllerJumpAnalysisToEnd(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final jumped = session.jumpToEnd();
+
+  if (!jumped) {
+    return;
+  }
+
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
 Future<void> _controllerOnAnalysisSquareTap(
   ChessBoardController controller,
   String square,

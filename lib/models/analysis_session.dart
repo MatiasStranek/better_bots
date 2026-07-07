@@ -203,6 +203,36 @@ class AnalysisSession {
     return true;
   }
 
+  bool jumpToStart() {
+    if (!canStepBack) {
+      return false;
+    }
+
+    currentPly = 0;
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: Grundstellung. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: Grundstellung.';
+
+    return true;
+  }
+
+  bool jumpToEnd() {
+    if (!canStepForward) {
+      return false;
+    }
+
+    currentPly = _analysisMoves.length;
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: letzter verfügbarer Zug. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: letzter verfügbarer Zug.';
+
+    return true;
+  }
+
   bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
     final cachedLines = _completedTopLinesByFen[fen];
 

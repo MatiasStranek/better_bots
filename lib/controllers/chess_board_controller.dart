@@ -252,6 +252,10 @@ class ChessBoardController extends ChangeNotifier {
 
   Future<void> stepAnalysisForward() => _controllerStepAnalysisForward(this);
 
+  Future<void> jumpAnalysisToStart() => _controllerJumpAnalysisToStart(this);
+
+  Future<void> jumpAnalysisToEnd() => _controllerJumpAnalysisToEnd(this);
+
   void setSkillLevel(int level) => _controllerSetSkillLevel(this, level);
 
   void setStrengthMode(EngineStrengthMode mode) {

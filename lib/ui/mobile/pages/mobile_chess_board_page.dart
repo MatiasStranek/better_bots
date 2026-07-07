@@ -196,6 +196,14 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     await _controller.stepAnalysisForward();
   }
 
+  Future<void> _handleAnalysisBackToStart() async {
+    await _controller.jumpAnalysisToStart();
+  }
+
+  Future<void> _handleAnalysisForwardToEnd() async {
+    await _controller.jumpAnalysisToEnd();
+  }
+
   void _handleSystemBackWhileInAnalysisMode() {
     if (!_controller.isAnalysisMode) {
       return;
@@ -261,6 +269,8 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 onToggleAnalysisMode: _handleToggleAnalysisMode,
                 onAnalysisBack: _handleAnalysisBack,
                 onAnalysisForward: _handleAnalysisForward,
+                onAnalysisBackToStart: _handleAnalysisBackToStart,
+                onAnalysisForwardToEnd: _handleAnalysisForwardToEnd,
                 annotationMarkedSquares: _activeAnnotationMarkedSquares,
                 annotationArrows: _activeAnnotationArrows,
                 onClearBoardAnnotations: _clearBoardAnnotations,

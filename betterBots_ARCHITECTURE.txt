@@ -1,7 +1,8 @@
-* Trainiert orange färben
+* STRONG: Wins, Looses, Remis zählen nicht wenn in der aktuellen Runde bereits einmal Analyse betätigt wurde
+* STRONG: Longpress vor/zurück schneller machen
+* Remis grau färben
 * Analyse, alle existierenden Züge in der Analyse bis Zug 20 analysiert bleibt zwischengespeichert bis Restart oder Reset (oder ResetCount) betätigt wird
 * Hinter der NotationBar grauen Streifen
-* Wins, Looses, Remis zählen nicht wenn in der aktuellen Runde bereits einmal Analyse betätigt wurde
 * grüne Boxen sollen immer quadratisch bleiben
 * Brett Buchstaben und Zahlen hinzufügen
 * Reset Counter in "..." Button Menü

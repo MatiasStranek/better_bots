@@ -54,6 +54,8 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onToggleAnalysisMode,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
+    required this.onAnalysisBackToStart,
+    required this.onAnalysisForwardToEnd,
     required this.annotationMarkedSquares,
     required this.annotationArrows,
     required this.onClearBoardAnnotations,
@@ -116,6 +118,8 @@ class MobileChessBoardLayout extends StatefulWidget {
   final VoidCallback onToggleAnalysisMode;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
+  final Future<void> Function() onAnalysisBackToStart;
+  final Future<void> Function() onAnalysisForwardToEnd;
 
   final Set<String> annotationMarkedSquares;
   final Set<BoardArrowAnnotation> annotationArrows;
@@ -445,6 +449,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onToggleAnalysisMode: widget.onToggleAnalysisMode,
                   onAnalysisBack: widget.onAnalysisBack,
                   onAnalysisForward: widget.onAnalysisForward,
+                  onAnalysisBackToStart: widget.onAnalysisBackToStart,
+                  onAnalysisForwardToEnd: widget.onAnalysisForwardToEnd,
                 ),
               ),
             _buildClosedEdgeSwipeAreas(
