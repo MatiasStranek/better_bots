@@ -50,6 +50,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.personaCandidateCount,
     required this.isAnalysisMode,
     required this.isAnalysisBranchActive,
+    required this.analysisUsedDuringCurrentGame,
     required this.analysisLines,
     required this.trainingCounter,
     required this.canToggleAnalysisMode,
@@ -117,6 +118,7 @@ class MobileChessBoardLayout extends StatefulWidget {
 
   final bool isAnalysisMode;
   final bool isAnalysisBranchActive;
+  final bool analysisUsedDuringCurrentGame;
   final List<EngineAnalysisLine> analysisLines;
   final TrainingCounterSnapshot trainingCounter;
   final bool canToggleAnalysisMode;
@@ -164,6 +166,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _actionBarHeight = 64;
   static const double _analysisButtonSize = 52;
   static const double _analysisButtonGap = 8;
+  static const double _analysisUseIndicatorHeight = 32;
+  static const double _analysisUseIndicatorGap = 6;
   static const double _analysisIconVisualSize = 30;
   static const double _analysisIconGlyphTopCorrection = 3;
   static const double _gameInfoPanelHorizontalGap = 12;
@@ -333,6 +337,11 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           top: gameInfoPanelTop,
           screenHeight: constraints.maxHeight,
         );
+        final analysisUseIndicatorTop =
+            analysisButtonTop + _analysisButtonSize + _analysisUseIndicatorGap;
+        final canShowAnalysisUseIndicator =
+            analysisUseIndicatorTop + _analysisUseIndicatorHeight <=
+                constraints.maxHeight - _actionBarHeight - 4;
         final resultStatsTop = _topBetweenMoveStripAndBoard(
           boardTop: boardTop,
           contentHeight: _resultStatsHeight,
@@ -439,6 +448,17 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 onPressed: widget.onToggleAnalysisMode,
               ),
             ),
+            if (canShowAnalysisUseIndicator)
+              Positioned(
+                right: 12,
+                top: analysisUseIndicatorTop,
+                width: _analysisButtonSize,
+                height: _analysisUseIndicatorHeight,
+                child: _AnalysisUseIndicatorBox(
+                  analysisUsedDuringCurrentGame:
+                      widget.analysisUsedDuringCurrentGame,
+                ),
+              ),
             if (canShowActionBar)
               Positioned(
                 left: 0,
@@ -522,6 +542,56 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           ],
         );
       },
+    );
+  }
+}
+
+class _AnalysisUseIndicatorBox extends StatelessWidget {
+  const _AnalysisUseIndicatorBox({
+    required this.analysisUsedDuringCurrentGame,
+  });
+
+  final bool analysisUsedDuringCurrentGame;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCleanGame = !analysisUsedDuringCurrentGame;
+
+    return Semantics(
+      label: hasCleanGame
+          ? 'Analyse in dieser Partie nicht benutzt'
+          : 'Analyse in dieser Partie benutzt',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF111111).withAlpha(210),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasCleanGame
+                ? const Color(0xFF55C878).withAlpha(150)
+                : const Color(0xFFFF5A5A).withAlpha(150),
+            width: 1.3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(90),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            hasCleanGame ? '✅' : '❌',
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              height: 1.0,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
