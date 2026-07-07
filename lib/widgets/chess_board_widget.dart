@@ -23,9 +23,10 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   final Set<String> _normalAnnotationMarkedSquares = <String>{};
   final Set<BoardArrowAnnotation> _normalAnnotationArrows =
       <BoardArrowAnnotation>{};
-  final Set<String> _analysisAnnotationMarkedSquares = <String>{};
-  final Set<BoardArrowAnnotation> _analysisAnnotationArrows =
-      <BoardArrowAnnotation>{};
+  final Map<String, Set<String>> _analysisAnnotationMarkedSquaresByFen =
+      <String, Set<String>>{};
+  final Map<String, Set<BoardArrowAnnotation>> _analysisAnnotationArrowsByFen =
+      <String, Set<BoardArrowAnnotation>>{};
 
   bool _lastKnownAnalysisMode = false;
 
@@ -49,16 +50,24 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     super.dispose();
   }
 
+  String get _analysisAnnotationPositionKey => _controller.fen.trim();
+
   Set<String> get _activeAnnotationMarkedSquares {
-    return _controller.isAnalysisMode
-        ? _analysisAnnotationMarkedSquares
-        : _normalAnnotationMarkedSquares;
+    if (!_controller.isAnalysisMode) {
+      return _normalAnnotationMarkedSquares;
+    }
+
+    return _analysisAnnotationMarkedSquaresByFen[_analysisAnnotationPositionKey] ??
+        const <String>{};
   }
 
   Set<BoardArrowAnnotation> get _activeAnnotationArrows {
-    return _controller.isAnalysisMode
-        ? _analysisAnnotationArrows
-        : _normalAnnotationArrows;
+    if (!_controller.isAnalysisMode) {
+      return _normalAnnotationArrows;
+    }
+
+    return _analysisAnnotationArrowsByFen[_analysisAnnotationPositionKey] ??
+        const <BoardArrowAnnotation>{};
   }
 
   void _handleControllerChanged() {
@@ -68,53 +77,104 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     _lastKnownAnalysisMode = isAnalysisMode;
 
     if (!hasJustLeftAnalysisMode ||
-        (_analysisAnnotationMarkedSquares.isEmpty &&
-            _analysisAnnotationArrows.isEmpty)) {
+        (_analysisAnnotationMarkedSquaresByFen.isEmpty &&
+            _analysisAnnotationArrowsByFen.isEmpty)) {
       return;
     }
 
     if (!mounted) {
-      _analysisAnnotationMarkedSquares.clear();
-      _analysisAnnotationArrows.clear();
+      _analysisAnnotationMarkedSquaresByFen.clear();
+      _analysisAnnotationArrowsByFen.clear();
       return;
     }
 
     setState(() {
-      _analysisAnnotationMarkedSquares.clear();
-      _analysisAnnotationArrows.clear();
+      _analysisAnnotationMarkedSquaresByFen.clear();
+      _analysisAnnotationArrowsByFen.clear();
     });
   }
 
   void _clearBoardAnnotations() {
-    final markedSquares = _activeAnnotationMarkedSquares;
-    final arrows = _activeAnnotationArrows;
+    if (_controller.isAnalysisMode) {
+      final positionKey = _analysisAnnotationPositionKey;
+      final markedSquares = _analysisAnnotationMarkedSquaresByFen[positionKey];
+      final arrows = _analysisAnnotationArrowsByFen[positionKey];
 
-    if (markedSquares.isEmpty && arrows.isEmpty) {
+      if ((markedSquares == null || markedSquares.isEmpty) &&
+          (arrows == null || arrows.isEmpty)) {
+        return;
+      }
+
+      setState(() {
+        _analysisAnnotationMarkedSquaresByFen.remove(positionKey);
+        _analysisAnnotationArrowsByFen.remove(positionKey);
+      });
+      return;
+    }
+
+    if (_normalAnnotationMarkedSquares.isEmpty &&
+        _normalAnnotationArrows.isEmpty) {
       return;
     }
 
     setState(() {
-      markedSquares.clear();
-      arrows.clear();
+      _normalAnnotationMarkedSquares.clear();
+      _normalAnnotationArrows.clear();
     });
   }
 
   void _toggleAnnotationSquare(String square) {
-    final markedSquares = _activeAnnotationMarkedSquares;
+    if (_controller.isAnalysisMode) {
+      final positionKey = _analysisAnnotationPositionKey;
+
+      setState(() {
+        final markedSquares = _analysisAnnotationMarkedSquaresByFen.putIfAbsent(
+          positionKey,
+          () => <String>{},
+        );
+
+        if (!markedSquares.add(square)) {
+          markedSquares.remove(square);
+        }
+
+        if (markedSquares.isEmpty) {
+          _analysisAnnotationMarkedSquaresByFen.remove(positionKey);
+        }
+      });
+      return;
+    }
 
     setState(() {
-      if (!markedSquares.add(square)) {
-        markedSquares.remove(square);
+      if (!_normalAnnotationMarkedSquares.add(square)) {
+        _normalAnnotationMarkedSquares.remove(square);
       }
     });
   }
 
   void _toggleAnnotationArrow(BoardArrowAnnotation arrow) {
-    final arrows = _activeAnnotationArrows;
+    if (_controller.isAnalysisMode) {
+      final positionKey = _analysisAnnotationPositionKey;
+
+      setState(() {
+        final arrows = _analysisAnnotationArrowsByFen.putIfAbsent(
+          positionKey,
+          () => <BoardArrowAnnotation>{},
+        );
+
+        if (!arrows.add(arrow)) {
+          arrows.remove(arrow);
+        }
+
+        if (arrows.isEmpty) {
+          _analysisAnnotationArrowsByFen.remove(positionKey);
+        }
+      });
+      return;
+    }
 
     setState(() {
-      if (!arrows.add(arrow)) {
-        arrows.remove(arrow);
+      if (!_normalAnnotationArrows.add(arrow)) {
+        _normalAnnotationArrows.remove(arrow);
       }
     });
   }
@@ -285,9 +345,32 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     }
   }
 
+  bool _isTextInputFocused() {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+
+    if (focusedContext == null) {
+      return false;
+    }
+
+    return focusedContext.widget is EditableText ||
+        focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
   KeyEventResult _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
+    }
+
+    if (_isTextInputFocused()) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.space) {
+      if (!_controller.isAnalysisMode) {
+        _controller.toggleAnalysisMode();
+      }
+
+      return KeyEventResult.handled;
     }
 
     if (!_controller.isAnalysisMode) {
