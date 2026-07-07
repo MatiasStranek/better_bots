@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:chess/chess.dart' as chess;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -62,6 +63,7 @@ class ChessBoardGrid extends StatefulWidget {
 }
 
 class _ChessBoardGridState extends State<ChessBoardGrid> {
+  static const double _windowsBoardCornerRadius = 10;
   static const ColorFilter _analysisBoardTextureColorFilter =
       ColorFilter.matrix(<double>[
         0.78, 0.16, 0.06, 0, 0,
@@ -72,6 +74,14 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
 
   String? _annotationDragStartSquare;
   String? _annotationDragCurrentSquare;
+
+  BorderRadius get _boardBorderRadius {
+    if (defaultTargetPlatform != TargetPlatform.windows) {
+      return BorderRadius.zero;
+    }
+
+    return BorderRadius.circular(_windowsBoardCornerRadius);
+  }
 
   @override
   void didUpdateWidget(covariant ChessBoardGrid oldWidget) {
@@ -196,10 +206,13 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                 onPointerMove: (event) => _handlePointerMove(event, boardSize),
                 onPointerUp: (event) => _handlePointerUp(event, boardSize),
                 onPointerCancel: _handlePointerCancel,
-                child: Stack(
-                  children: [
-                    Positioned.fill(child: _buildBoardTextureLayer()),
-                    GridView.builder(
+                child: ClipRRect(
+                  borderRadius: _boardBorderRadius,
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: _buildBoardTextureLayer()),
+                      GridView.builder(
                       padding: EdgeInsets.zero,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: 64,
@@ -241,16 +254,17 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                         ),
                       ),
                     ),
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _BoardCoordinatePainter(
-                            playerIsWhite: widget.playerIsWhite,
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _BoardCoordinatePainter(
+                              playerIsWhite: widget.playerIsWhite,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -504,21 +518,26 @@ class _BoardCoordinatePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final boardSize = math.min(size.width, size.height);
     final squareSize = boardSize / 8.0;
-    final fontSize = (squareSize * 0.19).clamp(10.0, 18.0).toDouble();
-    final inset = (squareSize * 0.08).clamp(4.0, 8.0).toDouble();
+    final fontSize = (squareSize * 0.135).clamp(8.0, 12.0).toDouble();
+    final inset = (squareSize * 0.055).clamp(3.0, 5.0).toDouble();
 
     for (var row = 0; row < 8; row++) {
       final rank = playerIsWhite ? 8 - row : row + 1;
-      final squareIsLight = _isDisplayedSquareLight(row: row, col: 0);
+      final squareIsLight = _isDisplayedSquareLight(row: row, col: 7);
       final color = _coordinateColorForSquare(squareIsLight);
-
-      _paintText(
-        canvas,
+      final painter = _textPainter(
         text: '$rank',
-        offset: Offset(inset, row * squareSize + inset * 0.65),
         fontSize: fontSize,
         color: color,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
+      )..layout();
+
+      painter.paint(
+        canvas,
+        Offset(
+          boardSize - painter.width - inset,
+          row * squareSize + inset * 0.45,
+        ),
       );
     }
 
@@ -527,19 +546,18 @@ class _BoardCoordinatePainter extends CustomPainter {
       final file = String.fromCharCode('a'.codeUnitAt(0) + fileIndex);
       final squareIsLight = _isDisplayedSquareLight(row: 7, col: col);
       final color = _coordinateColorForSquare(squareIsLight);
-
       final painter = _textPainter(
         text: file,
         fontSize: fontSize,
         color: color,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
       )..layout();
 
       painter.paint(
         canvas,
         Offset(
-          (col + 1) * squareSize - painter.width - inset,
-          8 * squareSize - painter.height - inset * 0.45,
+          col * squareSize + inset,
+          boardSize - painter.height - inset * 0.35,
         ),
       );
     }
@@ -554,25 +572,7 @@ class _BoardCoordinatePainter extends CustomPainter {
       return Colors.black.withAlpha(150);
     }
 
-    return Colors.white.withAlpha(210);
-  }
-
-  void _paintText(
-    Canvas canvas, {
-    required String text,
-    required Offset offset,
-    required double fontSize,
-    required Color color,
-    required FontWeight fontWeight,
-  }) {
-    final painter = _textPainter(
-      text: text,
-      fontSize: fontSize,
-      color: color,
-      fontWeight: fontWeight,
-    )..layout();
-
-    painter.paint(canvas, offset);
+    return Colors.white.withAlpha(215);
   }
 
   TextPainter _textPainter({
@@ -589,6 +589,13 @@ class _BoardCoordinatePainter extends CustomPainter {
           fontSize: fontSize,
           fontWeight: fontWeight,
           height: 1,
+          shadows: const [
+            Shadow(
+              color: Colors.black38,
+              blurRadius: 1.5,
+              offset: Offset(0, 0.5),
+            ),
+          ],
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -633,3 +640,5 @@ String? _squareFromLocalPosition(
 
   return '$file$rank';
 }
+
+

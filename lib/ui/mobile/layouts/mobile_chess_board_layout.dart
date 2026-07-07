@@ -288,6 +288,16 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
     return math.max(0.0, maxHeight);
   }
 
+  double _topBetweenMoveStripAndBoard({
+    required double boardTop,
+    required double contentHeight,
+  }) {
+    const moveStripBottom = _moveStripTop + _moveStripHeight;
+    final availableGap = boardTop - moveStripBottom - contentHeight;
+
+    return moveStripBottom + math.max(0.0, availableGap / 2.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -311,9 +321,13 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           top: gameInfoPanelTop,
           screenHeight: constraints.maxHeight,
         );
-        final analysisLinesBarTop = math.max(
-          _moveStripTop + _moveStripHeight + _analysisLinesBarGap,
-          boardTop - _analysisLinesBarHeight - _analysisLinesBarGap,
+        final resultStatsTop = _topBetweenMoveStripAndBoard(
+          boardTop: boardTop,
+          contentHeight: _resultStatsHeight,
+        );
+        final analysisLinesBarTop = _topBetweenMoveStripAndBoard(
+          boardTop: boardTop,
+          contentHeight: _analysisLinesBarHeight,
         );
 
         return Stack(
@@ -362,12 +376,12 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
               ),
             ),
             if (!widget.isAnalysisMode)
-              const Positioned(
+              Positioned(
                 left: 8,
                 right: 8,
-                top: _moveStripTop + _moveStripHeight,
+                top: resultStatsTop,
                 height: _resultStatsHeight,
-                child: MobileChessResultStatsPanel(),
+                child: const MobileChessResultStatsPanel(),
               ),
             if (widget.isAnalysisMode)
               Positioned(

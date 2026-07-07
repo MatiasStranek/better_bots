@@ -448,6 +448,15 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
                   radius: squareSize * _dragHoverCircleRadiusInSquares,
                 ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _MobileBoardCoordinatePainter(
+                      playerIsWhite: widget.playerIsWhite,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -469,6 +478,107 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
       colorFilter: _analysisBoardTextureColorFilter,
       child: image,
     );
+  }
+}
+
+
+class _MobileBoardCoordinatePainter extends CustomPainter {
+  const _MobileBoardCoordinatePainter({required this.playerIsWhite});
+
+  final bool playerIsWhite;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final boardSize = math.min(size.width, size.height);
+    final squareSize = boardSize / 8.0;
+    final fontSize = (squareSize * 0.15).clamp(7.0, 12.0).toDouble();
+    final inset = (squareSize * 0.05).clamp(2.5, 5.0).toDouble();
+
+    for (var row = 0; row < 8; row++) {
+      final rank = playerIsWhite ? 8 - row : row + 1;
+      final squareIsLight = _isDisplayedSquareLight(row: row, col: 7);
+      final color = _coordinateColorForSquare(squareIsLight);
+      final painter = _textPainter(
+        text: '$rank',
+        fontSize: fontSize,
+        color: color,
+        fontWeight: FontWeight.w900,
+      )..layout();
+
+      painter.paint(
+        canvas,
+        Offset(
+          boardSize - painter.width - inset,
+          row * squareSize + inset * 0.45,
+        ),
+      );
+    }
+
+    for (var col = 0; col < 8; col++) {
+      final fileIndex = playerIsWhite ? col : 7 - col;
+      final file = String.fromCharCode('a'.codeUnitAt(0) + fileIndex);
+      final squareIsLight = _isDisplayedSquareLight(row: 7, col: col);
+      final color = _coordinateColorForSquare(squareIsLight);
+      final painter = _textPainter(
+        text: file,
+        fontSize: fontSize,
+        color: color,
+        fontWeight: FontWeight.w900,
+      )..layout();
+
+      painter.paint(
+        canvas,
+        Offset(
+          col * squareSize + inset,
+          boardSize - painter.height - inset * 0.35,
+        ),
+      );
+    }
+  }
+
+  bool _isDisplayedSquareLight({required int row, required int col}) {
+    return (row + col).isEven;
+  }
+
+  Color _coordinateColorForSquare(bool squareIsLight) {
+    if (squareIsLight) {
+      return Colors.black.withAlpha(150);
+    }
+
+    return Colors.white.withAlpha(215);
+  }
+
+  TextPainter _textPainter({
+    required String text,
+    required double fontSize,
+    required Color color,
+    required FontWeight fontWeight,
+  }) {
+    return TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          height: 1,
+          shadows: const [
+            Shadow(
+              color: Colors.black38,
+              blurRadius: 1.5,
+              offset: Offset(0, 0.5),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MobileBoardCoordinatePainter oldDelegate) {
+    return oldDelegate.playerIsWhite != playerIsWhite;
   }
 }
 
