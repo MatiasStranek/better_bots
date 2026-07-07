@@ -217,8 +217,6 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                         onMove: widget.onMove,
                         onPieceDragStarted: widget.onPieceDragStarted,
                         onPieceDragEnded: widget.onPieceDragEnded,
-                        isAnnotationMarked:
-                            widget.annotationMarkedSquares.contains(square),
                       );
                     },
                   ),
@@ -227,6 +225,7 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                       child: CustomPaint(
                         painter: _BoardAnnotationPainter(
                           playerIsWhite: widget.playerIsWhite,
+                          markedSquares: widget.annotationMarkedSquares,
                           arrows: widget.annotationArrows,
                           previewArrow: previewArrow,
                         ),
@@ -266,41 +265,101 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
 class _BoardAnnotationPainter extends CustomPainter {
   const _BoardAnnotationPainter({
     required this.playerIsWhite,
+    required this.markedSquares,
     required this.arrows,
     this.previewArrow,
   });
 
+  static const Color _highlighterGreen = Color(0xFF006B2E);
+
   final bool playerIsWhite;
+  final Set<String> markedSquares;
   final Set<BoardArrowAnnotation> arrows;
   final BoardArrowAnnotation? previewArrow;
 
   @override
   void paint(Canvas canvas, Size size) {
     final squareSize = math.min(size.width, size.height) / 8.0;
-    final strokeWidth = squareSize * 0.18;
+    final markerStrokeWidth = squareSize * 0.22;
+    final arrowStrokeWidth = squareSize * 0.18;
 
-    final paint = Paint()
-      ..color = Colors.greenAccent.withAlpha(130)
-      ..strokeWidth = strokeWidth
+    final markerPaint = Paint()
+      ..color = _highlighterGreen.withAlpha(118)
+      ..blendMode = BlendMode.src
+      ..strokeWidth = markerStrokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
+    final arrowPaint = Paint()
+      ..color = _highlighterGreen.withAlpha(118)
+      ..blendMode = BlendMode.src
+      ..strokeWidth = arrowStrokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Jedes einzelne Textmarker-Element wird intern auf eine eigene Ebene
+    // gezeichnet. Innerhalb eines Pfeils/Kreises verhindert BlendMode.src,
+    // dass sich Linie und Pfeilkopf gegenseitig abdunkeln. Verschiedene
+    // Pfeile/Kreise dürfen sich dagegen wie echte Textmarker überlagern.
+    for (final square in markedSquares) {
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawSquareMarker(canvas, square, squareSize, markerPaint);
+      });
+    }
+
     for (final arrow in arrows) {
-      _drawArrow(canvas, arrow, squareSize, paint);
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawArrow(canvas, arrow, squareSize, arrowPaint);
+      });
     }
 
     final preview = previewArrow;
     if (preview != null) {
       final previewPaint = Paint()
-        ..color = Colors.greenAccent.withAlpha(90)
-        ..strokeWidth = strokeWidth
+        ..color = _highlighterGreen.withAlpha(82)
+        ..blendMode = BlendMode.src
+        ..strokeWidth = arrowStrokeWidth
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
 
-      _drawArrow(canvas, preview, squareSize, previewPaint);
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawArrow(canvas, preview, squareSize, previewPaint);
+      });
     }
+  }
+
+  void _paintSingleHighlighterElement(
+    Canvas canvas,
+    Size size,
+    VoidCallback paintElement,
+  ) {
+    canvas.saveLayer(Offset.zero & size, Paint());
+    paintElement();
+    canvas.restore();
+  }
+
+  void _drawSquareMarker(
+    Canvas canvas,
+    String square,
+    double squareSize,
+    Paint paint,
+  ) {
+    final center = _centerForSquare(square, squareSize);
+
+    if (center == null) {
+      return;
+    }
+
+    final radius = (squareSize * 0.5) - (paint.strokeWidth * 0.5) - 1.0;
+
+    if (radius <= 0) {
+      return;
+    }
+
+    canvas.drawCircle(center, radius, paint);
   }
 
   void _drawArrow(
@@ -402,6 +461,7 @@ class _BoardAnnotationPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BoardAnnotationPainter oldDelegate) {
     return oldDelegate.playerIsWhite != playerIsWhite ||
+        oldDelegate.markedSquares != markedSquares ||
         oldDelegate.arrows != arrows ||
         oldDelegate.previewArrow != previewArrow;
   }

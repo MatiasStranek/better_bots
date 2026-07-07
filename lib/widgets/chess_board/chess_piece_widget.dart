@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -25,37 +28,98 @@ class ChessPieceWidget extends StatelessWidget {
     final assetPath = pieceAsset(piece);
     final keyValue = '$square-${piece.color}-${piece.type}-$assetPath';
 
-    final pieceImage = Padding(
-      padding: const EdgeInsets.all(6),
-      child: SvgPicture.asset(
-        assetPath,
-        key: ValueKey(keyValue),
-        fit: BoxFit.contain,
-      ),
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pieceSize = _resolvedPieceSize(constraints);
+        final pieceVisual = _PieceVisual(assetPath: assetPath, keyValue: keyValue);
+        final fullSquareChild = SizedBox.expand(child: pieceVisual);
 
-    if (!canDrag) {
-      return pieceImage;
-    }
+        if (!canDrag) {
+          return fullSquareChild;
+        }
 
-    return Draggable<String>(
-      data: square,
-      feedback: SizedBox(
-        width: 72,
-        height: 72,
-        child: Material(
-          color: Colors.transparent,
-          child: SvgPicture.asset(
-            assetPath,
-            key: ValueKey('feedback-$keyValue'),
-            fit: BoxFit.contain,
+        return Draggable<String>(
+          data: square,
+          hitTestBehavior: HitTestBehavior.opaque,
+          dragAnchorStrategy: (_, _, _) {
+            return Offset(pieceSize / 2.0, pieceSize / 2.0);
+          },
+          feedback: SizedBox(
+            width: pieceSize,
+            height: pieceSize,
+            child: Material(
+              type: MaterialType.transparency,
+              child: _PieceVisual(
+                assetPath: assetPath,
+                keyValue: 'feedback-$keyValue',
+              ),
+            ),
           ),
-        ),
-      ),
-      childWhenDragging: Opacity(opacity: 0.25, child: pieceImage),
-      onDragStarted: onDragStarted,
-      onDragEnd: (_) => onDragEnded(),
-      child: pieceImage,
+          childWhenDragging: Opacity(opacity: 0.18, child: fullSquareChild),
+          onDragStarted: onDragStarted,
+          onDragEnd: (_) => onDragEnded(),
+          child: fullSquareChild,
+        );
+      },
+    );
+  }
+
+  double _resolvedPieceSize(BoxConstraints constraints) {
+    final maxWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : 80.0;
+    final maxHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : 80.0;
+
+    return math.min(maxWidth, maxHeight).clamp(48.0, 220.0).toDouble();
+  }
+}
+
+class _PieceVisual extends StatelessWidget {
+  const _PieceVisual({required this.assetPath, required this.keyValue});
+
+  final String assetPath;
+  final String keyValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = math.min(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 80.0,
+          constraints.maxHeight.isFinite ? constraints.maxHeight : 80.0,
+        );
+        final padding = (size * 0.015).clamp(1.0, 3.0).toDouble();
+        final shadowOffset = Offset(size * 0.035, size * 0.045);
+
+        return Padding(
+          padding: EdgeInsets.all(padding),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Transform.translate(
+                offset: shadowOffset,
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(sigmaX: 1.15, sigmaY: 1.15),
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withAlpha(125),
+                      BlendMode.srcIn,
+                    ),
+                    child: SvgPicture.asset(
+                      assetPath,
+                      key: ValueKey('shadow-$keyValue'),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              SvgPicture.asset(
+                assetPath,
+                key: ValueKey(keyValue),
+                fit: BoxFit.contain,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

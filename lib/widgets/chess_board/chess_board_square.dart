@@ -17,7 +17,6 @@ class ChessBoardSquare extends StatelessWidget {
     required this.onMove,
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
-    this.isAnnotationMarked = false,
     super.key,
   });
 
@@ -26,7 +25,6 @@ class ChessBoardSquare extends StatelessWidget {
   final bool isLightSquare;
   final BoardHighlights highlights;
   final bool canHumanMovePiece;
-  final bool isAnnotationMarked;
   final bool Function({required String from, required String to}) canMoveTo;
   final List<String> Function(String fromSquare) legalTargetsFromSquare;
   final Future<void> Function(String square) onSquareTap;
@@ -74,7 +72,6 @@ class ChessBoardSquare extends StatelessWidget {
                 isLastMove: isLastMove,
                 isDragTarget: isDragTarget,
                 isPremove: isPremove,
-                isAnnotationMarked: isAnnotationMarked,
               ),
               border: Border.all(
                 color: isSelected ? Colors.blueAccent : Colors.transparent,
@@ -118,12 +115,14 @@ class ChessBoardSquare extends StatelessWidget {
                     ),
                   ),
                 if (piece != null)
-                  ChessPieceWidget(
-                    piece: piece!,
-                    square: square,
-                    canDrag: canHumanMovePiece,
-                    onDragStarted: () => onPieceDragStarted(square),
-                    onDragEnded: onPieceDragEnded,
+                  Positioned.fill(
+                    child: ChessPieceWidget(
+                      piece: piece!,
+                      square: square,
+                      canDrag: canHumanMovePiece,
+                      onDragStarted: () => onPieceDragStarted(square),
+                      onDragEnded: onPieceDragEnded,
+                    ),
                   ),
               ],
             ),
@@ -140,14 +139,9 @@ class ChessBoardSquare extends StatelessWidget {
     required bool isLastMove,
     required bool isDragTarget,
     required bool isPremove,
-    required bool isAnnotationMarked,
   }) {
     if (isDragTarget) {
       return Colors.greenAccent.withAlpha(100);
-    }
-
-    if (isAnnotationMarked) {
-      return Colors.greenAccent.withAlpha(105);
     }
 
     if (isSelected) {
