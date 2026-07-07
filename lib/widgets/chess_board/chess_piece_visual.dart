@@ -14,6 +14,8 @@ class ChessPieceVisual extends StatelessWidget {
   final String assetPath;
   final String keyValue;
 
+  static const double _pieceVisualScale = 1.22;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -27,32 +29,39 @@ class ChessPieceVisual extends StatelessWidget {
 
         return Padding(
           padding: EdgeInsets.all(padding),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Transform.translate(
-                offset: shadowOffset,
-                child: ImageFiltered(
-                  imageFilter: ui.ImageFilter.blur(sigmaX: 1.15, sigmaY: 1.15),
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withAlpha(125),
-                      BlendMode.srcIn,
+          child: Transform.scale(
+            scale: _pieceVisualScale,
+            child: Stack(
+              fit: StackFit.expand,
+              clipBehavior: Clip.none,
+              children: [
+                Transform.translate(
+                  offset: shadowOffset,
+                  child: ImageFiltered(
+                    imageFilter: ui.ImageFilter.blur(
+                      sigmaX: 1.15,
+                      sigmaY: 1.15,
                     ),
-                    child: SvgPicture.asset(
-                      assetPath,
-                      key: ValueKey('shadow-$keyValue'),
-                      fit: BoxFit.contain,
+                    child: ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withAlpha(125),
+                        BlendMode.srcIn,
+                      ),
+                      child: SvgPicture.asset(
+                        assetPath,
+                        key: ValueKey('shadow-$keyValue'),
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SvgPicture.asset(
-                assetPath,
-                key: ValueKey(keyValue),
-                fit: BoxFit.contain,
-              ),
-            ],
+                SvgPicture.asset(
+                  assetPath,
+                  key: ValueKey(keyValue),
+                  fit: BoxFit.contain,
+                ),
+              ],
+            ),
           ),
         );
       },
