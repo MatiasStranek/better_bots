@@ -6,7 +6,7 @@ class ChessResultStatsPanel extends StatelessWidget {
   static const String placeholderValue = '[none]';
   static const Color wonColor = Color(0xFF55C878);
   static const Color lostColor = Color(0xFFFF5A5A);
-  static const Color drawColor = Colors.white;
+  static const Color drawColor = Color(0xFF9A9A9A);
   static const Color trainedColor = Color(0xFFFFA726);
 
   static const List<ChessResultStatData> stats = [

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'mobile_chess_more_sheet.dart';
@@ -133,7 +135,7 @@ class MobileChessActionBar extends StatelessWidget {
   }
 }
 
-class _ActionBarButton extends StatelessWidget {
+class _ActionBarButton extends StatefulWidget {
   const _ActionBarButton({
     required this.icon,
     required this.tooltip,
@@ -148,20 +150,70 @@ class _ActionBarButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final VoidCallback? onLongPress;
 
+  @override
+  State<_ActionBarButton> createState() => _ActionBarButtonState();
+}
+
+class _ActionBarButtonState extends State<_ActionBarButton> {
   static const Color _activeColor = Color(0xFF5C9DFF);
+  static const Duration _fastLongPressDuration = Duration(milliseconds: 300);
+
+  Timer? _longPressTimer;
+  bool _blockNextTap = false;
+
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (!widget.isEnabled || widget.onLongPress == null) {
+      return;
+    }
+
+    _longPressTimer?.cancel();
+    _blockNextTap = false;
+    _longPressTimer = Timer(_fastLongPressDuration, () {
+      _blockNextTap = true;
+      widget.onLongPress?.call();
+    });
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    _longPressTimer?.cancel();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _longPressTimer?.cancel();
+    _blockNextTap = false;
+  }
+
+  void _handleTap() {
+    if (_blockNextTap) {
+      _blockNextTap = false;
+      return;
+    }
+
+    widget.onPressed?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = isEnabled ? _activeColor : Colors.white.withAlpha(76);
+    final color = widget.isEnabled ? _activeColor : Colors.white.withAlpha(76);
 
-    return Tooltip(
-      message: tooltip,
-      child: InkResponse(
-        onTap: isEnabled ? onPressed : null,
-        onLongPress: isEnabled ? onLongPress : null,
-        radius: 28,
-        child: Center(
-          child: Icon(icon, size: 32, color: color),
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      child: Tooltip(
+        message: widget.tooltip,
+        child: InkResponse(
+          onTap: widget.isEnabled ? _handleTap : null,
+          radius: 28,
+          child: Center(
+            child: Icon(widget.icon, size: 32, color: color),
+          ),
         ),
       ),
     );

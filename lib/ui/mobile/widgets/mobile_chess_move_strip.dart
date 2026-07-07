@@ -117,8 +117,9 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
       height: widget.height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
+          color: const Color(0xFF111111).withAlpha(150),
           border: Border(
+            top: BorderSide(color: Colors.white.withAlpha(14), width: 1),
             bottom: BorderSide(color: Colors.white.withAlpha(22), width: 1),
           ),
         ),

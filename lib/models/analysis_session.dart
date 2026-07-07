@@ -181,9 +181,7 @@ class AnalysisSession {
     } else if (currentPly < _analysisMoves.length) {
       _playMoveFromMainlinePast(newMove);
     } else {
-      _analysisMoves.add(newMove);
-      currentPly = _analysisMoves.length;
-      statusText = 'Analysezug gespielt: $from$to${normalizedPromotion ?? ''}';
+      _playMoveFromMainlineEnd(newMove);
     }
 
     restoreCompletedLinesForCurrentFen();
@@ -395,6 +393,15 @@ class AnalysisSession {
       return;
     }
 
+    _branchStartPly = currentPly;
+    _branchMoves
+      ..clear()
+      ..add(newMove);
+    currentPly = _branchStartPly! + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig erstellt: $newMove';
+  }
+
+  void _playMoveFromMainlineEnd(BoardMove newMove) {
     _branchStartPly = currentPly;
     _branchMoves
       ..clear()
