@@ -196,6 +196,10 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     await _controller.stepAnalysisForward();
   }
 
+  void _handleTrainingRestart() {
+    _controller.restartTrainingCounterGame();
+  }
+
   Future<void> _handleAnalysisBackToStart() async {
     await _controller.jumpAnalysisToStart();
   }
@@ -264,10 +268,12 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 isAnalysisMode: _controller.isAnalysisMode,
                 isAnalysisBranchActive: _controller.isAnalysisBranchActive,
                 analysisLines: _controller.analysisLines,
+                trainingCounter: _controller.trainingCounterSnapshot,
                 canToggleAnalysisMode: _controller.canToggleAnalysisMode,
                 canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,
                 canNavigateAnalysisForward: _controller.canNavigateAnalysisForward,
                 onToggleAnalysisMode: _handleToggleAnalysisMode,
+                onTrainingRestart: _handleTrainingRestart,
                 onAnalysisBack: _handleAnalysisBack,
                 onAnalysisForward: _handleAnalysisForward,
                 onAnalysisBackToStart: _handleAnalysisBackToStart,

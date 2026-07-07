@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 
+import '../../../data/better_bots_database.dart';
+
 import '../../../models/board_annotation.dart';
 import '../../../models/board_highlights.dart';
 import '../../../models/bot_opening_move.dart';
@@ -49,10 +51,12 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.isAnalysisMode,
     required this.isAnalysisBranchActive,
     required this.analysisLines,
+    required this.trainingCounter,
     required this.canToggleAnalysisMode,
     required this.canNavigateAnalysisBack,
     required this.canNavigateAnalysisForward,
     required this.onToggleAnalysisMode,
+    required this.onTrainingRestart,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
     required this.onAnalysisBackToStart,
@@ -114,10 +118,12 @@ class MobileChessBoardLayout extends StatefulWidget {
   final bool isAnalysisMode;
   final bool isAnalysisBranchActive;
   final List<EngineAnalysisLine> analysisLines;
+  final TrainingCounterSnapshot trainingCounter;
   final bool canToggleAnalysisMode;
   final bool canNavigateAnalysisBack;
   final bool canNavigateAnalysisForward;
   final VoidCallback onToggleAnalysisMode;
+  final VoidCallback onTrainingRestart;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
   final Future<void> Function() onAnalysisBackToStart;
@@ -389,7 +395,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 right: 8,
                 top: resultStatsTop,
                 height: _resultStatsHeight,
-                child: const MobileChessResultStatsPanel(),
+                child: MobileChessResultStatsPanel(counter: widget.trainingCounter),
               ),
             if (widget.isAnalysisMode)
               Positioned(
@@ -443,7 +449,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   height: _actionBarHeight,
                   pgnText: widget.pgnText,
                   fenText: widget.fenText,
-                  onRestart: widget.onRestart,
+                  onTrainingRestart: widget.onTrainingRestart,
                   onMenuPressed: _toggleSideMenu,
                   isSideMenuOpen: _isSideMenuOpen,
                   isAnalysisMode: widget.isAnalysisMode,

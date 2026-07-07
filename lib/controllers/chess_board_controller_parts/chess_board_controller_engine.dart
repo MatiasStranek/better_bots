@@ -15,6 +15,13 @@ void _controllerStart(ChessBoardController controller) {
     controller._engineOutput = line;
     controller.notifyListeners();
   });
+
+  _controllerRestorePersistedStateIfNeeded(controller);
+  _safeNotify(controller);
+
+  if (!controller.isGameOver && !controller.isPlayersTurn) {
+    unawaited(_controllerMakeBotMoveIfNeeded(controller));
+  }
 }
 
 Future<void> _controllerMakeBotMoveIfNeeded(

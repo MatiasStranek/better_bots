@@ -2,7 +2,7 @@
 * add 6 (Fritz19 Personalities)
 
 
-
+* Arrows forth and back also for the normal games
 * STRONG: Wins, Looses, Remis zählen nicht wenn in der aktuellen Runde bereits einmal Analyse betätigt wurde
 * STRONG: Longpress vor/zurück schneller machen
 * Android: "..." Menü "x" positionierung anpassen

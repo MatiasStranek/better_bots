@@ -27,6 +27,10 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
   controller._selectedSquare = null;
   controller._premoves.clear();
 
+  if (!controller.isGameOver) {
+    controller._analysisUsedDuringCurrentGame = true;
+  }
+
   try {
     controller._analysisSession = AnalysisSession(
       startFen: controller._normalGameStartFen,

@@ -9,7 +9,7 @@ class MobileChessActionBar extends StatelessWidget {
     super.key,
     required this.pgnText,
     required this.fenText,
-    required this.onRestart,
+    required this.onTrainingRestart,
     required this.onMenuPressed,
     required this.isSideMenuOpen,
     required this.isAnalysisMode,
@@ -26,7 +26,7 @@ class MobileChessActionBar extends StatelessWidget {
 
   final String pgnText;
   final String fenText;
-  final VoidCallback onRestart;
+  final VoidCallback onTrainingRestart;
   final VoidCallback onMenuPressed;
   final bool isSideMenuOpen;
   final bool isAnalysisMode;
@@ -51,7 +51,7 @@ class MobileChessActionBar extends StatelessWidget {
         return MobileChessMoreSheet(
           pgnText: pgnText,
           fenText: fenText,
-          onRestart: onRestart,
+          onTrainingRestart: onTrainingRestart,
           isAnalysisMode: isAnalysisMode,
           canToggleAnalysisMode: canToggleAnalysisMode,
           onToggleAnalysisMode: onToggleAnalysisMode,

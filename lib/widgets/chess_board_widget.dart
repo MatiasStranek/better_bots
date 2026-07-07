@@ -533,7 +533,11 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                const ChessResultStatsTextView(),
+                                ChessResultStatsTextView(
+                                  counter: _controller.trainingCounterSnapshot,
+                                  analysisUsedDuringCurrentGame:
+                                      _controller.analysisUsedDuringCurrentGame,
+                                ),
                               ],
                             ),
                           ),

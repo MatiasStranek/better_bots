@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'data/better_bots_database.dart';
+
 import 'pages/chess_board_page.dart';
 import 'ui/mobile/pages/mobile_chess_board_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await BetterBotsDatabase.instance.init();
 
   // Nur die Android-Navigationsleiste anzeigen,
   // Statusleiste ausgeblendet lassen.

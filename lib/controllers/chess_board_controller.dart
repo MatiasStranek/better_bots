@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
 import '../engine/chess_engine_factory.dart';
+import '../data/better_bots_database.dart';
+import '../data/entities/better_bots_app_state_entity.dart';
 import '../engine/personality/cp_loss_move_selector.dart';
 import '../engine/personality/persona_move_selector.dart';
 import '../models/analysis_session.dart';
@@ -22,6 +24,7 @@ import '../models/premove_queue.dart';
 part 'chess_board_controller_parts/chess_board_controller_analysis.dart';
 part 'chess_board_controller_parts/chess_board_controller_engine.dart';
 part 'chess_board_controller_parts/chess_board_controller_input.dart';
+part 'chess_board_controller_parts/chess_board_controller_persistence.dart';
 part 'chess_board_controller_parts/chess_board_controller_premoves.dart';
 part 'chess_board_controller_parts/chess_board_controller_promotion.dart';
 part 'chess_board_controller_parts/chess_board_controller_selection.dart';
@@ -75,6 +78,12 @@ class ChessBoardController extends ChangeNotifier {
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
+
+  bool _analysisUsedDuringCurrentGame = false;
+  bool _resultCountedForCurrentGame = false;
+  bool _hasLoadedPersistedState = false;
+  TrainingCounterSnapshot _trainingCounterSnapshot =
+      const TrainingCounterSnapshot.zero();
 
   bool _isDisposed = false;
   int _searchGeneration = 0;
@@ -131,6 +140,15 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get isAnalysisBranchActive {
     return _analysisSession?.isBranchActive ?? false;
+  }
+
+  bool get analysisUsedDuringCurrentGame {
+    return _analysisUsedDuringCurrentGame;
+  }
+
+  TrainingCounterSnapshot get trainingCounterSnapshot {
+    _controllerRefreshTrainingCounterSnapshot(this);
+    return _trainingCounterSnapshot;
   }
 
   bool get canStartAnalysisMode {
@@ -250,6 +268,10 @@ class ChessBoardController extends ChangeNotifier {
     newGame(_playerSide);
   }
 
+  void restartTrainingCounterGame() {
+    _controllerRestartTrainingCounterGame(this);
+  }
+
   void toggleAnalysisMode() => _controllerToggleAnalysisMode(this);
 
   Future<void> stepAnalysisBack() => _controllerStepAnalysisBack(this);
@@ -281,7 +303,7 @@ class ChessBoardController extends ChangeNotifier {
 
     _botOpeningMove = move;
     _resolvedRandomOpeningMove = null;
-    notifyListeners();
+    _safeNotify(this);
   }
 
   void setBotPersonality(BotPersonality personality) {

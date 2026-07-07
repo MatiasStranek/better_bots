@@ -1,39 +1,49 @@
 import 'package:flutter/material.dart';
 
-class ChessResultStatsPanel extends StatelessWidget {
-  const ChessResultStatsPanel({super.key});
+import '../data/better_bots_database.dart';
 
-  static const String placeholderValue = '[none]';
+class ChessResultStatsPanel extends StatelessWidget {
+  const ChessResultStatsPanel({
+    super.key,
+    this.counter = const TrainingCounterSnapshot.zero(),
+  });
+
   static const Color wonColor = Color(0xFF55C878);
   static const Color lostColor = Color(0xFFFF5A5A);
   static const Color drawColor = Color(0xFF9A9A9A);
   static const Color trainedColor = Color(0xFFFFA726);
 
-  static const List<ChessResultStatData> stats = [
-    ChessResultStatData(
-      title: 'Gewonnen',
-      value: placeholderValue,
-      titleColor: wonColor,
-    ),
-    ChessResultStatData(
-      title: 'Verloren',
-      value: placeholderValue,
-      titleColor: lostColor,
-    ),
-    ChessResultStatData(
-      title: 'Remis',
-      value: placeholderValue,
-      titleColor: drawColor,
-    ),
-    ChessResultStatData(
-      title: 'Trainiert',
-      value: placeholderValue,
-      titleColor: trainedColor,
-    ),
-  ];
+  final TrainingCounterSnapshot counter;
+
+  List<ChessResultStatData> get _stats {
+    return [
+      ChessResultStatData(
+        title: 'Gewonnen',
+        value: '${counter.wonCount}',
+        titleColor: wonColor,
+      ),
+      ChessResultStatData(
+        title: 'Verloren',
+        value: '${counter.lostCount}',
+        titleColor: lostColor,
+      ),
+      ChessResultStatData(
+        title: 'Remis',
+        value: '${counter.drawCount}',
+        titleColor: drawColor,
+      ),
+      ChessResultStatData(
+        title: 'Trainiert',
+        value: '${counter.trainedCount}',
+        titleColor: trainedColor,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final stats = _stats;
+
     return Row(
       children: [
         for (var index = 0; index < stats.length; index++) ...[
@@ -46,22 +56,71 @@ class ChessResultStatsPanel extends StatelessWidget {
 }
 
 class ChessResultStatsTextView extends StatelessWidget {
-  const ChessResultStatsTextView({super.key});
+  const ChessResultStatsTextView({
+    super.key,
+    this.counter = const TrainingCounterSnapshot.zero(),
+    required this.analysisUsedDuringCurrentGame,
+  });
+
+  final TrainingCounterSnapshot counter;
+  final bool analysisUsedDuringCurrentGame;
+
+  List<ChessResultStatData> get _stats {
+    return [
+      ChessResultStatData(
+        title: 'Gewonnen',
+        value: '${counter.wonCount}',
+        titleColor: ChessResultStatsPanel.wonColor,
+      ),
+      ChessResultStatData(
+        title: 'Verloren',
+        value: '${counter.lostCount}',
+        titleColor: ChessResultStatsPanel.lostColor,
+      ),
+      ChessResultStatData(
+        title: 'Remis',
+        value: '${counter.drawCount}',
+        titleColor: ChessResultStatsPanel.drawColor,
+      ),
+      ChessResultStatData(
+        title: 'Trainiert',
+        value: '${counter.trainedCount}',
+        titleColor: ChessResultStatsPanel.trainedColor,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final stats = _stats;
+
     return DefaultTextStyle.merge(
       style: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w800,
         height: 1.35,
       ),
-      child: Wrap(
-        spacing: 18,
-        runSpacing: 6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final stat in ChessResultStatsPanel.stats)
-            _ResultStatText(data: stat),
+          Wrap(
+            spacing: 18,
+            runSpacing: 6,
+            children: [
+              for (final stat in stats) _ResultStatText(data: stat),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Analyse in Partie benutzt: $analysisUsedDuringCurrentGame',
+            style: TextStyle(
+              color: analysisUsedDuringCurrentGame
+                  ? const Color(0xFFFFA726)
+                  : const Color(0xFF55C878),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );

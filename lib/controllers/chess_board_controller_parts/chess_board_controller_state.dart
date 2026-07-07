@@ -116,6 +116,8 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
 
   controller._searchGeneration++;
 
+  controller._analysisUsedDuringCurrentGame = false;
+  controller._resultCountedForCurrentGame = false;
   controller._playerSide = side;
   controller._game.reset();
   controller._normalGameStartFen = _defaultStartFen;
@@ -135,6 +137,8 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
   if (controller._botPersonality == BotPersonality.random) {
     controller._resolvedRandomPersonality = _randomBotPersonality();
   }
+
+  _controllerRefreshTrainingCounterSnapshot(controller);
 
   _safeNotify(controller);
 
@@ -311,6 +315,10 @@ void _safeNotify(ChessBoardController controller) {
   if (controller._isDisposed) {
     return;
   }
+
+  _controllerMaybeCountCompletedGame(controller);
+  _controllerRefreshTrainingCounterSnapshot(controller);
+  _controllerPersistCurrentState(controller);
 
   controller.notifyListeners();
 }

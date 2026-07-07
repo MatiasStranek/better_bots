@@ -6,7 +6,7 @@ class MobileChessMoreSheet extends StatelessWidget {
     super.key,
     required this.pgnText,
     required this.fenText,
-    required this.onRestart,
+    required this.onTrainingRestart,
     required this.isAnalysisMode,
     required this.canToggleAnalysisMode,
     required this.onToggleAnalysisMode,
@@ -14,7 +14,7 @@ class MobileChessMoreSheet extends StatelessWidget {
 
   final String pgnText;
   final String fenText;
-  final VoidCallback onRestart;
+  final VoidCallback onTrainingRestart;
   final bool isAnalysisMode;
   final bool canToggleAnalysisMode;
   final VoidCallback onToggleAnalysisMode;
@@ -62,7 +62,7 @@ class MobileChessMoreSheet extends StatelessWidget {
 
   void _resetBoard(BuildContext context) {
     Navigator.of(context).pop();
-    onRestart();
+    onTrainingRestart();
   }
 
   void _toggleAnalysis(BuildContext context) {

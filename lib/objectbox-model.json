@@ -1,0 +1,258 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:2029198252723419798",
+      "lastPropertyId": "21:2253833567930609600",
+      "name": "AppStateEntity",
+      "properties": [
+        {
+          "id": "1:2212784577712980856",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1590776822056857052",
+          "name": "playerSideName",
+          "type": 9
+        },
+        {
+          "id": "3:665127164419071245",
+          "name": "skillLevel",
+          "type": 6
+        },
+        {
+          "id": "4:2575391436281521158",
+          "name": "strengthModeName",
+          "type": 9
+        },
+        {
+          "id": "5:6342726281163414943",
+          "name": "uciElo",
+          "type": 6
+        },
+        {
+          "id": "6:5651404701258538549",
+          "name": "cpLossElo",
+          "type": 6
+        },
+        {
+          "id": "7:114096986356998903",
+          "name": "cpLossUciSwitchFullMoveNumber",
+          "type": 6
+        },
+        {
+          "id": "8:617799339624200260",
+          "name": "botOpeningMoveName",
+          "type": 9
+        },
+        {
+          "id": "9:4624882703898358893",
+          "name": "effectiveBotOpeningMoveName",
+          "type": 9
+        },
+        {
+          "id": "10:710825412541494571",
+          "name": "botPersonalityName",
+          "type": 9
+        },
+        {
+          "id": "11:5462700798458000784",
+          "name": "effectiveBotPersonalityName",
+          "type": 9
+        },
+        {
+          "id": "12:5049034166437381619",
+          "name": "personaCandidateCount",
+          "type": 6
+        },
+        {
+          "id": "13:2990763978790368547",
+          "name": "openingLogicAllowed",
+          "type": 6
+        },
+        {
+          "id": "14:7011034310584720829",
+          "name": "startFen",
+          "type": 9
+        },
+        {
+          "id": "15:287524618805449113",
+          "name": "moveListText",
+          "type": 9
+        },
+        {
+          "id": "16:8636255938952638960",
+          "name": "currentFen",
+          "type": 9
+        },
+        {
+          "id": "17:3330899906051444917",
+          "name": "lastFrom",
+          "type": 9
+        },
+        {
+          "id": "18:2275236937842851718",
+          "name": "lastTo",
+          "type": 9
+        },
+        {
+          "id": "19:1821548665193059524",
+          "name": "analysisUsedDuringCurrentGame",
+          "type": 6
+        },
+        {
+          "id": "20:4973001145536730896",
+          "name": "resultCountedForCurrentGame",
+          "type": 6
+        },
+        {
+          "id": "21:2253833567930609600",
+          "name": "updatedAtMillis",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:746431534510069343",
+      "lastPropertyId": "23:7355179185961557845",
+      "name": "TrainingCounterEntity",
+      "properties": [
+        {
+          "id": "1:2637439062277687194",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1856821343745330355",
+          "name": "keyHash",
+          "indexId": "1:664486798015035901",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:3695527571090622540",
+          "name": "canonicalKey",
+          "type": 9
+        },
+        {
+          "id": "4:1187587527352322812",
+          "name": "strengthModeName",
+          "type": 9
+        },
+        {
+          "id": "5:5858727088051363908",
+          "name": "strengthValue",
+          "type": 6
+        },
+        {
+          "id": "6:1295489365918099832",
+          "name": "effectiveOpeningName",
+          "type": 9
+        },
+        {
+          "id": "7:1011914507695896939",
+          "name": "effectivePersonalityName",
+          "type": 9
+        },
+        {
+          "id": "8:83930221721074191",
+          "name": "personaCandidateCount",
+          "type": 6
+        },
+        {
+          "id": "9:7790516305948699222",
+          "name": "cpLossUciSwitchFullMoveNumber",
+          "type": 6
+        },
+        {
+          "id": "10:1055113017302385594",
+          "name": "wonCount",
+          "type": 6
+        },
+        {
+          "id": "11:3225936248459853993",
+          "name": "lostCount",
+          "type": 6
+        },
+        {
+          "id": "12:4967106633533739297",
+          "name": "drawCount",
+          "type": 6
+        },
+        {
+          "id": "13:453247217339290695",
+          "name": "trainedCount",
+          "type": 6
+        },
+        {
+          "id": "14:9113010271622736143",
+          "name": "createdAtMillis",
+          "type": 6
+        },
+        {
+          "id": "15:7414748558189126000",
+          "name": "updatedAtMillis",
+          "type": 6
+        },
+        {
+          "id": "16:8205178818581936837",
+          "name": "wonWhiteCount",
+          "type": 6
+        },
+        {
+          "id": "17:1125488536723410951",
+          "name": "wonBlackCount",
+          "type": 6
+        },
+        {
+          "id": "18:781286247546324859",
+          "name": "lostWhiteCount",
+          "type": 6
+        },
+        {
+          "id": "19:4079955583985020032",
+          "name": "lostBlackCount",
+          "type": 6
+        },
+        {
+          "id": "20:153810829324401850",
+          "name": "drawWhiteCount",
+          "type": 6
+        },
+        {
+          "id": "21:7307648851238883687",
+          "name": "drawBlackCount",
+          "type": 6
+        },
+        {
+          "id": "22:8777446922374292405",
+          "name": "trainedWhiteCount",
+          "type": 6
+        },
+        {
+          "id": "23:7355179185961557845",
+          "name": "trainedBlackCount",
+          "type": 6
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:746431534510069343",
+  "lastIndexId": "1:664486798015035901",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}
