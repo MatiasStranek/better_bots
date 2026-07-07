@@ -143,11 +143,12 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _statusHeaderHeight = 48;
   static const double _moveStripTop = 48;
   static const double _moveStripHeight = 54;
-  static const double _analysisLinesBarHeight = 44;
+  static const double _analysisLinesBarHeight = 66;
   static const double _analysisLinesBarGap = 8;
   static const double _actionBarHeight = 64;
   static const double _analysisButtonSize = 52;
   static const double _analysisButtonGap = 8;
+  static const double _analysisIconVisualTopInset = 11;
   static const double _gameInfoPanelHorizontalGap = 12;
   static const double _edgeSwipeWidth = 36;
   static const double _sideMenuWidthFactor = 0.72;
@@ -297,8 +298,9 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
           boardBottom: boardBottom,
           screenHeight: constraints.maxHeight,
         );
+        final gameInfoPanelTop = analysisButtonTop + _analysisIconVisualTopInset;
         final gameInfoPanelHeight = _gameInfoPanelHeight(
-          top: analysisButtonTop,
+          top: gameInfoPanelTop,
           screenHeight: constraints.maxHeight,
         );
         final analysisLinesBarTop = math.max(
@@ -367,7 +369,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 right: 12 +
                     _analysisButtonSize +
                     _gameInfoPanelHorizontalGap,
-                top: analysisButtonTop,
+                top: gameInfoPanelTop,
                 height: gameInfoPanelHeight,
                 child: MobileChessGameInfoPanel(
                   skillLevel: widget.skillLevel,

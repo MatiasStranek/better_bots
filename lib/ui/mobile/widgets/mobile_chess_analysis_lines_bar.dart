@@ -22,6 +22,7 @@ class MobileChessAnalysisLinesBar extends StatelessWidget {
       ..sort((a, b) => a.rank.compareTo(b.rank));
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: List.generate(_maxVisibleLines, (index) {
         final line = index < visibleLines.length ? visibleLines[index] : null;
 
@@ -31,7 +32,7 @@ class MobileChessAnalysisLinesBar extends StatelessWidget {
               left: index == 0 ? 0 : 4,
               right: index == _maxVisibleLines - 1 ? 0 : 4,
             ),
-            child: _AnalysisMoveBox(
+            child: _AnalysisMoveColumn(
               rank: index + 1,
               line: line,
               isBestMove: index == 0,
@@ -39,6 +40,92 @@ class MobileChessAnalysisLinesBar extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+class _AnalysisMoveColumn extends StatelessWidget {
+  const _AnalysisMoveColumn({
+    required this.rank,
+    required this.line,
+    required this.isBestMove,
+  });
+
+  final int rank;
+  final EngineAnalysisLine? line;
+  final bool isBestMove;
+
+  String get _evaluationText {
+    final analysisLine = line;
+
+    if (analysisLine == null) {
+      return '...';
+    }
+
+    final mateScore = analysisLine.mate;
+
+    if (mateScore != null) {
+      if (mateScore > 0) {
+        return 'M$mateScore';
+      }
+
+      if (mateScore < 0) {
+        return '-M${mateScore.abs()}';
+      }
+
+      return 'M0';
+    }
+
+    final scoreCp = analysisLine.scoreCp ?? 0;
+
+    if (scoreCp == 0) {
+      return '0';
+    }
+
+    final pawns = scoreCp / 100.0;
+    final prefix = pawns > 0 ? '+' : '';
+
+    return '$prefix${pawns.toStringAsFixed(2)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.max,
+      children: [
+        SizedBox(
+          height: 18,
+          child: Center(
+            child: Text(
+              _evaluationText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: _AnalysisMoveBox(
+            rank: rank,
+            line: line,
+            isBestMove: isBestMove,
+          ),
+        ),
+      ],
     );
   }
 }
