@@ -63,62 +63,88 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     );
   }
 
+  void _handleToggleAnalysisMode() {
+    _controller.toggleAnalysisMode();
+  }
+
+  void _handleSystemBackWhileInAnalysisMode() {
+    if (!_controller.isAnalysisMode) {
+      return;
+    }
+
+    _controller.toggleAnalysisMode();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF111111),
-      body: SafeArea(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return MobileChessBoardLayout(
-              statusText: _controller.statusText,
-              playerSideText: _playerSideText,
-              pgnText: _controller.pgn,
-              fenText: _controller.fen,
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return PopScope(
+          canPop: !_controller.isAnalysisMode,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) {
+              return;
+            }
 
-              playerIsWhite: _controller.playerIsWhite,
-              pieceAt: _controller.pieceAt,
-              highlights: _controller.highlights,
-
-              canHumanMovePiece: _controller.canHumanMovePiece,
-              canMoveTo: _controller.canMoveTo,
-
-              onSquareTap: _controller.onSquareTap,
-              onMove: _controller.tryHumanMove,
-
-              onPieceDragStarted: _controller.selectSquare,
-              onPieceDragEnded: _controller.clearSelectedSquare,
-
-              skillLevel: _controller.skillLevel,
-              uciElo: _controller.uciElo,
-              cpLossElo: _controller.cpLossElo,
-              cpLossUciSwitchFullMoveNumber:
-                  _controller.cpLossUciSwitchFullMoveNumber,
-              strengthMode: _controller.strengthMode,
-              botOpeningMove: _controller.botOpeningMove,
-              botPersonality: _controller.botPersonality,
-              effectiveBotPersonality: _controller.effectiveBotPersonality,
-              personaCandidateCount: _controller.personaCandidateCount,
-              controlsEnabled: !_controller.isBotThinking,
-
-              onNewGame: _controller.newGame,
-              onRestart: _controller.restartGame,
-
-              onSkillLevelChanged: _controller.setSkillLevel,
-              onUciEloChanged: _controller.setUciElo,
-              onCpLossEloChanged: _controller.setCpLossElo,
-              onCpLossUciSwitchFullMoveNumberChanged:
-                  _controller.setCpLossUciSwitchFullMoveNumber,
-              onStrengthModeChanged: _controller.setStrengthMode,
-              onBotOpeningMoveChanged: _controller.setBotOpeningMove,
-              onBotPersonalityChanged: _controller.setBotPersonality,
-              onPersonaCandidateCountChanged:
-                  _controller.setPersonaCandidateCount,
-            );
+            _handleSystemBackWhileInAnalysisMode();
           },
-        ),
-      ),
+          child: Scaffold(
+            backgroundColor: const Color(0xFF111111),
+            body: SafeArea(
+              child: MobileChessBoardLayout(
+                statusText: _controller.statusText,
+                playerSideText: _playerSideText,
+                pgnText: _controller.pgn,
+                fenText: _controller.fen,
+
+                playerIsWhite: _controller.playerIsWhite,
+                pieceAt: _controller.pieceAt,
+                highlights: _controller.highlights,
+
+                canHumanMovePiece: _controller.canHumanMovePiece,
+                canMoveTo: _controller.canMoveTo,
+
+                onSquareTap: _controller.onSquareTap,
+                onMove: _controller.tryHumanMove,
+
+                onPieceDragStarted: _controller.selectSquare,
+                onPieceDragEnded: _controller.clearSelectedSquare,
+
+                skillLevel: _controller.skillLevel,
+                uciElo: _controller.uciElo,
+                cpLossElo: _controller.cpLossElo,
+                cpLossUciSwitchFullMoveNumber:
+                    _controller.cpLossUciSwitchFullMoveNumber,
+                strengthMode: _controller.strengthMode,
+                botOpeningMove: _controller.botOpeningMove,
+                botPersonality: _controller.botPersonality,
+                effectiveBotPersonality: _controller.effectiveBotPersonality,
+                personaCandidateCount: _controller.personaCandidateCount,
+                controlsEnabled: !_controller.isBotThinking,
+
+                isAnalysisMode: _controller.isAnalysisMode,
+                canToggleAnalysisMode: _controller.canToggleAnalysisMode,
+                onToggleAnalysisMode: _handleToggleAnalysisMode,
+
+                onNewGame: _controller.newGame,
+                onRestart: _controller.restartGame,
+
+                onSkillLevelChanged: _controller.setSkillLevel,
+                onUciEloChanged: _controller.setUciElo,
+                onCpLossEloChanged: _controller.setCpLossElo,
+                onCpLossUciSwitchFullMoveNumberChanged:
+                    _controller.setCpLossUciSwitchFullMoveNumber,
+                onStrengthModeChanged: _controller.setStrengthMode,
+                onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+                onBotPersonalityChanged: _controller.setBotPersonality,
+                onPersonaCandidateCountChanged:
+                    _controller.setPersonaCandidateCount,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

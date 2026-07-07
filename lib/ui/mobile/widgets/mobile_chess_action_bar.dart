@@ -10,6 +10,8 @@ class MobileChessActionBar extends StatelessWidget {
     required this.onRestart,
     required this.onMenuPressed,
     required this.isSideMenuOpen,
+    required this.canToggleAnalysisMode,
+    required this.onToggleAnalysisMode,
     this.height = 64,
   });
 
@@ -18,6 +20,8 @@ class MobileChessActionBar extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onMenuPressed;
   final bool isSideMenuOpen;
+  final bool canToggleAnalysisMode;
+  final VoidCallback onToggleAnalysisMode;
   final double height;
 
   Future<void> _showMoreSheet(BuildContext context) async {
@@ -32,6 +36,8 @@ class MobileChessActionBar extends StatelessWidget {
           pgnText: pgnText,
           fenText: fenText,
           onRestart: onRestart,
+          canToggleAnalysisMode: canToggleAnalysisMode,
+          onToggleAnalysisMode: onToggleAnalysisMode,
         );
       },
     );
