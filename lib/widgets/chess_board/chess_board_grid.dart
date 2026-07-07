@@ -212,6 +212,15 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                   child: Stack(
                     children: [
                       Positioned.fill(child: _buildBoardTextureLayer()),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _BoardCoordinatePainter(
+                              playerIsWhite: widget.playerIsWhite,
+                            ),
+                          ),
+                        ),
+                      ),
                       GridView.builder(
                       padding: EdgeInsets.zero,
                       physics: const NeverScrollableScrollPhysics(),
@@ -254,15 +263,6 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                         ),
                       ),
                     ),
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            painter: _BoardCoordinatePainter(
-                              playerIsWhite: widget.playerIsWhite,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

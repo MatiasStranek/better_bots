@@ -121,13 +121,14 @@ class _AnalysisMoveColumn extends StatelessWidget {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final boxSize = constraints.maxWidth < constraints.maxHeight
-                  ? constraints.maxWidth
-                  : constraints.maxHeight;
+              final boxHeight = constraints.maxHeight < 44.0
+                  ? constraints.maxHeight
+                  : 44.0;
 
               return Center(
-                child: SizedBox.square(
-                  dimension: boxSize,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: boxHeight,
                   child: _AnalysisMoveBox(
                     rank: rank,
                     line: line,
@@ -190,16 +191,23 @@ class _AnalysisMoveBox extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              moveText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                height: 1.0,
+            SizedBox(
+              height: 17,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    moveText,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

@@ -403,6 +403,15 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(child: _buildBoardTextureLayer()),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _MobileBoardCoordinatePainter(
+                      playerIsWhite: widget.playerIsWhite,
+                    ),
+                  ),
+                ),
+              ),
               GridView.builder(
                 padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
@@ -448,15 +457,6 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
                   radius: squareSize * _dragHoverCircleRadiusInSquares,
                 ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: _MobileBoardCoordinatePainter(
-                      playerIsWhite: widget.playerIsWhite,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         );

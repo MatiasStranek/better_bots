@@ -25,10 +25,6 @@ String _controllerStatusText(ChessBoardController controller) {
   final analysisSession = controller._analysisSession;
 
   if (analysisSession != null) {
-    if (analysisSession.isAnalyzing) {
-      return 'Analyse läuft... ${analysisSession.sideToMoveText} am Zug.';
-    }
-
     if (analysisSession.analysisGame.in_checkmate) {
       return analysisSession.analysisGame.turn == chess.Color.WHITE
           ? 'Analyse: Schachmatt. Schwarz gewinnt.'
@@ -47,6 +43,12 @@ String _controllerStatusText(ChessBoardController controller) {
       return analysisSession.analysisGame.turn == chess.Color.WHITE
           ? 'Analyse: Weiß ist im Schach.'
           : 'Analyse: Schwarz ist im Schach.';
+    }
+
+    if (!analysisSession.hasCompletedLinesForCurrentFen(
+      targetDepth: _analysisDepth,
+    )) {
+      return _controllerAnalysisDepthStatus(analysisSession);
     }
 
     if (analysisSession.statusText.isNotEmpty) {
@@ -99,6 +101,12 @@ String _controllerStatusText(ChessBoardController controller) {
   }
 
   return '$sideToMove am Zug — Bot ist dran';
+}
+
+String _controllerAnalysisDepthStatus(AnalysisSession analysisSession) {
+  final currentDepth = _maxAnalysisDepth(analysisSession.topLines);
+
+  return '${analysisSession.sideToMoveText} am Zug — Aktuelle Tiefe: $currentDepth';
 }
 
 void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
