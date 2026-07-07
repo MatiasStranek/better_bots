@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 
+import '../../../../models/board_annotation.dart';
 import '../../../../models/board_highlights.dart';
 import 'mobile_chess_board_square.dart';
 
@@ -17,6 +21,12 @@ class MobileChessBoardView extends StatefulWidget {
     required this.onMove,
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
+    this.annotationModeEnabled = false,
+    this.annotationMarkedSquares = const <String>{},
+    this.annotationArrows = const <BoardArrowAnnotation>{},
+    this.onClearAnnotations,
+    this.onToggleAnnotationSquare,
+    this.onToggleAnnotationArrow,
   });
 
   final bool playerIsWhite;
@@ -40,6 +50,13 @@ class MobileChessBoardView extends StatefulWidget {
   final ValueChanged<String> onPieceDragStarted;
   final VoidCallback onPieceDragEnded;
 
+  final bool annotationModeEnabled;
+  final Set<String> annotationMarkedSquares;
+  final Set<BoardArrowAnnotation> annotationArrows;
+  final VoidCallback? onClearAnnotations;
+  final ValueChanged<String>? onToggleAnnotationSquare;
+  final ValueChanged<BoardArrowAnnotation>? onToggleAnnotationArrow;
+
   @override
   State<MobileChessBoardView> createState() => _MobileChessBoardViewState();
 }
@@ -47,6 +64,9 @@ class MobileChessBoardView extends StatefulWidget {
 class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   static const List<String> _files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   static const double _dragHoverCircleRadiusInSquares = 1.0;
+  static const double _annotationDragStartThreshold = 20.0;
+  static const Duration _annotationLongPressDuration =
+      Duration(milliseconds: 470);
   static const ColorFilter _analysisBoardTextureColorFilter =
       ColorFilter.matrix(<double>[
         0.78, 0.16, 0.06, 0, 0,
@@ -56,6 +76,29 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
       ]);
 
   String? _hoveredDragTargetSquare;
+  int? _annotationPointer;
+  Offset? _annotationPointerStartPosition;
+  String? _annotationDragStartSquare;
+  String? _annotationDragCurrentSquare;
+  Timer? _annotationLongPressTimer;
+  bool _annotationPointerMoved = false;
+  bool _annotationLongPressTriggered = false;
+  bool _suppressNextSquareTap = false;
+
+  @override
+  void didUpdateWidget(covariant MobileChessBoardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!widget.annotationModeEnabled && oldWidget.annotationModeEnabled) {
+      _resetAnnotationGestureState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _annotationLongPressTimer?.cancel();
+    super.dispose();
+  }
 
   String _squareForIndex(int index) {
     final row = index ~/ 8;
@@ -129,6 +172,15 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
   }
 
   Future<void> _handleSquareTap(String square) async {
+    if (_suppressNextSquareTap) {
+      _suppressNextSquareTap = false;
+      return;
+    }
+
+    if (widget.annotationModeEnabled) {
+      widget.onClearAnnotations?.call();
+    }
+
     await widget.onSquareTap(square);
   }
 
@@ -153,6 +205,187 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
     return Offset((column + 0.5) * squareSize, (row + 0.5) * squareSize);
   }
 
+  String? _squareFromLocalPosition({
+    required Offset position,
+    required double boardSize,
+  }) {
+    if (position.dx < 0 ||
+        position.dy < 0 ||
+        position.dx >= boardSize ||
+        position.dy >= boardSize) {
+      return null;
+    }
+
+    final squareSize = boardSize / 8.0;
+    final column = (position.dx / squareSize).floor().clamp(0, 7);
+    final row = (position.dy / squareSize).floor().clamp(0, 7);
+
+    final fileIndex = widget.playerIsWhite ? column : 7 - column;
+    final rank = widget.playerIsWhite ? 8 - row : row + 1;
+
+    return '${_files[fileIndex]}$rank';
+  }
+
+  void _suppressFollowingSquareTapBriefly() {
+    _suppressNextSquareTap = true;
+
+    Timer(const Duration(milliseconds: 160), () {
+      _suppressNextSquareTap = false;
+    });
+  }
+
+  void _handlePointerDown(PointerDownEvent event, double boardSize) {
+    if (!widget.annotationModeEnabled) {
+      return;
+    }
+
+    final square = _squareFromLocalPosition(
+      position: event.localPosition,
+      boardSize: boardSize,
+    );
+
+    if (square == null) {
+      return;
+    }
+
+    _annotationLongPressTimer?.cancel();
+    _annotationPointer = event.pointer;
+    _annotationPointerStartPosition = event.localPosition;
+    _annotationDragStartSquare = square;
+    _annotationDragCurrentSquare = square;
+    _annotationPointerMoved = false;
+    _annotationLongPressTriggered = false;
+
+    _annotationLongPressTimer = Timer(_annotationLongPressDuration, () {
+      if (!mounted ||
+          !widget.annotationModeEnabled ||
+          _annotationPointer != event.pointer ||
+          _annotationPointerMoved ||
+          _annotationDragStartSquare == null) {
+        return;
+      }
+
+      _suppressFollowingSquareTapBriefly();
+      _annotationLongPressTriggered = true;
+      widget.onToggleAnnotationSquare?.call(_annotationDragStartSquare!);
+      _resetAnnotationDragPreviewOnly();
+    });
+  }
+
+  void _handlePointerMove(PointerMoveEvent event, double boardSize) {
+    if (!widget.annotationModeEnabled || _annotationPointer != event.pointer) {
+      return;
+    }
+
+    final startPosition = _annotationPointerStartPosition;
+    if (startPosition == null || _annotationDragStartSquare == null) {
+      return;
+    }
+
+    final movement = event.localPosition - startPosition;
+    if (!_annotationPointerMoved &&
+        movement.distance >= _annotationDragStartThreshold) {
+      _annotationPointerMoved = true;
+      _annotationLongPressTimer?.cancel();
+    }
+
+    if (!_annotationPointerMoved) {
+      return;
+    }
+
+    final square = _squareFromLocalPosition(
+      position: event.localPosition,
+      boardSize: boardSize,
+    );
+
+    if (square == null || square == _annotationDragCurrentSquare) {
+      return;
+    }
+
+    setState(() {
+      _annotationDragCurrentSquare = square;
+    });
+  }
+
+  void _handlePointerUp(PointerUpEvent event, double boardSize) {
+    if (!widget.annotationModeEnabled || _annotationPointer != event.pointer) {
+      _resetAnnotationGestureState();
+      return;
+    }
+
+    _annotationLongPressTimer?.cancel();
+
+    if (_annotationLongPressTriggered) {
+      _suppressFollowingSquareTapBriefly();
+      _resetAnnotationGestureState();
+      return;
+    }
+
+    final from = _annotationDragStartSquare;
+    final to = _squareFromLocalPosition(
+          position: event.localPosition,
+          boardSize: boardSize,
+        ) ??
+        _annotationDragCurrentSquare;
+
+    if (_annotationPointerMoved && from != null && to != null && from != to) {
+      widget.onToggleAnnotationArrow?.call(
+        BoardArrowAnnotation(from: from, to: to),
+      );
+      _resetAnnotationGestureState();
+      return;
+    }
+
+    // Einfacher Tap auf dem Brett löscht nur Brett-Markierungen. Der eigentliche
+    // Click-to-move-Tap läuft danach weiterhin über die Squares.
+    widget.onClearAnnotations?.call();
+    _resetAnnotationGestureState();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (_annotationPointer != event.pointer) {
+      return;
+    }
+
+    _resetAnnotationGestureState();
+  }
+
+  void _resetAnnotationGestureState() {
+    _annotationLongPressTimer?.cancel();
+    _annotationPointer = null;
+    _annotationPointerStartPosition = null;
+    _annotationPointerMoved = false;
+    _annotationLongPressTriggered = false;
+    _resetAnnotationDragPreviewOnly();
+  }
+
+  void _resetAnnotationDragPreviewOnly() {
+    if (_annotationDragStartSquare == null &&
+        _annotationDragCurrentSquare == null) {
+      return;
+    }
+
+    setState(() {
+      _annotationDragStartSquare = null;
+      _annotationDragCurrentSquare = null;
+    });
+  }
+
+  BoardArrowAnnotation? get _previewArrow {
+    final from = _annotationDragStartSquare;
+    final to = _annotationDragCurrentSquare;
+
+    if (!widget.annotationModeEnabled ||
+        !_annotationPointerMoved ||
+        from == null ||
+        to == null ||
+        from == to) {
+      return null;
+    }
+
+    return BoardArrowAnnotation(from: from, to: to);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -160,11 +393,17 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
         final boardSize = constraints.biggest.shortestSide;
         final squareSize = boardSize / 8.0;
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(child: _buildBoardTextureLayer()),
-            GridView.builder(
+        return Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) => _handlePointerDown(event, boardSize),
+          onPointerMove: (event) => _handlePointerMove(event, boardSize),
+          onPointerUp: (event) => _handlePointerUp(event, boardSize),
+          onPointerCancel: _handlePointerCancel,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(child: _buildBoardTextureLayer()),
+              GridView.builder(
                 padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 64,
@@ -192,12 +431,25 @@ class _MobileChessBoardViewState extends State<MobileChessBoardView> {
                   );
                 },
               ),
-            if (_hoveredDragTargetSquare != null)
-              _MobileDragHoverCircle(
-                center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
-                radius: squareSize * _dragHoverCircleRadiusInSquares,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _MobileBoardAnnotationPainter(
+                      playerIsWhite: widget.playerIsWhite,
+                      markedSquares: widget.annotationMarkedSquares,
+                      arrows: widget.annotationArrows,
+                      previewArrow: _previewArrow,
+                    ),
+                  ),
+                ),
               ),
-          ],
+              if (_hoveredDragTargetSquare != null)
+                _MobileDragHoverCircle(
+                  center: _squareCenter(_hoveredDragTargetSquare!, squareSize),
+                  radius: squareSize * _dragHoverCircleRadiusInSquares,
+                ),
+            ],
+          ),
         );
       },
     );
@@ -244,5 +496,207 @@ class _MobileDragHoverCircle extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _MobileBoardAnnotationPainter extends CustomPainter {
+  const _MobileBoardAnnotationPainter({
+    required this.playerIsWhite,
+    required this.markedSquares,
+    required this.arrows,
+    this.previewArrow,
+  });
+
+  static const Color _highlighterGreen = Color(0xFF006B2E);
+
+  final bool playerIsWhite;
+  final Set<String> markedSquares;
+  final Set<BoardArrowAnnotation> arrows;
+  final BoardArrowAnnotation? previewArrow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final boardSize = math.min(size.width, size.height);
+    final squareSize = boardSize / 8.0;
+    final markerStrokeWidth = squareSize * 0.11;
+    final arrowStrokeWidth = squareSize * 0.18;
+
+    final markerPaint = Paint()
+      ..color = _highlighterGreen.withAlpha(118)
+      ..blendMode = BlendMode.src
+      ..strokeWidth = markerStrokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final arrowPaint = Paint()
+      ..color = _highlighterGreen.withAlpha(118)
+      ..blendMode = BlendMode.src
+      ..strokeWidth = arrowStrokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final square in markedSquares) {
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawSquareMarker(canvas, square, squareSize, markerPaint);
+      });
+    }
+
+    for (final arrow in arrows) {
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawArrow(canvas, arrow, squareSize, arrowPaint);
+      });
+    }
+
+    final preview = previewArrow;
+    if (preview != null) {
+      final previewPaint = Paint()
+        ..color = _highlighterGreen.withAlpha(82)
+        ..blendMode = BlendMode.src
+        ..strokeWidth = arrowStrokeWidth
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      _paintSingleHighlighterElement(canvas, size, () {
+        _drawArrow(canvas, preview, squareSize, previewPaint);
+      });
+    }
+  }
+
+  void _paintSingleHighlighterElement(
+    Canvas canvas,
+    Size size,
+    VoidCallback paintElement,
+  ) {
+    canvas.saveLayer(Offset.zero & size, Paint());
+    paintElement();
+    canvas.restore();
+  }
+
+  void _drawSquareMarker(
+    Canvas canvas,
+    String square,
+    double squareSize,
+    Paint paint,
+  ) {
+    final center = _centerForSquare(square, squareSize);
+
+    if (center == null) {
+      return;
+    }
+
+    final radius = (squareSize * 0.5) - (paint.strokeWidth * 0.5) - 1.0;
+
+    if (radius <= 0) {
+      return;
+    }
+
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  void _drawArrow(
+    Canvas canvas,
+    BoardArrowAnnotation arrow,
+    double squareSize,
+    Paint paint,
+  ) {
+    final from = _centerForSquare(arrow.from, squareSize);
+    final to = _centerForSquare(arrow.to, squareSize);
+
+    if (from == null || to == null) {
+      return;
+    }
+
+    final points = arrow.isKnightMove
+        ? _knightArrowPoints(from: from, to: to, arrow: arrow)
+        : <Offset>[from, to];
+
+    if (points.length < 2) {
+      return;
+    }
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+
+    canvas.drawPath(path, paint);
+    _drawArrowHead(canvas, points[points.length - 2], points.last, paint);
+  }
+
+  List<Offset> _knightArrowPoints({
+    required Offset from,
+    required Offset to,
+    required BoardArrowAnnotation arrow,
+  }) {
+    final fromFile = arrow.from.codeUnitAt(0) - 'a'.codeUnitAt(0);
+    final toFile = arrow.to.codeUnitAt(0) - 'a'.codeUnitAt(0);
+    final fromRank = int.tryParse(arrow.from.substring(1, 2)) ?? 1;
+    final toRank = int.tryParse(arrow.to.substring(1, 2)) ?? 1;
+
+    final fileDelta = (toFile - fromFile).abs();
+    final rankDelta = (toRank - fromRank).abs();
+
+    if (rankDelta > fileDelta) {
+      return <Offset>[from, Offset(from.dx, to.dy), to];
+    }
+
+    return <Offset>[from, Offset(to.dx, from.dy), to];
+  }
+
+  void _drawArrowHead(Canvas canvas, Offset from, Offset to, Paint paint) {
+    final direction = to - from;
+
+    if (direction.distance == 0) {
+      return;
+    }
+
+    final angle = math.atan2(direction.dy, direction.dx);
+    final headLength = paint.strokeWidth * 2.0;
+    final headAngle = math.pi / 6;
+
+    final path = Path()
+      ..moveTo(to.dx, to.dy)
+      ..lineTo(
+        to.dx - headLength * math.cos(angle - headAngle),
+        to.dy - headLength * math.sin(angle - headAngle),
+      )
+      ..moveTo(to.dx, to.dy)
+      ..lineTo(
+        to.dx - headLength * math.cos(angle + headAngle),
+        to.dy - headLength * math.sin(angle + headAngle),
+      );
+
+    canvas.drawPath(path, paint);
+  }
+
+  Offset? _centerForSquare(String square, double squareSize) {
+    if (square.length != 2) {
+      return null;
+    }
+
+    final fileIndex = square.codeUnitAt(0) - 'a'.codeUnitAt(0);
+    final rank = int.tryParse(square.substring(1, 2));
+
+    if (fileIndex < 0 || fileIndex > 7 || rank == null || rank < 1 || rank > 8) {
+      return null;
+    }
+
+    final rankIndex = rank - 1;
+    final col = playerIsWhite ? fileIndex : 7 - fileIndex;
+    final row = playerIsWhite ? 7 - rankIndex : rankIndex;
+
+    return Offset((col + 0.5) * squareSize, (row + 0.5) * squareSize);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MobileBoardAnnotationPainter oldDelegate) {
+    return oldDelegate.playerIsWhite != playerIsWhite ||
+        oldDelegate.markedSquares != markedSquares ||
+        oldDelegate.arrows != arrows ||
+        oldDelegate.previewArrow != previewArrow;
   }
 }

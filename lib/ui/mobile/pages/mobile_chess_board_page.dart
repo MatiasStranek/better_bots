@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../controllers/chess_board_controller.dart';
+import '../../../models/board_annotation.dart';
 import '../../../engine/chess_engine_factory.dart';
 import '../../../models/player_side.dart';
 import '../layouts/mobile_chess_board_layout.dart';
@@ -15,6 +16,13 @@ class MobileChessBoardPage extends StatefulWidget {
 class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
   late final ChessBoardController _controller;
 
+  final Map<String, Set<String>> _analysisAnnotationMarkedSquaresByFen =
+      <String, Set<String>>{};
+  final Map<String, Set<BoardArrowAnnotation>> _analysisAnnotationArrowsByFen =
+      <String, Set<BoardArrowAnnotation>>{};
+
+  bool _lastKnownAnalysisMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -23,16 +31,129 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
       engine: ChessEngineFactory.createMobileEngine(),
       onPromotionChoiceRequested: _showPromotionChoiceDialog,
     )..start();
+    _lastKnownAnalysisMode = _controller.isAnalysisMode;
+    _controller.addListener(_handleControllerChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_handleControllerChanged);
     _controller.dispose();
     super.dispose();
   }
 
   String get _playerSideText {
     return _controller.playerSide == PlayerSide.white ? 'Weiß' : 'Schwarz';
+  }
+
+  String get _analysisAnnotationPositionKey => _controller.fen.trim();
+
+  Set<String> get _activeAnnotationMarkedSquares {
+    if (!_controller.isAnalysisMode) {
+      return const <String>{};
+    }
+
+    return _analysisAnnotationMarkedSquaresByFen[_analysisAnnotationPositionKey] ??
+        const <String>{};
+  }
+
+  Set<BoardArrowAnnotation> get _activeAnnotationArrows {
+    if (!_controller.isAnalysisMode) {
+      return const <BoardArrowAnnotation>{};
+    }
+
+    return _analysisAnnotationArrowsByFen[_analysisAnnotationPositionKey] ??
+        const <BoardArrowAnnotation>{};
+  }
+
+  void _handleControllerChanged() {
+    final isAnalysisMode = _controller.isAnalysisMode;
+    final hasJustLeftAnalysisMode = _lastKnownAnalysisMode && !isAnalysisMode;
+
+    _lastKnownAnalysisMode = isAnalysisMode;
+
+    if (!hasJustLeftAnalysisMode ||
+        (_analysisAnnotationMarkedSquaresByFen.isEmpty &&
+            _analysisAnnotationArrowsByFen.isEmpty)) {
+      return;
+    }
+
+    if (!mounted) {
+      _analysisAnnotationMarkedSquaresByFen.clear();
+      _analysisAnnotationArrowsByFen.clear();
+      return;
+    }
+
+    setState(() {
+      _analysisAnnotationMarkedSquaresByFen.clear();
+      _analysisAnnotationArrowsByFen.clear();
+    });
+  }
+
+  void _clearBoardAnnotations() {
+    if (!_controller.isAnalysisMode) {
+      return;
+    }
+
+    final positionKey = _analysisAnnotationPositionKey;
+    final markedSquares = _analysisAnnotationMarkedSquaresByFen[positionKey];
+    final arrows = _analysisAnnotationArrowsByFen[positionKey];
+
+    if ((markedSquares == null || markedSquares.isEmpty) &&
+        (arrows == null || arrows.isEmpty)) {
+      return;
+    }
+
+    setState(() {
+      _analysisAnnotationMarkedSquaresByFen.remove(positionKey);
+      _analysisAnnotationArrowsByFen.remove(positionKey);
+    });
+  }
+
+  void _toggleAnnotationSquare(String square) {
+    if (!_controller.isAnalysisMode) {
+      return;
+    }
+
+    final positionKey = _analysisAnnotationPositionKey;
+
+    setState(() {
+      final markedSquares = _analysisAnnotationMarkedSquaresByFen.putIfAbsent(
+        positionKey,
+        () => <String>{},
+      );
+
+      if (!markedSquares.add(square)) {
+        markedSquares.remove(square);
+      }
+
+      if (markedSquares.isEmpty) {
+        _analysisAnnotationMarkedSquaresByFen.remove(positionKey);
+      }
+    });
+  }
+
+  void _toggleAnnotationArrow(BoardArrowAnnotation arrow) {
+    if (!_controller.isAnalysisMode) {
+      return;
+    }
+
+    final positionKey = _analysisAnnotationPositionKey;
+
+    setState(() {
+      final arrows = _analysisAnnotationArrowsByFen.putIfAbsent(
+        positionKey,
+        () => <BoardArrowAnnotation>{},
+      );
+
+      if (!arrows.add(arrow)) {
+        arrows.remove(arrow);
+      }
+
+      if (arrows.isEmpty) {
+        _analysisAnnotationArrowsByFen.remove(positionKey);
+      }
+    });
   }
 
   Future<String?> _showPromotionChoiceDialog({
@@ -139,6 +260,11 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 onToggleAnalysisMode: _handleToggleAnalysisMode,
                 onAnalysisBack: _handleAnalysisBack,
                 onAnalysisForward: _handleAnalysisForward,
+                annotationMarkedSquares: _activeAnnotationMarkedSquares,
+                annotationArrows: _activeAnnotationArrows,
+                onClearBoardAnnotations: _clearBoardAnnotations,
+                onToggleAnnotationSquare: _toggleAnnotationSquare,
+                onToggleAnnotationArrow: _toggleAnnotationArrow,
 
                 onNewGame: _controller.newGame,
                 onRestart: _controller.restartGame,

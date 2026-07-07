@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 
+import '../../../models/board_annotation.dart';
 import '../../../models/board_highlights.dart';
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_personality.dart';
@@ -51,6 +52,11 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onToggleAnalysisMode,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
+    required this.annotationMarkedSquares,
+    required this.annotationArrows,
+    required this.onClearBoardAnnotations,
+    required this.onToggleAnnotationSquare,
+    required this.onToggleAnnotationArrow,
     required this.onNewGame,
     required this.onRestart,
     required this.onSkillLevelChanged,
@@ -107,6 +113,12 @@ class MobileChessBoardLayout extends StatefulWidget {
   final VoidCallback onToggleAnalysisMode;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
+
+  final Set<String> annotationMarkedSquares;
+  final Set<BoardArrowAnnotation> annotationArrows;
+  final VoidCallback onClearBoardAnnotations;
+  final ValueChanged<String> onToggleAnnotationSquare;
+  final ValueChanged<BoardArrowAnnotation> onToggleAnnotationArrow;
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
@@ -310,6 +322,12 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onMove: widget.onMove,
                   onPieceDragStarted: widget.onPieceDragStarted,
                   onPieceDragEnded: widget.onPieceDragEnded,
+                  annotationModeEnabled: widget.isAnalysisMode,
+                  annotationMarkedSquares: widget.annotationMarkedSquares,
+                  annotationArrows: widget.annotationArrows,
+                  onClearAnnotations: widget.onClearBoardAnnotations,
+                  onToggleAnnotationSquare: widget.onToggleAnnotationSquare,
+                  onToggleAnnotationArrow: widget.onToggleAnnotationArrow,
                 ),
               ),
             ),
