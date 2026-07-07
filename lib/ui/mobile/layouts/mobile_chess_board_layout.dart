@@ -9,16 +9,17 @@ import '../../../models/bot_personality.dart';
 import '../../../models/engine_strength_mode.dart';
 import '../../../models/player_side.dart';
 import '../widgets/chess_board/mobile_chess_board_view.dart';
+import '../widgets/mobile_chess_action_bar.dart';
 import '../widgets/mobile_chess_bottom_view.dart';
-import '../widgets/mobile_chess_copy_pgn_button.dart';
-import '../widgets/mobile_chess_top_controls.dart';
+import '../widgets/mobile_chess_side_menu.dart';
 
-class MobileChessBoardLayout extends StatelessWidget {
+class MobileChessBoardLayout extends StatefulWidget {
   const MobileChessBoardLayout({
     super.key,
     required this.statusText,
     required this.playerSideText,
     required this.pgnText,
+    required this.fenText,
     required this.playerIsWhite,
     required this.pieceAt,
     required this.highlights,
@@ -53,6 +54,7 @@ class MobileChessBoardLayout extends StatelessWidget {
   final String statusText;
   final String playerSideText;
   final String pgnText;
+  final String fenText;
 
   final bool playerIsWhite;
   final chess.Piece? Function(String square) pieceAt;
@@ -98,11 +100,124 @@ class MobileChessBoardLayout extends StatelessWidget {
 
   final bool controlsEnabled;
 
+  @override
+  State<MobileChessBoardLayout> createState() => _MobileChessBoardLayoutState();
+}
+
+class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
   static const double _screenPadding = 16;
-  static const double _topControlsHeight = 160;
   static const double _bottomViewHeight = 96;
-  static const double _copyPgnButtonHeight = 44;
+  static const double _actionBarHeight = 64;
   static const double _bottomGap = 8;
+  static const double _edgeSwipeWidth = 36;
+  static const double _sideMenuWidthFactor = 0.72;
+  static const double _swipeOpenThreshold = 54;
+  static const double _swipeCloseThreshold = -54;
+
+  bool _isSideMenuOpen = false;
+  double _openSwipeDelta = 0;
+  double _closeSwipeDelta = 0;
+
+  void _openSideMenu() {
+    if (_isSideMenuOpen) {
+      return;
+    }
+
+    setState(() {
+      _isSideMenuOpen = true;
+    });
+  }
+
+  void _closeSideMenu() {
+    if (!_isSideMenuOpen) {
+      return;
+    }
+
+    setState(() {
+      _isSideMenuOpen = false;
+    });
+  }
+
+  void _toggleSideMenu() {
+    setState(() {
+      _isSideMenuOpen = !_isSideMenuOpen;
+    });
+  }
+
+  void _handleOpenSwipeUpdate(DragUpdateDetails details) {
+    _openSwipeDelta += details.delta.dx;
+
+    if (_openSwipeDelta >= _swipeOpenThreshold) {
+      _openSwipeDelta = 0;
+      _openSideMenu();
+    }
+  }
+
+  void _handleOpenSwipeEnd(DragEndDetails details) {
+    if (details.velocity.pixelsPerSecond.dx > 500) {
+      _openSideMenu();
+    }
+
+    _openSwipeDelta = 0;
+  }
+
+  void _handleCloseSwipeUpdate(DragUpdateDetails details) {
+    _closeSwipeDelta += details.delta.dx;
+
+    if (_closeSwipeDelta <= _swipeCloseThreshold) {
+      _closeSwipeDelta = 0;
+      _closeSideMenu();
+    }
+  }
+
+  void _handleCloseSwipeEnd(DragEndDetails details) {
+    if (details.velocity.pixelsPerSecond.dx < -500) {
+      _closeSideMenu();
+    }
+
+    _closeSwipeDelta = 0;
+  }
+
+  Widget _buildClosedEdgeSwipeAreas({
+    required double screenHeight,
+    required double boardTop,
+    required double boardBottom,
+  }) {
+    if (_isSideMenuOpen) {
+      return const SizedBox.shrink();
+    }
+
+    final safeBottom = math.max(0.0, screenHeight - _actionBarHeight);
+    final bottomTop = math.min(boardBottom, safeBottom);
+    final bottomHeight = math.max(0.0, safeBottom - bottomTop);
+
+    return Stack(
+      children: [
+        if (boardTop > 0)
+          Positioned(
+            left: 0,
+            top: 0,
+            width: _edgeSwipeWidth,
+            height: boardTop,
+            child: _EdgeSwipeDetector(
+              onHorizontalDragUpdate: _handleOpenSwipeUpdate,
+              onHorizontalDragEnd: _handleOpenSwipeEnd,
+            ),
+          ),
+        if (bottomHeight > 0)
+          Positioned(
+            left: 0,
+            top: bottomTop,
+            width: _edgeSwipeWidth,
+            height: bottomHeight,
+            child: _EdgeSwipeDetector(
+              onHorizontalDragUpdate: _handleOpenSwipeUpdate,
+              onHorizontalDragEnd: _handleOpenSwipeEnd,
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,17 +226,20 @@ class MobileChessBoardLayout extends StatelessWidget {
         final availableHeight = constraints.maxHeight - (_screenPadding * 2);
         final boardSize = math.min(constraints.maxWidth, availableHeight);
 
+        final boardTop = (constraints.maxHeight - boardSize) / 2;
+        final boardBottom = boardTop + boardSize;
+
         final verticalFreeSpace = constraints.maxHeight - boardSize;
-        final spaceAboveBoard = math.max(0.0, (verticalFreeSpace / 2) - 8);
         final spaceBelowBoard = math.max(0.0, (verticalFreeSpace / 2) - 8);
 
-        final canShowTopControls = spaceAboveBoard >= _topControlsHeight;
         final canShowBottomView =
             spaceBelowBoard >=
-            (_bottomViewHeight + _bottomGap + _copyPgnButtonHeight);
+            (_bottomViewHeight + _bottomGap + _actionBarHeight);
 
-        final canShowCopyPgnOnly =
-            !canShowBottomView && spaceBelowBoard >= _copyPgnButtonHeight;
+        final canShowActionBarOnly =
+            !canShowBottomView && spaceBelowBoard >= _actionBarHeight;
+
+        final sideMenuWidth = constraints.maxWidth * _sideMenuWidthFactor;
 
         return Stack(
           children: [
@@ -129,79 +247,140 @@ class MobileChessBoardLayout extends StatelessWidget {
               child: SizedBox.square(
                 dimension: boardSize,
                 child: MobileChessBoardView(
-                  playerIsWhite: playerIsWhite,
-                  pieceAt: pieceAt,
-                  highlights: highlights,
-                  canHumanMovePiece: canHumanMovePiece,
-                  canMoveTo: canMoveTo,
-                  onSquareTap: onSquareTap,
-                  onMove: onMove,
-                  onPieceDragStarted: onPieceDragStarted,
-                  onPieceDragEnded: onPieceDragEnded,
+                  playerIsWhite: widget.playerIsWhite,
+                  pieceAt: widget.pieceAt,
+                  highlights: widget.highlights,
+                  canHumanMovePiece: widget.canHumanMovePiece,
+                  canMoveTo: widget.canMoveTo,
+                  onSquareTap: widget.onSquareTap,
+                  onMove: widget.onMove,
+                  onPieceDragStarted: widget.onPieceDragStarted,
+                  onPieceDragEnded: widget.onPieceDragEnded,
                 ),
               ),
             ),
-            if (canShowTopControls)
-              Positioned(
-                left: _screenPadding,
-                right: _screenPadding,
-                top: 0,
-                height: _topControlsHeight,
-                child: MobileChessTopControls(
-                  skillLevel: skillLevel,
-                  uciElo: uciElo,
-                  cpLossElo: cpLossElo,
-                  cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumber,
-                  strengthMode: strengthMode,
-                  botOpeningMove: botOpeningMove,
-                  botPersonality: botPersonality,
-                  effectiveBotPersonality: effectiveBotPersonality,
-                  personaCandidateCount: personaCandidateCount,
-                  onNewGame: onNewGame,
-                  onRestart: onRestart,
-                  onSkillLevelChanged: onSkillLevelChanged,
-                  onUciEloChanged: onUciEloChanged,
-                  onCpLossEloChanged: onCpLossEloChanged,
-                  onCpLossUciSwitchFullMoveNumberChanged:
-                      onCpLossUciSwitchFullMoveNumberChanged,
-                  onStrengthModeChanged: onStrengthModeChanged,
-                  onBotOpeningMoveChanged: onBotOpeningMoveChanged,
-                  onBotPersonalityChanged: onBotPersonalityChanged,
-                  onPersonaCandidateCountChanged:
-                      onPersonaCandidateCountChanged,
-                  isEnabled: controlsEnabled,
-                ),
-              ),
             if (canShowBottomView)
               Positioned(
-                left: _screenPadding,
-                right: _screenPadding,
+                left: 0,
+                right: 0,
                 bottom: 0,
-                height: _bottomViewHeight + _bottomGap + _copyPgnButtonHeight,
+                height: _bottomViewHeight + _bottomGap + _actionBarHeight,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    MobileChessBottomView(
-                      statusText: statusText,
-                      playerSideText: playerSideText,
-                      pgnText: pgnText,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: _screenPadding,
+                      ),
+                      child: MobileChessBottomView(
+                        statusText: widget.statusText,
+                        playerSideText: widget.playerSideText,
+                        pgnText: widget.pgnText,
+                      ),
                     ),
                     const SizedBox(height: _bottomGap),
-                    MobileChessCopyPgnButton(pgnText: pgnText),
+                    MobileChessActionBar(
+                      height: _actionBarHeight,
+                      pgnText: widget.pgnText,
+                      fenText: widget.fenText,
+                      onRestart: widget.onRestart,
+                      onMenuPressed: _toggleSideMenu,
+                      isSideMenuOpen: _isSideMenuOpen,
+                    ),
                   ],
                 ),
               )
-            else if (canShowCopyPgnOnly)
+            else if (canShowActionBarOnly)
               Positioned(
-                left: _screenPadding,
-                right: _screenPadding,
+                left: 0,
+                right: 0,
                 bottom: 0,
-                height: _copyPgnButtonHeight,
-                child: MobileChessCopyPgnButton(pgnText: pgnText),
+                height: _actionBarHeight,
+                child: MobileChessActionBar(
+                  height: _actionBarHeight,
+                  pgnText: widget.pgnText,
+                  fenText: widget.fenText,
+                  onRestart: widget.onRestart,
+                  onMenuPressed: _toggleSideMenu,
+                  isSideMenuOpen: _isSideMenuOpen,
+                ),
               ),
+            _buildClosedEdgeSwipeAreas(
+              screenHeight: constraints.maxHeight,
+              boardTop: boardTop,
+              boardBottom: boardBottom,
+            ),
+            if (_isSideMenuOpen)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _closeSideMenu,
+                  child: ColoredBox(color: Colors.black.withAlpha(145)),
+                ),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 230),
+              curve: Curves.easeOutCubic,
+              left: _isSideMenuOpen ? 0 : -sideMenuWidth,
+              top: 0,
+              bottom: 0,
+              width: sideMenuWidth,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: _handleCloseSwipeUpdate,
+                onHorizontalDragEnd: _handleCloseSwipeEnd,
+                child: MobileChessSideMenu(
+                  width: sideMenuWidth,
+                  skillLevel: widget.skillLevel,
+                  uciElo: widget.uciElo,
+                  cpLossElo: widget.cpLossElo,
+                  cpLossUciSwitchFullMoveNumber:
+                      widget.cpLossUciSwitchFullMoveNumber,
+                  strengthMode: widget.strengthMode,
+                  botOpeningMove: widget.botOpeningMove,
+                  botPersonality: widget.botPersonality,
+                  effectiveBotPersonality: widget.effectiveBotPersonality,
+                  personaCandidateCount: widget.personaCandidateCount,
+                  onNewGame: widget.onNewGame,
+                  onRestart: widget.onRestart,
+                  onSkillLevelChanged: widget.onSkillLevelChanged,
+                  onUciEloChanged: widget.onUciEloChanged,
+                  onCpLossEloChanged: widget.onCpLossEloChanged,
+                  onCpLossUciSwitchFullMoveNumberChanged:
+                      widget.onCpLossUciSwitchFullMoveNumberChanged,
+                  onStrengthModeChanged: widget.onStrengthModeChanged,
+                  onBotOpeningMoveChanged: widget.onBotOpeningMoveChanged,
+                  onBotPersonalityChanged: widget.onBotPersonalityChanged,
+                  onPersonaCandidateCountChanged:
+                      widget.onPersonaCandidateCountChanged,
+                  onClose: _closeSideMenu,
+                  isEnabled: widget.controlsEnabled,
+                ),
+              ),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+class _EdgeSwipeDetector extends StatelessWidget {
+  const _EdgeSwipeDetector({
+    required this.onHorizontalDragUpdate,
+    required this.onHorizontalDragEnd,
+  });
+
+  final GestureDragUpdateCallback onHorizontalDragUpdate;
+  final GestureDragEndCallback onHorizontalDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: onHorizontalDragUpdate,
+      onHorizontalDragEnd: onHorizontalDragEnd,
+      child: const SizedBox.expand(),
     );
   }
 }

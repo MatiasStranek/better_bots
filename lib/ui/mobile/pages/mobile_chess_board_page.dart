@@ -46,6 +46,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
               statusText: _controller.statusText,
               playerSideText: _playerSideText,
               pgnText: _controller.pgn,
+              fenText: _controller.fen,
 
               playerIsWhite: _controller.playerIsWhite,
               pieceAt: _controller.pieceAt,
