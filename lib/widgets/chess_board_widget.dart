@@ -290,6 +290,11 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
       return KeyEventResult.handled;
     }
 
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _controller.toggleAnalysisMode();
+      return KeyEventResult.handled;
+    }
+
     return KeyEventResult.ignored;
   }
 

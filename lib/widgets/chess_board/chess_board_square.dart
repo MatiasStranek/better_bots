@@ -17,12 +17,16 @@ class ChessBoardSquare extends StatelessWidget {
     required this.onMove,
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
+    this.isAnalysisMode = false,
     super.key,
   });
+
+  static const Color _analysisSquareOverlayColor = Color(0x4D7A8880);
 
   final String square;
   final chess.Piece? piece;
   final bool isLightSquare;
+  final bool isAnalysisMode;
   final BoardHighlights highlights;
   final bool canHumanMovePiece;
   final bool Function({required String from, required String to}) canMoveTo;
@@ -84,6 +88,14 @@ class ChessBoardSquare extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  if (isAnalysisMode)
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _analysisSquareOverlayColor,
+                        ),
+                      ),
+                    ),
                   if (isLegalTarget && piece == null)
                     Container(
                       width: 18,
