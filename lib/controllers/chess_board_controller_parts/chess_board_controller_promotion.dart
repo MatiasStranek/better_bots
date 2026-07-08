@@ -100,3 +100,4 @@ chess.PieceType _pieceTypeForPromotion(String promotion) {
       return chess.PieceType.QUEEN;
   }
 }
+

@@ -8,11 +8,13 @@ import 'package:flutter/material.dart';
 import '../../models/board_annotation.dart';
 import '../../models/board_highlights.dart';
 import '../../utils/chess_square_utils.dart';
+import '../../utils/piece_asset_utils.dart';
 import 'chess_board_square.dart';
 
 class ChessBoardGrid extends StatefulWidget {
   const ChessBoardGrid({
     required this.playerIsWhite,
+    required this.fen,
     required this.highlights,
     required this.pieceAt,
     required this.canHumanMovePiece,
@@ -34,6 +36,7 @@ class ChessBoardGrid extends StatefulWidget {
 
   final bool playerIsWhite;
   final bool isAnalysisMode;
+  final String fen;
   final BoardHighlights highlights;
   final chess.Piece? Function(String square) pieceAt;
   final bool Function(String square) canHumanMovePiece;
@@ -235,9 +238,16 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                           playerIsWhite: widget.playerIsWhite,
                         );
 
+                        final piece = widget.pieceAt(square);
+                        final pieceCode = pieceCodeFromFenAtSquare(
+                          fen: widget.fen,
+                          square: square,
+                        );
+
                         return ChessBoardSquare(
                           square: square,
-                          piece: widget.pieceAt(square),
+                          piece: piece,
+                          pieceCode: pieceCode,
                           isLightSquare: isLightSquareFromIndex(index),
                           isAnalysisMode: widget.isAnalysisMode,
                           highlights: widget.highlights,
@@ -640,5 +650,6 @@ String? _squareFromLocalPosition(
 
   return '$file$rank';
 }
+
 
 

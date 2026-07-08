@@ -503,6 +503,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                       children: [
                         ChessBoardGrid(
                           playerIsWhite: _controller.playerIsWhite,
+                          fen: _controller.fen,
                           isAnalysisMode: _controller.isAnalysisMode,
                           highlights: _controller.highlights,
                           pieceAt: _controller.pieceAt,
@@ -759,3 +760,4 @@ class _PromotionButton extends StatelessWidget {
     );
   }
 }
+

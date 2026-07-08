@@ -149,3 +149,4 @@ Future<void> _tryPlayNextPremoveIfPossible(
 
   await _controllerMakeBotMoveIfNeeded(controller);
 }
+

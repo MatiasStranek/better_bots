@@ -8,6 +8,7 @@ class ChessBoardSquare extends StatelessWidget {
   const ChessBoardSquare({
     required this.square,
     required this.piece,
+    this.pieceCode,
     required this.isLightSquare,
     required this.highlights,
     required this.canHumanMovePiece,
@@ -25,6 +26,7 @@ class ChessBoardSquare extends StatelessWidget {
 
   final String square;
   final chess.Piece? piece;
+  final String? pieceCode;
   final bool isLightSquare;
   final bool isAnalysisMode;
   final BoardHighlights highlights;
@@ -133,6 +135,7 @@ class ChessBoardSquare extends StatelessWidget {
                     Positioned.fill(
                       child: ChessPieceWidget(
                         piece: piece!,
+                        pieceCode: pieceCode,
                         square: square,
                         canDrag: canHumanMovePiece,
                         onDragStarted: () => onPieceDragStarted(square),
@@ -183,3 +186,4 @@ class ChessBoardSquare extends StatelessWidget {
     return Colors.black.withAlpha(22);
   }
 }
+

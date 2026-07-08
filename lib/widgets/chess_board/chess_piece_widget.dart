@@ -13,24 +13,32 @@ class ChessPieceWidget extends StatelessWidget {
     required this.canDrag,
     required this.onDragStarted,
     required this.onDragEnded,
+    this.pieceCode,
     super.key,
   });
 
   final chess.Piece piece;
   final String square;
+
+  /// Optional autoritativer Figurcode, z. B. direkt aus der FEN.
+  /// Wenn dieser Wert gesetzt ist, wird er für den Asset-Pfad verwendet.
+  final String? pieceCode;
+
   final bool canDrag;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
 
   @override
   Widget build(BuildContext context) {
-    final assetPath = pieceAsset(piece);
-    final keyValue = '$square-${piece.color}-${piece.type}-$assetPath';
+    final resolvedPieceCode = pieceCode ?? chessPieceCode(piece);
+    final assetPath = pieceAssetFromCode(resolvedPieceCode);
+    final keyValue = '$square-$resolvedPieceCode-$assetPath-${piece.color}-${piece.type}';
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final pieceSize = _resolvedPieceSize(constraints);
         final pieceVisual = ChessPieceVisual(
+          key: ValueKey(keyValue),
           assetPath: assetPath,
           keyValue: keyValue,
         );
@@ -57,6 +65,7 @@ class ChessPieceWidget extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: ChessPieceVisual(
+                  key: ValueKey('feedback-$keyValue'),
                   assetPath: assetPath,
                   keyValue: 'feedback-$keyValue',
                 ),
@@ -74,7 +83,8 @@ class ChessPieceWidget extends StatelessWidget {
 
   double _resolvedPieceSize(BoxConstraints constraints) {
     final maxWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : 80.0;
-    final maxHeight = constraints.maxHeight.isFinite ? constraints.maxHeight : 80.0;
+    final maxHeight =
+        constraints.maxHeight.isFinite ? constraints.maxHeight : 80.0;
 
     return math.min(maxWidth, maxHeight).clamp(48.0, 220.0).toDouble();
   }

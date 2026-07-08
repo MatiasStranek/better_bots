@@ -188,3 +188,4 @@ Future<bool> _controllerLoadFenPosition(
 
   return true;
 }
+

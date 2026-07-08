@@ -476,3 +476,4 @@ bool _applyUciMove(ChessBoardController controller, String uciMove) {
 
   return true;
 }
+
