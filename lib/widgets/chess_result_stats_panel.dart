@@ -15,6 +15,10 @@ class ChessResultStatsPanel extends StatelessWidget {
 
   final TrainingCounterSnapshot counter;
 
+  bool get _hasWonWithBothColors {
+    return counter.wonWhiteCount >= 1 && counter.wonBlackCount >= 1;
+  }
+
   List<ChessResultStatData> get _stats {
     return [
       ChessResultStatData(
@@ -23,6 +27,7 @@ class ChessResultStatsPanel extends StatelessWidget {
         whiteCount: counter.wonWhiteCount,
         blackCount: counter.wonBlackCount,
         titleColor: wonColor,
+        useCompletionGradient: _hasWonWithBothColors,
       ),
       ChessResultStatData(
         title: 'Verloren',
@@ -73,72 +78,24 @@ class ChessResultStatsTextView extends StatelessWidget {
   final TrainingCounterSnapshot counter;
   final bool analysisUsedDuringCurrentGame;
 
-  List<ChessResultStatData> get _stats {
-    return [
-      ChessResultStatData(
-        title: 'Gewonnen',
-        value: '${counter.wonCount}',
-        whiteCount: counter.wonWhiteCount,
-        blackCount: counter.wonBlackCount,
-        titleColor: ChessResultStatsPanel.wonColor,
-      ),
-      ChessResultStatData(
-        title: 'Verloren',
-        value: '${counter.lostCount}',
-        whiteCount: counter.lostWhiteCount,
-        blackCount: counter.lostBlackCount,
-        titleColor: ChessResultStatsPanel.lostColor,
-      ),
-      ChessResultStatData(
-        title: 'Remis',
-        value: '${counter.drawCount}',
-        whiteCount: counter.drawWhiteCount,
-        blackCount: counter.drawBlackCount,
-        titleColor: ChessResultStatsPanel.drawColor,
-      ),
-      ChessResultStatData(
-        title: 'Trainiert',
-        value: '${counter.trainedCount}',
-        whiteCount: counter.trainedWhiteCount,
-        blackCount: counter.trainedBlackCount,
-        titleColor: ChessResultStatsPanel.trainedColor,
-      ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final stats = _stats;
-
-    return DefaultTextStyle.merge(
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
-        height: 1.35,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 18,
-            runSpacing: 6,
-            children: [
-              for (final stat in stats) _ResultStatText(data: stat),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ChessResultStatsPanel(counter: counter),
+        const SizedBox(height: 8),
+        Text(
+          'Analyse in Partie benutzt: $analysisUsedDuringCurrentGame',
+          style: TextStyle(
+            color: analysisUsedDuringCurrentGame
+                ? const Color(0xFFFFA726)
+                : const Color(0xFF55C878),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Analyse in Partie benutzt: $analysisUsedDuringCurrentGame',
-            style: TextStyle(
-              color: analysisUsedDuringCurrentGame
-                  ? const Color(0xFFFFA726)
-                  : const Color(0xFF55C878),
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -150,6 +107,7 @@ class ChessResultStatData {
     required this.whiteCount,
     required this.blackCount,
     required this.titleColor,
+    this.useCompletionGradient = false,
   });
 
   final String title;
@@ -157,6 +115,7 @@ class ChessResultStatData {
   final int whiteCount;
   final int blackCount;
   final Color titleColor;
+  final bool useCompletionGradient;
 }
 
 class _ResultStatBox extends StatelessWidget {
@@ -166,6 +125,8 @@ class _ResultStatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesGradient = data.useCompletionGradient;
+
     return Semantics(
       button: true,
       label: '${data.title}: ${data.value}. Details anzeigen.',
@@ -174,12 +135,34 @@ class _ResultStatBox extends StatelessWidget {
         onTap: () => _showResultStatBreakdownDialog(context, data),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFF111111).withAlpha(190),
+            color: usesGradient ? null : const Color(0xFF111111).withAlpha(190),
+            gradient: usesGradient
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF0F7A3A),
+                      Color(0xFF25B65B),
+                      Color(0xFF7EF2A4),
+                    ],
+                  )
+                : null,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: Colors.white.withAlpha(28),
-              width: 1,
+              color: usesGradient
+                  ? Colors.white.withAlpha(92)
+                  : Colors.white.withAlpha(28),
+              width: usesGradient ? 1.4 : 1,
             ),
+            boxShadow: usesGradient
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF25B65B).withAlpha(95),
+                      blurRadius: 14,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: Padding(
@@ -195,9 +178,17 @@ class _ResultStatBox extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: data.titleColor,
+                        color: usesGradient ? Colors.white : data.titleColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
+                        shadows: usesGradient
+                            ? const [
+                                Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 4,
+                                ),
+                              ]
+                            : const [],
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -210,53 +201,38 @@ class _ResultStatBox extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            blurRadius: 3,
+                          ),
+                        ],
                       ),
                     ),
+                    if (usesGradient) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Weiß ✓ · Schwarz ✓',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(235),
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black45,
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ResultStatText extends StatelessWidget {
-  const _ResultStatText({required this.data});
-
-  final ChessResultStatData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _showResultStatBreakdownDialog(context, data),
-        child: RichText(
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: '${data.title}: ',
-                style: TextStyle(
-                  color: data.titleColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              TextSpan(
-                text: data.value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
           ),
         ),
       ),
