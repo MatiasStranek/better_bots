@@ -394,7 +394,12 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     }
 
     if (event.logicalKey == LogicalKeyboardKey.keyR) {
-      _controller.restartGame();
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _controller.restartTrainingCounterGame();
+      } else {
+        _controller.restartGame();
+      }
+
       return KeyEventResult.handled;
     }
 
@@ -556,6 +561,13 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                           : _showLoadFenDialog,
                                       icon: const Icon(Icons.input),
                                       label: const Text('FEN laden'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _controller.isAnalysisMode
+                                          ? null
+                                          : _controller.restartTrainingCounterGame,
+                                      icon: const Icon(Icons.restart_alt),
+                                      label: const Text('Neustart Zähler'),
                                     ),
                                   ],
                                 ),

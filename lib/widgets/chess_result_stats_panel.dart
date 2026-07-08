@@ -209,26 +209,7 @@ class _ResultStatBox extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (usesGradient) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Weiß ✓ · Schwarz ✓',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(235),
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
-                          shadows: const [
-                            Shadow(
-                              color: Colors.black45,
-                              blurRadius: 3,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+
                   ],
                 ),
               ),
