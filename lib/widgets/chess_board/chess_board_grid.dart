@@ -25,6 +25,7 @@ class ChessBoardGrid extends StatefulWidget {
     required this.onPieceDragStarted,
     required this.onPieceDragEnded,
     this.isAnalysisMode = false,
+    this.isAnalysisBranchActive = false,
     this.annotationModeEnabled = false,
     this.annotationMarkedSquares = const <String>{},
     this.annotationArrows = const <BoardArrowAnnotation>{},
@@ -36,6 +37,7 @@ class ChessBoardGrid extends StatefulWidget {
 
   final bool playerIsWhite;
   final bool isAnalysisMode;
+  final bool isAnalysisBranchActive;
   final String fen;
   final BoardHighlights highlights;
   final chess.Piece? Function(String square) pieceAt;
@@ -200,6 +202,74 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
             );
 
             final previewArrow = _previewArrow;
+            final boardStack = Stack(
+              children: [
+                Positioned.fill(child: _buildBoardTextureLayer()),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _BoardCoordinatePainter(
+                        playerIsWhite: widget.playerIsWhite,
+                      ),
+                    ),
+                  ),
+                ),
+                GridView.builder(
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 64,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 8,
+                  ),
+                  itemBuilder: (context, index) {
+                    final square = squareNameFromIndex(
+                      index: index,
+                      playerIsWhite: widget.playerIsWhite,
+                    );
+                    final piece = widget.pieceAt(square);
+                    final pieceCode = pieceCodeFromFenAtSquare(
+                      fen: widget.fen,
+                      square: square,
+                    );
+
+                    return ChessBoardSquare(
+                      square: square,
+                      piece: piece,
+                      pieceCode: pieceCode,
+                      isLightSquare: isLightSquareFromIndex(index),
+                      isAnalysisMode: widget.isAnalysisMode,
+                      highlights: widget.highlights,
+                      canHumanMovePiece: widget.canHumanMovePiece(square),
+                      canMoveTo: widget.canMoveTo,
+                      legalTargetsFromSquare: widget.legalTargetsFromSquare,
+                      onSquareTap: widget.onSquareTap,
+                      onMove: widget.onMove,
+                      onPieceDragStarted: widget.onPieceDragStarted,
+                      onPieceDragEnded: widget.onPieceDragEnded,
+                    );
+                  },
+                ),
+                if (widget.isAnalysisBranchActive)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(color: Colors.grey.withAlpha(118)),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _BoardAnnotationPainter(
+                        playerIsWhite: widget.playerIsWhite,
+                        markedSquares: widget.annotationMarkedSquares,
+                        arrows: widget.annotationArrows,
+                        previewArrow: previewArrow,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+            final boardChild = boardStack;
 
             return MouseRegion(
               cursor: SystemMouseCursors.click,
@@ -212,69 +282,7 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                 child: ClipRRect(
                   borderRadius: _boardBorderRadius,
                   clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: _buildBoardTextureLayer()),
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            painter: _BoardCoordinatePainter(
-                              playerIsWhite: widget.playerIsWhite,
-                            ),
-                          ),
-                        ),
-                      ),
-                      GridView.builder(
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: 64,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 8,
-                          ),
-                      itemBuilder: (context, index) {
-                        final square = squareNameFromIndex(
-                          index: index,
-                          playerIsWhite: widget.playerIsWhite,
-                        );
-
-                        final piece = widget.pieceAt(square);
-                        final pieceCode = pieceCodeFromFenAtSquare(
-                          fen: widget.fen,
-                          square: square,
-                        );
-
-                        return ChessBoardSquare(
-                          square: square,
-                          piece: piece,
-                          pieceCode: pieceCode,
-                          isLightSquare: isLightSquareFromIndex(index),
-                          isAnalysisMode: widget.isAnalysisMode,
-                          highlights: widget.highlights,
-                          canHumanMovePiece: widget.canHumanMovePiece(square),
-                          canMoveTo: widget.canMoveTo,
-                          legalTargetsFromSquare: widget.legalTargetsFromSquare,
-                          onSquareTap: widget.onSquareTap,
-                          onMove: widget.onMove,
-                          onPieceDragStarted: widget.onPieceDragStarted,
-                          onPieceDragEnded: widget.onPieceDragEnded,
-                        );
-                      },
-                    ),
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _BoardAnnotationPainter(
-                            playerIsWhite: widget.playerIsWhite,
-                            markedSquares: widget.annotationMarkedSquares,
-                            arrows: widget.annotationArrows,
-                            previewArrow: previewArrow,
-                          ),
-                        ),
-                      ),
-                    ),
-                    ],
-                  ),
+                  child: boardChild,
                 ),
               ),
             );
@@ -290,12 +298,13 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
       fit: BoxFit.cover,
     );
 
-    if (!widget.isAnalysisMode) {
+    if (!widget.isAnalysisMode || widget.isAnalysisBranchActive) {
       return image;
     }
 
-    // Nur die Brettfläche/Textur wird entsättigt. Die Figuren liegen später
-    // darüber und bleiben deshalb farblich unverändert.
+    // In der normalen Analyse wird nur die Brettfläche/Textur entsättigt.
+    // Bei einem Analyse-Branch wird weiter oben der komplette Board-Stack
+    // inklusive Figuren gefiltert, damit Windows Android entspricht.
     return ColorFiltered(
       colorFilter: _analysisBoardTextureColorFilter,
       child: image,

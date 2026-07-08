@@ -31,6 +31,10 @@ Future<void> _controllerMakeBotMoveIfNeeded(
     return;
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    return;
+  }
+
   if (controller.isGameOver) {
     return;
   }
@@ -476,4 +480,6 @@ bool _applyUciMove(ChessBoardController controller, String uciMove) {
 
   return true;
 }
+
+
 

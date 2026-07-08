@@ -1118,16 +1118,12 @@ class ChessBoardControls extends StatelessWidget {
               child: Text(_analysisButtonText),
             ),
             OutlinedButton.icon(
-              onPressed: isAnalysisMode && canNavigateAnalysisBack
-                  ? () => onAnalysisBack()
-                  : null,
+              onPressed: canNavigateAnalysisBack ? () => onAnalysisBack() : null,
               icon: const Icon(Icons.chevron_left),
               label: const Text('Zurück'),
             ),
             OutlinedButton.icon(
-              onPressed: isAnalysisMode && canNavigateAnalysisForward
-                  ? () => onAnalysisForward()
-                  : null,
+              onPressed: canNavigateAnalysisForward ? () => onAnalysisForward() : null,
               icon: const Icon(Icons.chevron_right),
               label: const Text('Vor'),
             ),

@@ -9,6 +9,11 @@ Future<void> _controllerOnSquareTap(
     return;
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    controller._selectedSquare = null;
+    return;
+  }
+
   if (controller.isGameOver) {
     return;
   }
@@ -74,6 +79,11 @@ Future<bool> _controllerTryHumanMove(
       to: to,
       promotion: promotion,
     );
+  }
+
+  if (_controllerIsNormalReviewMode(controller)) {
+    controller._selectedSquare = null;
+    return false;
   }
 
   if (controller.isGameOver) {
@@ -172,6 +182,7 @@ Future<bool> _controllerLoadFenPosition(
   }
 
   _resetNormalGameHistoryFromCurrentFen(controller, fen);
+  _controllerClearNormalReview(controller);
 
   controller._selectedSquare = null;
   controller._lastFrom = null;
@@ -188,4 +199,6 @@ Future<bool> _controllerLoadFenPosition(
 
   return true;
 }
+
+
 

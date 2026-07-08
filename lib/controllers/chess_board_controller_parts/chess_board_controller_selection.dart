@@ -10,6 +10,10 @@ chess.Piece? _controllerPieceAt(
     return analysisSession.pieceAt(square);
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    return _controllerDisplayedNormalPieceAt(controller, square);
+  }
+
   if (!controller.isPlayersTurn && controller._premoves.isNotEmpty) {
     return _virtualPieceAt(controller, square);
   }
@@ -25,6 +29,10 @@ bool _controllerCanHumanMovePiece(
 
   if (analysisSession != null) {
     return analysisSession.canSelectPiece(square);
+  }
+
+  if (_controllerIsNormalReviewMode(controller)) {
+    return false;
   }
 
   if (controller.isGameOver) {
@@ -63,6 +71,10 @@ bool _controllerCanMoveTo(
 
   if (analysisSession != null) {
     return analysisSession.canMoveTo(from: from, to: to);
+  }
+
+  if (_controllerIsNormalReviewMode(controller)) {
+    return false;
   }
 
   if (controller.isGameOver) {
@@ -113,6 +125,10 @@ List<String> _controllerLegalTargetsForSelectedSquare(
     return analysisSession.legalTargetsFromSquare(controller._selectedSquare!);
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    return [];
+  }
+
   if (!controller.isPlayersTurn) {
     return [];
   }
@@ -133,6 +149,10 @@ List<String> _controllerLegalTargetsFromSquare(
     return analysisSession.legalTargetsFromSquare(fromSquare);
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    return [];
+  }
+
   final moves = controller._game.moves({'square': fromSquare, 'verbose': true});
 
   final targets = <String>[];
@@ -147,3 +167,6 @@ List<String> _controllerLegalTargetsFromSquare(
 
   return targets;
 }
+
+
+

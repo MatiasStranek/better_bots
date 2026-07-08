@@ -43,13 +43,20 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
     return;
   }
 
+  final initialPly = _controllerCurrentMainLinePly(controller);
+  controller._normalReviewPlyBeforeAnalysis = controller._normalReviewPly;
+  controller._analysisMainLinePly = initialPly;
+
   controller._searchGeneration++;
   controller._analysisGeneration++;
   controller._isBotThinking = false;
   controller._selectedSquare = null;
   controller._premoves.clear();
 
-  if (!controller.isGameOver) {
+  if (!(controller._game.game_over ||
+      controller._game.in_checkmate ||
+      controller._game.in_stalemate ||
+      controller._game.in_draw)) {
     controller._analysisUsedDuringCurrentGame = true;
   }
 
@@ -57,13 +64,16 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
     controller._analysisSession = AnalysisSession(
       startFen: controller._normalGameStartFen,
       initialMoves: controller._normalGameMoves,
-      initialPly: controller._normalGameMoves.length,
+      initialPly: initialPly,
     )..statusText = controller._normalGameMoves.isEmpty
         ? 'Analysemodus aktiv. Startposition übernommen.'
         : 'Analysemodus aktiv. Ganze Partie geladen: '
-            '${controller._normalGameMoves.length} Halbzüge verfügbar.';
+            '${controller._normalGameMoves.length} Halbzüge verfügbar. '
+            'Start bei Halbzug $initialPly.';
   } catch (e) {
     controller._analysisSession = null;
+    controller._normalReviewPlyBeforeAnalysis = null;
+    controller._analysisMainLinePly = null;
     controller._engineOutput = 'Analyse konnte nicht gestartet werden: $e';
     _safeNotify(controller);
     return;
@@ -80,6 +90,10 @@ void _controllerStopAnalysisMode(ChessBoardController controller) {
   controller._analysisSearchInFlight = false;
   controller._selectedSquare = null;
   controller._premoves.clear();
+
+  controller._normalReviewPly = controller._normalReviewPlyBeforeAnalysis;
+  controller._normalReviewPlyBeforeAnalysis = null;
+  controller._analysisMainLinePly = null;
 
   unawaited(controller._analysisEngine.cancelSearch());
 
@@ -101,10 +115,15 @@ Future<void> _controllerStepAnalysisBack(
     return;
   }
 
+  controller._analysisMainLinePly = _clampMainLinePly(
+    controller,
+    (controller._analysisMainLinePly ?? controller._normalGameMoves.length) - 1,
+  );
   controller._selectedSquare = null;
   _safeNotify(controller);
   _requestAnalysisForCurrentPosition(controller);
 }
+
 
 Future<void> _controllerStepAnalysisForward(
   ChessBoardController controller,
@@ -121,10 +140,15 @@ Future<void> _controllerStepAnalysisForward(
     return;
   }
 
+  controller._analysisMainLinePly = _clampMainLinePly(
+    controller,
+    (controller._analysisMainLinePly ?? 0) + 1,
+  );
   controller._selectedSquare = null;
   _safeNotify(controller);
   _requestAnalysisForCurrentPosition(controller);
 }
+
 
 Future<void> _controllerJumpAnalysisToStart(
   ChessBoardController controller,
@@ -141,10 +165,12 @@ Future<void> _controllerJumpAnalysisToStart(
     return;
   }
 
+  controller._analysisMainLinePly = 0;
   controller._selectedSquare = null;
   _safeNotify(controller);
   _requestAnalysisForCurrentPosition(controller);
 }
+
 
 Future<void> _controllerJumpAnalysisToEnd(
   ChessBoardController controller,
@@ -161,10 +187,12 @@ Future<void> _controllerJumpAnalysisToEnd(
     return;
   }
 
+  controller._analysisMainLinePly = controller._normalGameMoves.length;
   controller._selectedSquare = null;
   _safeNotify(controller);
   _requestAnalysisForCurrentPosition(controller);
 }
+
 
 Future<void> _controllerOnAnalysisSquareTap(
   ChessBoardController controller,

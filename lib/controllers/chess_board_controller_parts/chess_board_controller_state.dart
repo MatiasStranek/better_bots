@@ -12,6 +12,17 @@ BoardHighlights _controllerHighlights(ChessBoardController controller) {
     );
   }
 
+  if (_controllerIsNormalReviewMode(controller)) {
+    final lastMove = _controllerLastDisplayedNormalMove(controller);
+
+    return BoardHighlights(
+      selectedSquare: null,
+      lastFrom: lastMove?.from,
+      lastTo: lastMove?.to,
+      legalTargets: const [],
+    );
+  }
+
   return BoardHighlights(
     selectedSquare: controller._selectedSquare,
     lastFrom: controller._lastFrom,
@@ -56,6 +67,18 @@ String _controllerStatusText(ChessBoardController controller) {
     }
 
     return 'Analysemodus — ${analysisSession.sideToMoveText} am Zug.';
+  }
+
+  if (_controllerIsNormalReviewMode(controller)) {
+    final currentPly = _controllerCurrentMainLinePly(controller);
+    final totalPly = controller._normalGameMoves.length;
+    final displayGame = _controllerDisplayedNormalGame(controller);
+    final sideToMove = displayGame.turn == chess.Color.WHITE
+        ? 'Weiß'
+        : 'Schwarz';
+
+    return 'Rückblick: Halbzug $currentPly/$totalPly — '
+        '$sideToMove am Zug. Züge sind gesperrt.';
   }
 
   if (controller._isBotThinking) {
@@ -124,6 +147,7 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
   controller._game.reset();
   controller._normalGameStartFen = _defaultStartFen;
   controller._normalGameMoves.clear();
+  _controllerClearNormalReview(controller);
   controller._selectedSquare = null;
   controller._lastFrom = null;
   controller._lastTo = null;
@@ -1161,3 +1185,6 @@ void _safeNotify(ChessBoardController controller) {
 
   controller.notifyListeners();
 }
+
+
+

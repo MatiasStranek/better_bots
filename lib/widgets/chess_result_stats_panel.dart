@@ -85,17 +85,67 @@ class ChessResultStatsTextView extends StatelessWidget {
       children: [
         ChessResultStatsPanel(counter: counter),
         const SizedBox(height: 8),
-        Text(
-          'Analyse in Partie benutzt: $analysisUsedDuringCurrentGame',
-          style: TextStyle(
-            color: analysisUsedDuringCurrentGame
-                ? const Color(0xFFFFA726)
-                : const Color(0xFF55C878),
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
+        _AnalysisUsageBadge(
+          analysisUsedDuringCurrentGame: analysisUsedDuringCurrentGame,
         ),
       ],
+    );
+  }
+}
+
+
+class _AnalysisUsageBadge extends StatelessWidget {
+  const _AnalysisUsageBadge({required this.analysisUsedDuringCurrentGame});
+
+  final bool analysisUsedDuringCurrentGame;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCleanGame = !analysisUsedDuringCurrentGame;
+    final color = hasCleanGame
+        ? const Color(0xFF55C878)
+        : const Color(0xFFFF5A5A);
+    final icon = hasCleanGame ? '✓' : '✕';
+    final label = hasCleanGame
+        ? 'Analyse nicht benutzt'
+        : 'Analyse benutzt';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF111111).withAlpha(190),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withAlpha(155), width: 1.2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                icon,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

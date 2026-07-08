@@ -8,6 +8,7 @@ import 'chess_board/chess_board_controls.dart';
 import 'chess_board/chess_board_debug_panel.dart';
 import 'chess_board/chess_board_grid.dart';
 import 'chess_board/chess_status_text.dart';
+import 'chess_move_list_panel.dart';
 import 'chess_result_stats_panel.dart';
 
 class ChessBoardWidget extends StatefulWidget {
@@ -357,6 +358,25 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
         focusedContext.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
+  Future<void> _handleBoardBackButton() async {
+    if (_controller.isAnalysisMode) {
+      await _controller.stepAnalysisBack();
+      return;
+    }
+
+    _controller.stepMainLineBack();
+  }
+
+  Future<void> _handleBoardForwardButton() async {
+    if (_controller.isAnalysisMode) {
+      await _controller.stepAnalysisForward();
+      return;
+    }
+
+    _controller.stepMainLineForward();
+  }
+
+
   KeyEventResult _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
@@ -383,6 +403,22 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
       }
 
       return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (_controller.canNavigateMainLineBack) {
+        _controller.stepMainLineBack();
+      }
+
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      if (_controller.canNavigateMainLineForward) {
+        _controller.stepMainLineForward();
+      }
+
+      return KeyEventResult.handled;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.space) {
@@ -468,15 +504,17 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                       isBotThinking: _controller.isBotThinking,
                       isAnalysisMode: _controller.isAnalysisMode,
                       canToggleAnalysisMode: _controller.canToggleAnalysisMode,
-                      canNavigateAnalysisBack:
-                          _controller.canNavigateAnalysisBack,
-                      canNavigateAnalysisForward:
-                          _controller.canNavigateAnalysisForward,
+                      canNavigateAnalysisBack: _controller.isAnalysisMode
+                          ? _controller.canNavigateAnalysisBack
+                          : _controller.canNavigateMainLineBack,
+                      canNavigateAnalysisForward: _controller.isAnalysisMode
+                          ? _controller.canNavigateAnalysisForward
+                          : _controller.canNavigateMainLineForward,
                       onNewGame: _controller.newGame,
                       onRestart: _controller.restartGame,
                       onToggleAnalysisMode: _controller.toggleAnalysisMode,
-                      onAnalysisBack: _controller.stepAnalysisBack,
-                      onAnalysisForward: _controller.stepAnalysisForward,
+                      onAnalysisBack: _handleBoardBackButton,
+                      onAnalysisForward: _handleBoardForwardButton,
                       onSkillLevelChanged: _controller.setSkillLevel,
                       onUciEloChanged: _controller.setUciElo,
                       onCpLossEloChanged: _controller.setCpLossElo,
@@ -510,6 +548,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                           playerIsWhite: _controller.playerIsWhite,
                           fen: _controller.fen,
                           isAnalysisMode: _controller.isAnalysisMode,
+                          isAnalysisBranchActive:
+                              _controller.isAnalysisBranchActive,
                           highlights: _controller.highlights,
                           pieceAt: _controller.pieceAt,
                           canHumanMovePiece: _controller.canHumanMovePiece,
@@ -579,6 +619,18 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                 ),
                               ],
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 300,
+                          height: 640,
+                          child: ChessMoveListPanel(
+                            entries: _controller.mainLineMoveEntries,
+                            selectedPly: _controller.currentMainLinePly,
+                            isReviewMode: _controller.isNormalReviewMode,
+                            isAnalysisMode: _controller.isAnalysisMode,
+                            onMoveSelected: _controller.jumpToMainLinePly,
                           ),
                         ),
                       ],

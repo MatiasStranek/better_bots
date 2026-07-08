@@ -33,6 +33,7 @@ part 'chess_board_controller_parts/chess_board_controller_premoves.dart';
 part 'chess_board_controller_parts/chess_board_controller_promotion.dart';
 part 'chess_board_controller_parts/chess_board_controller_selection.dart';
 part 'chess_board_controller_parts/chess_board_controller_state.dart';
+part 'chess_board_controller_parts/chess_board_controller_review.dart';
 part 'chess_board_controller_parts/chess_board_controller_virtual_board.dart';
 
 typedef PromotionChoiceCallback =
@@ -118,6 +119,19 @@ class ChessBoardController extends ChangeNotifier {
   /// niemals aus der Analyse-Session zurückkopiert.
   final List<BoardMove> _normalGameMoves = [];
 
+  /// Halbzug-Index der normalen Partie, der gerade im Brett betrachtet wird.
+  /// `null` bedeutet: Live-Stellung am Ende der laufenden Partie.
+  /// 0 bedeutet: Startstellung, 1 bedeutet: Stellung nach dem ersten Halbzug.
+  int? _normalReviewPly;
+
+  /// Merkt sich die normale Rückblickstellung, aus der heraus Analyse gestartet
+  /// wurde. Beim Verlassen der Analyse wird genau dorthin zurückgesprungen.
+  int? _normalReviewPlyBeforeAnalysis;
+
+  /// Halbzug-Index, den die Windows-Zugliste während der Analyse hervorhebt.
+  /// Die Analyse-Session selbst bleibt die Quelle für das echte Analysebrett.
+  int? _analysisMainLinePly;
+
   chess.Chess get game => _game;
 
   PlayerSide get playerSide => _playerSide;
@@ -198,6 +212,10 @@ class ChessBoardController extends ChangeNotifier {
       return false;
     }
 
+    if (isNormalReviewMode) {
+      return true;
+    }
+
     if (isGameOver) {
       return true;
     }
@@ -223,7 +241,25 @@ class ChessBoardController extends ChangeNotifier {
     return _analysisSession?.topLines ?? const [];
   }
 
-  String get fen => _analysisSession?.fen ?? _game.fen;
+  bool get isNormalReviewMode => _controllerIsNormalReviewMode(this);
+
+  int get currentMainLinePly => _controllerCurrentMainLinePly(this);
+
+  int get mainLinePlyCount => _normalGameMoves.length;
+
+  bool get canNavigateMainLineBack {
+    return _controllerCanNavigateMainLineBack(this);
+  }
+
+  bool get canNavigateMainLineForward {
+    return _controllerCanNavigateMainLineForward(this);
+  }
+
+  List<ChessMoveListEntry> get mainLineMoveEntries {
+    return _controllerMainLineMoveEntries(this);
+  }
+
+  String get fen => _analysisSession?.fen ?? _controllerDisplayedNormalFen(this);
 
   String get pgn {
     final analysisPgn = _analysisSession?.pgn;
@@ -238,7 +274,7 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get playerIsWhite => _playerSide == PlayerSide.white;
 
-  bool get hasPremoves => !isAnalysisMode && _premoves.isNotEmpty;
+  bool get hasPremoves => !isAnalysisMode && !isNormalReviewMode && _premoves.isNotEmpty;
 
   String get premoveText {
     if (isAnalysisMode) {
@@ -251,6 +287,10 @@ class ChessBoardController extends ChangeNotifier {
   bool get isPlayersTurn {
     if (isAnalysisMode) {
       return true;
+    }
+
+    if (isNormalReviewMode) {
+      return false;
     }
 
     final whiteToMove = _game.turn == chess.Color.WHITE;
@@ -269,10 +309,12 @@ class ChessBoardController extends ChangeNotifier {
       return analysisSession.isGameOver;
     }
 
-    return _game.game_over ||
-        _game.in_checkmate ||
-        _game.in_stalemate ||
-        _game.in_draw;
+    final displayGame = _controllerDisplayedNormalGame(this);
+
+    return displayGame.game_over ||
+        displayGame.in_checkmate ||
+        displayGame.in_stalemate ||
+        displayGame.in_draw;
   }
 
   BoardHighlights get highlights => _controllerHighlights(this);
@@ -323,6 +365,14 @@ class ChessBoardController extends ChangeNotifier {
   Future<void> jumpAnalysisToStart() => _controllerJumpAnalysisToStart(this);
 
   Future<void> jumpAnalysisToEnd() => _controllerJumpAnalysisToEnd(this);
+
+  void stepMainLineBack() => _controllerStepMainLineBack(this);
+
+  void stepMainLineForward() => _controllerStepMainLineForward(this);
+
+  Future<void> jumpToMainLinePly(int ply) {
+    return _controllerJumpToMainLinePly(this, ply);
+  }
 
   void setSkillLevel(int level) => _controllerSetSkillLevel(this, level);
 
@@ -432,3 +482,6 @@ class ChessBoardController extends ChangeNotifier {
     return _controllerLoadFenPosition(this, fenInput);
   }
 }
+
+
+
