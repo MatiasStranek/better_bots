@@ -1115,14 +1115,14 @@ class MobileChessSideMenu extends StatelessWidget {
                 Divider(color: Colors.white.withAlpha(55), height: 24),
                 const SizedBox(height: 6),
                 _SideMenuButton(
-                  icon: Icons.circle_outlined,
+                  icon: Icons.circle,
                   label: 'Neue Partie Weiß',
                   value: 'Du spielst Weiß',
                   onTap: () => _startNewGame(PlayerSide.white),
                   isEnabled: isEnabled,
                 ),
                 _SideMenuButton(
-                  icon: Icons.circle,
+                  icon: Icons.circle_outlined,
                   label: 'Neue Partie Schwarz',
                   value: 'Du spielst Schwarz',
                   onTap: () => _startNewGame(PlayerSide.black),
@@ -1370,3 +1370,6 @@ class _PersonalityDialogLabel extends StatelessWidget {
     return Text(isSelected ? '✓ ${personality.label}' : personality.label);
   }
 }
+
+
+

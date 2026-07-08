@@ -328,7 +328,7 @@ class MobileChessTopControls extends StatelessWidget {
               Expanded(
                 child: _MobileTopControlButton(
                   label: 'Weiß',
-                  icon: Icons.circle_outlined,
+                  icon: Icons.circle,
                   onPressed: isEnabled
                       ? () => onNewGame(PlayerSide.white)
                       : null,
@@ -338,7 +338,7 @@ class MobileChessTopControls extends StatelessWidget {
               Expanded(
                 child: _MobileTopControlButton(
                   label: 'Schwarz',
-                  icon: Icons.circle,
+                  icon: Icons.circle_outlined,
                   onPressed: isEnabled
                       ? () => onNewGame(PlayerSide.black)
                       : null,
@@ -470,3 +470,6 @@ class _PersonalityDialogLabel extends StatelessWidget {
     return Text(isSelected ? '✓ ${personality.label}' : personality.label);
   }
 }
+
+
+
