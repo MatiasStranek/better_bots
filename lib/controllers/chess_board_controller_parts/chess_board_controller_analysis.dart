@@ -3,6 +3,28 @@ part of chess_board_controller;
 const int _analysisMultiPv = 5;
 const int _analysisDepth = 20;
 
+int _effectiveAnalysisMultiPvForFen(String fen) {
+  final analysisGame = chess.Chess();
+
+  try {
+    final loaded = analysisGame.load(fen);
+
+    if (!loaded) {
+      return _analysisMultiPv;
+    }
+  } catch (_) {
+    return _analysisMultiPv;
+  }
+
+  final legalMoveCount = analysisGame.moves().length;
+
+  if (legalMoveCount <= 0) {
+    return 1;
+  }
+
+  return legalMoveCount.clamp(1, _analysisMultiPv).toInt();
+}
+
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
     if (!controller.canStartAnalysisMode) {
@@ -334,11 +356,12 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
       controller._analysisSearchQueued = false;
       final generation = controller._analysisGeneration;
       final fen = session.fen;
+      final effectiveMultiPv = _effectiveAnalysisMultiPvForFen(fen);
 
       try {
         final lines = await controller._analysisEngine.analyzePositionFromFen(
           fen: fen,
-          multiPv: _analysisMultiPv,
+          multiPv: effectiveMultiPv,
           depth: _analysisDepth,
           onUpdate: (liveLines) {
             final currentSession = controller._analysisSession;
