@@ -138,48 +138,180 @@ class ChessBoardController extends ChangeNotifier {
 
   int get skillLevel => _skillLevel;
 
+  int get draftSkillLevel => _pendingBotSettings?.skillLevel ?? _skillLevel;
+
   EngineStrengthMode get strengthMode => _strengthMode;
+
+  EngineStrengthMode get draftStrengthMode {
+    return _pendingBotSettings?.strengthMode ?? _strengthMode;
+  }
 
   int get uciElo => _uciElo;
 
+  int get draftUciElo => _pendingBotSettings?.uciElo ?? _uciElo;
+
   int get cpLossElo => _cpLossElo;
+
+  int get draftCpLossElo => _pendingBotSettings?.cpLossElo ?? _cpLossElo;
 
   int get cpLossUciSwitchFullMoveNumber => _cpLossUciSwitchFullMoveNumber;
 
+  int get draftCpLossUciSwitchFullMoveNumber {
+    return _pendingBotSettings?.cpLossUciSwitchFullMoveNumber ??
+        _cpLossUciSwitchFullMoveNumber;
+  }
+
   BotOpeningMove get botOpeningMove => _botOpeningMove;
+
+  BotOpeningMove get draftBotOpeningMove {
+    return _pendingBotSettings?.botOpeningMove ?? _botOpeningMove;
+  }
 
   BotOpeningMove get effectiveBotOpeningMove {
     return _resolveSelectedOpening(this);
+  }
+
+  BotOpeningMove get draftEffectiveBotOpeningMove {
+    final pendingBotSettings = _pendingBotSettings;
+
+    if (pendingBotSettings == null) {
+      return effectiveBotOpeningMove;
+    }
+
+    if (pendingBotSettings.botOpeningMove != BotOpeningMove.random) {
+      return pendingBotSettings.botOpeningMove;
+    }
+
+    if (pendingBotSettings.selectedOpeningMoves.isNotEmpty) {
+      return pendingBotSettings.selectedOpeningMoves.first;
+    }
+
+    return BotOpeningMove.realOpenings.first;
   }
 
   UnmodifiableListView<BotOpeningMove> get selectedOpeningMoves {
     return UnmodifiableListView(_selectedOpeningMoves);
   }
 
+  UnmodifiableListView<BotOpeningMove> get draftSelectedOpeningMoves {
+    return UnmodifiableListView(
+      _pendingBotSettings?.selectedOpeningMoves ?? _selectedOpeningMoves,
+    );
+  }
+
   BotPersonalitySource get botPersonalitySource => _botPersonalitySource;
+
+  BotPersonalitySource get draftBotPersonalitySource {
+    return _pendingBotSettings?.botPersonalitySource ?? _botPersonalitySource;
+  }
 
   BotPersonalitySource get effectiveBotPersonalitySource {
     return _controllerEffectiveBotPersonalitySource(this);
   }
 
+  BotPersonalitySource get draftEffectiveBotPersonalitySource {
+    final pendingBotSettings = _pendingBotSettings;
+
+    if (pendingBotSettings == null) {
+      return effectiveBotPersonalitySource;
+    }
+
+    if (pendingBotSettings.botPersonalitySource !=
+        BotPersonalitySource.random) {
+      return pendingBotSettings.botPersonalitySource;
+    }
+
+    return BotPersonalitySource.chessiverse;
+  }
+
   BotPersonality get botPersonality => _botPersonality;
+
+  BotPersonality get draftBotPersonality {
+    return _pendingBotSettings?.botPersonality ?? _botPersonality;
+  }
 
   BotPersonality get effectiveBotPersonality {
     return _controllerEffectiveBotPersonality(this);
   }
 
+  BotPersonality get draftEffectiveBotPersonality {
+    final pendingBotSettings = _pendingBotSettings;
+
+    if (pendingBotSettings == null) {
+      return effectiveBotPersonality;
+    }
+
+    if (draftEffectiveBotPersonalitySource !=
+        BotPersonalitySource.chessiverse) {
+      return pendingBotSettings.botPersonality == BotPersonality.none
+          ? BotPersonality.none
+          : BotPersonality.random;
+    }
+
+    if (pendingBotSettings.botPersonality == BotPersonality.random) {
+      if (pendingBotSettings.selectedChessiversePersonalities.isNotEmpty) {
+        return pendingBotSettings.selectedChessiversePersonalities.first;
+      }
+
+      return BotPersonality.concretePersonalities.first;
+    }
+
+    return pendingBotSettings.botPersonality;
+  }
+
   Fritz19Personality get fritz19Personality => _fritz19Personality;
+
+  Fritz19Personality get draftFritz19Personality {
+    return _pendingBotSettings?.fritz19Personality ?? _fritz19Personality;
+  }
 
   Fritz19Personality get effectiveFritz19Personality {
     return _controllerEffectiveFritz19Personality(this);
+  }
+
+  Fritz19Personality get draftEffectiveFritz19Personality {
+    final pendingBotSettings = _pendingBotSettings;
+
+    if (pendingBotSettings == null) {
+      return effectiveFritz19Personality;
+    }
+
+    if (draftEffectiveBotPersonalitySource != BotPersonalitySource.fritz19) {
+      return pendingBotSettings.fritz19Personality;
+    }
+
+    if (pendingBotSettings.fritz19Personality ==
+        Fritz19Personality.random) {
+      if (pendingBotSettings.selectedFritz19Personalities.isNotEmpty) {
+        return pendingBotSettings.selectedFritz19Personalities.first;
+      }
+
+      return Fritz19Personality.concretePersonalities.first;
+    }
+
+    return pendingBotSettings.fritz19Personality;
   }
 
   UnmodifiableListView<BotPersonality> get selectedChessiversePersonalities {
     return UnmodifiableListView(_selectedChessiversePersonalities);
   }
 
+  UnmodifiableListView<BotPersonality> get draftSelectedChessiversePersonalities {
+    return UnmodifiableListView(
+      _pendingBotSettings?.selectedChessiversePersonalities ??
+          _selectedChessiversePersonalities,
+    );
+  }
+
   UnmodifiableListView<Fritz19Personality> get selectedFritz19Personalities {
     return UnmodifiableListView(_selectedFritz19Personalities);
+  }
+
+  UnmodifiableListView<Fritz19Personality> get draftSelectedFritz19Personalities {
+    return UnmodifiableListView(
+      _pendingBotSettings?.selectedFritz19Personalities ??
+          _selectedFritz19Personalities,
+    );
   }
 
   String get activePersonalityLabel {
@@ -187,6 +319,10 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   int get personaCandidateCount => _personaCandidateCount;
+
+  int get draftPersonaCandidateCount {
+    return _pendingBotSettings?.personaCandidateCount ?? _personaCandidateCount;
+  }
 
   bool get isBotThinking => _isBotThinking;
 

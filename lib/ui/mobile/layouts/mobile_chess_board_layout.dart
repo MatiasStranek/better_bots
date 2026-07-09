@@ -57,6 +57,23 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.selectedChessiversePersonalities,
     required this.selectedFritz19Personalities,
     required this.personaCandidateCount,
+    required this.draftSkillLevel,
+    required this.draftUciElo,
+    required this.draftCpLossElo,
+    required this.draftCpLossUciSwitchFullMoveNumber,
+    required this.draftStrengthMode,
+    required this.draftBotOpeningMove,
+    required this.draftEffectiveBotOpeningMove,
+    required this.draftSelectedOpeningMoves,
+    required this.draftBotPersonalitySource,
+    required this.draftEffectiveBotPersonalitySource,
+    required this.draftBotPersonality,
+    required this.draftEffectiveBotPersonality,
+    required this.draftFritz19Personality,
+    required this.draftEffectiveFritz19Personality,
+    required this.draftSelectedChessiversePersonalities,
+    required this.draftSelectedFritz19Personalities,
+    required this.draftPersonaCandidateCount,
     required this.isAnalysisMode,
     required this.isAnalysisBranchActive,
     required this.analysisUsedDuringCurrentGame,
@@ -138,6 +155,24 @@ class MobileChessBoardLayout extends StatefulWidget {
   final List<BotPersonality> selectedChessiversePersonalities;
   final List<Fritz19Personality> selectedFritz19Personalities;
   final int personaCandidateCount;
+
+  final int draftSkillLevel;
+  final int draftUciElo;
+  final int draftCpLossElo;
+  final int draftCpLossUciSwitchFullMoveNumber;
+  final EngineStrengthMode draftStrengthMode;
+  final BotOpeningMove draftBotOpeningMove;
+  final BotOpeningMove draftEffectiveBotOpeningMove;
+  final List<BotOpeningMove> draftSelectedOpeningMoves;
+  final BotPersonalitySource draftBotPersonalitySource;
+  final BotPersonalitySource draftEffectiveBotPersonalitySource;
+  final BotPersonality draftBotPersonality;
+  final BotPersonality draftEffectiveBotPersonality;
+  final Fritz19Personality draftFritz19Personality;
+  final Fritz19Personality draftEffectiveFritz19Personality;
+  final List<BotPersonality> draftSelectedChessiversePersonalities;
+  final List<Fritz19Personality> draftSelectedFritz19Personalities;
+  final int draftPersonaCandidateCount;
 
   final bool isAnalysisMode;
   final bool isAnalysisBranchActive;
@@ -569,6 +604,31 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   selectedFritz19Personalities:
                       widget.selectedFritz19Personalities,
                   personaCandidateCount: widget.personaCandidateCount,
+                  draftSkillLevel: widget.draftSkillLevel,
+                  draftUciElo: widget.draftUciElo,
+                  draftCpLossElo: widget.draftCpLossElo,
+                  draftCpLossUciSwitchFullMoveNumber:
+                      widget.draftCpLossUciSwitchFullMoveNumber,
+                  draftStrengthMode: widget.draftStrengthMode,
+                  draftBotOpeningMove: widget.draftBotOpeningMove,
+                  draftEffectiveBotOpeningMove:
+                      widget.draftEffectiveBotOpeningMove,
+                  draftSelectedOpeningMoves:
+                      widget.draftSelectedOpeningMoves,
+                  draftBotPersonalitySource: widget.draftBotPersonalitySource,
+                  draftEffectiveBotPersonalitySource:
+                      widget.draftEffectiveBotPersonalitySource,
+                  draftBotPersonality: widget.draftBotPersonality,
+                  draftEffectiveBotPersonality:
+                      widget.draftEffectiveBotPersonality,
+                  draftFritz19Personality: widget.draftFritz19Personality,
+                  draftEffectiveFritz19Personality:
+                      widget.draftEffectiveFritz19Personality,
+                  draftSelectedChessiversePersonalities:
+                      widget.draftSelectedChessiversePersonalities,
+                  draftSelectedFritz19Personalities:
+                      widget.draftSelectedFritz19Personalities,
+                  draftPersonaCandidateCount: widget.draftPersonaCandidateCount,
                   onNewGame: widget.onNewGame,
                   onRestart: widget.onRestart,
                   onSkillLevelChanged: widget.onSkillLevelChanged,
@@ -676,3 +736,5 @@ class _EdgeSwipeDetector extends StatelessWidget {
     );
   }
 }
+
+

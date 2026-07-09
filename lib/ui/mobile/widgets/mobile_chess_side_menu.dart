@@ -28,6 +28,23 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.selectedChessiversePersonalities,
     required this.selectedFritz19Personalities,
     required this.personaCandidateCount,
+    required this.draftSkillLevel,
+    required this.draftUciElo,
+    required this.draftCpLossElo,
+    required this.draftCpLossUciSwitchFullMoveNumber,
+    required this.draftStrengthMode,
+    required this.draftBotOpeningMove,
+    required this.draftEffectiveBotOpeningMove,
+    required this.draftSelectedOpeningMoves,
+    required this.draftBotPersonalitySource,
+    required this.draftEffectiveBotPersonalitySource,
+    required this.draftBotPersonality,
+    required this.draftEffectiveBotPersonality,
+    required this.draftFritz19Personality,
+    required this.draftEffectiveFritz19Personality,
+    required this.draftSelectedChessiversePersonalities,
+    required this.draftSelectedFritz19Personalities,
+    required this.draftPersonaCandidateCount,
     required this.onNewGame,
     required this.onRestart,
     required this.onSkillLevelChanged,
@@ -68,6 +85,24 @@ class MobileChessSideMenu extends StatelessWidget {
   final List<BotPersonality> selectedChessiversePersonalities;
   final List<Fritz19Personality> selectedFritz19Personalities;
   final int personaCandidateCount;
+
+  final int draftSkillLevel;
+  final int draftUciElo;
+  final int draftCpLossElo;
+  final int draftCpLossUciSwitchFullMoveNumber;
+  final EngineStrengthMode draftStrengthMode;
+  final BotOpeningMove draftBotOpeningMove;
+  final BotOpeningMove draftEffectiveBotOpeningMove;
+  final List<BotOpeningMove> draftSelectedOpeningMoves;
+  final BotPersonalitySource draftBotPersonalitySource;
+  final BotPersonalitySource draftEffectiveBotPersonalitySource;
+  final BotPersonality draftBotPersonality;
+  final BotPersonality draftEffectiveBotPersonality;
+  final Fritz19Personality draftFritz19Personality;
+  final Fritz19Personality draftEffectiveFritz19Personality;
+  final List<BotPersonality> draftSelectedChessiversePersonalities;
+  final List<Fritz19Personality> draftSelectedFritz19Personalities;
+  final int draftPersonaCandidateCount;
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
@@ -205,7 +240,7 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   int get _strengthDialogInitialTabIndex {
-    switch (strengthMode) {
+    switch (draftStrengthMode) {
       case EngineStrengthMode.level:
         return 0;
       case EngineStrengthMode.uciElo:
@@ -274,7 +309,8 @@ class MobileChessSideMenu extends StatelessWidget {
       columns: _levelColumns,
       labelBuilder: (level) => 'Level $level',
       isSelected: (level) {
-        return strengthMode == EngineStrengthMode.level && level == skillLevel;
+        return draftStrengthMode == EngineStrengthMode.level &&
+            level == draftSkillLevel;
       },
       onSelected: (level) {
         onStrengthModeChanged(EngineStrengthMode.level);
@@ -289,7 +325,8 @@ class MobileChessSideMenu extends StatelessWidget {
       columns: _uciEloColumns,
       labelBuilder: (elo) => '$elo',
       isSelected: (elo) {
-        return strengthMode == EngineStrengthMode.uciElo && elo == uciElo;
+        return draftStrengthMode == EngineStrengthMode.uciElo &&
+            elo == draftUciElo;
       },
       onSelected: (elo) {
         onStrengthModeChanged(EngineStrengthMode.uciElo);
@@ -304,7 +341,8 @@ class MobileChessSideMenu extends StatelessWidget {
       columns: _cpLossEloColumns,
       labelBuilder: (elo) => '$elo',
       isSelected: (elo) {
-        return strengthMode == EngineStrengthMode.cpLossElo && elo == cpLossElo;
+        return draftStrengthMode == EngineStrengthMode.cpLossElo &&
+            elo == draftCpLossElo;
       },
       onSelected: (elo) {
         onStrengthModeChanged(EngineStrengthMode.cpLossElo);
@@ -424,7 +462,7 @@ class MobileChessSideMenu extends StatelessWidget {
               columnWidth: 118,
               labelBuilder: (moveNumber) => 'Zug $moveNumber',
               isSelected: (moveNumber) {
-                return moveNumber == cpLossUciSwitchFullMoveNumber;
+                return moveNumber == draftCpLossUciSwitchFullMoveNumber;
               },
               onSelected: (moveNumber) {
                 onCpLossUciSwitchFullMoveNumberChanged(moveNumber);
@@ -439,9 +477,9 @@ class MobileChessSideMenu extends StatelessWidget {
 
   Future<void> _showOpeningDialog(BuildContext context) async {
     final localSelectedOpeningMoves = List<BotOpeningMove>.from(
-      selectedOpeningMoves,
+      draftSelectedOpeningMoves,
     );
-    var localBotOpeningMove = botOpeningMove;
+    var localBotOpeningMove = draftBotOpeningMove;
 
     void applyLocalOpeningSelection() {
       if (localSelectedOpeningMoves.isEmpty) {
@@ -663,14 +701,14 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   Future<void> _showPersonalityDialog(BuildContext context) async {
-    var localSource = botPersonalitySource;
-    var localBotPersonality = botPersonality;
-    var localFritz19Personality = fritz19Personality;
+    var localSource = draftBotPersonalitySource;
+    var localBotPersonality = draftBotPersonality;
+    var localFritz19Personality = draftFritz19Personality;
     final localChessiversePersonalities = List<BotPersonality>.from(
-      selectedChessiversePersonalities,
+      draftSelectedChessiversePersonalities,
     );
     final localFritz19Personalities = List<Fritz19Personality>.from(
-      selectedFritz19Personalities,
+      draftSelectedFritz19Personalities,
     );
 
     void applyLocalChessiverseSelection() {
@@ -1002,7 +1040,7 @@ class MobileChessSideMenu extends StatelessWidget {
               columnWidth: 96,
               labelBuilder: (candidateCount) => '$candidateCount',
               isSelected: (candidateCount) {
-                return candidateCount == personaCandidateCount;
+                return candidateCount == draftPersonaCandidateCount;
               },
               onSelected: (candidateCount) {
                 onPersonaCandidateCountChanged(candidateCount);

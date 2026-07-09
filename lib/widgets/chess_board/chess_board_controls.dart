@@ -34,6 +34,23 @@ class ChessBoardControls extends StatelessWidget {
     required this.selectedChessiversePersonalities,
     required this.selectedFritz19Personalities,
     required this.personaCandidateCount,
+    required this.draftSkillLevel,
+    required this.draftUciElo,
+    required this.draftCpLossElo,
+    required this.draftCpLossUciSwitchFullMoveNumber,
+    required this.draftStrengthMode,
+    required this.draftBotOpeningMove,
+    required this.draftEffectiveBotOpeningMove,
+    required this.draftSelectedOpeningMoves,
+    required this.draftBotPersonalitySource,
+    required this.draftEffectiveBotPersonalitySource,
+    required this.draftBotPersonality,
+    required this.draftEffectiveBotPersonality,
+    required this.draftFritz19Personality,
+    required this.draftEffectiveFritz19Personality,
+    required this.draftSelectedChessiversePersonalities,
+    required this.draftSelectedFritz19Personalities,
+    required this.draftPersonaCandidateCount,
     required this.isBotThinking,
     required this.isAnalysisMode,
     required this.canToggleAnalysisMode,
@@ -81,6 +98,25 @@ class ChessBoardControls extends StatelessWidget {
   final List<BotPersonality> selectedChessiversePersonalities;
   final List<Fritz19Personality> selectedFritz19Personalities;
   final int personaCandidateCount;
+
+  final int draftSkillLevel;
+  final int draftUciElo;
+  final int draftCpLossElo;
+  final int draftCpLossUciSwitchFullMoveNumber;
+  final EngineStrengthMode draftStrengthMode;
+  final BotOpeningMove draftBotOpeningMove;
+  final BotOpeningMove draftEffectiveBotOpeningMove;
+  final List<BotOpeningMove> draftSelectedOpeningMoves;
+  final BotPersonalitySource draftBotPersonalitySource;
+  final BotPersonalitySource draftEffectiveBotPersonalitySource;
+  final BotPersonality draftBotPersonality;
+  final BotPersonality draftEffectiveBotPersonality;
+  final Fritz19Personality draftFritz19Personality;
+  final Fritz19Personality draftEffectiveFritz19Personality;
+  final List<BotPersonality> draftSelectedChessiversePersonalities;
+  final List<Fritz19Personality> draftSelectedFritz19Personalities;
+  final int draftPersonaCandidateCount;
+
   final bool isBotThinking;
   final bool isAnalysisMode;
   final bool canToggleAnalysisMode;
@@ -226,7 +262,7 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   int get _strengthDialogInitialTabIndex {
-    switch (strengthMode) {
+    switch (draftStrengthMode) {
       case EngineStrengthMode.level:
         return 0;
       case EngineStrengthMode.uciElo:
@@ -290,7 +326,8 @@ class ChessBoardControls extends StatelessWidget {
       columnWidth: 128,
       labelBuilder: (level) => 'Level $level',
       isSelected: (level) {
-        return strengthMode == EngineStrengthMode.level && level == skillLevel;
+        return draftStrengthMode == EngineStrengthMode.level &&
+            level == draftSkillLevel;
       },
       onSelected: (level) {
         onStrengthModeChanged(EngineStrengthMode.level);
@@ -306,7 +343,8 @@ class ChessBoardControls extends StatelessWidget {
       columnWidth: 132,
       labelBuilder: (elo) => '$elo',
       isSelected: (elo) {
-        return strengthMode == EngineStrengthMode.uciElo && elo == uciElo;
+        return draftStrengthMode == EngineStrengthMode.uciElo &&
+            elo == draftUciElo;
       },
       onSelected: (elo) {
         onStrengthModeChanged(EngineStrengthMode.uciElo);
@@ -322,7 +360,8 @@ class ChessBoardControls extends StatelessWidget {
       columnWidth: 158,
       labelBuilder: (elo) => '$elo',
       isSelected: (elo) {
-        return strengthMode == EngineStrengthMode.cpLossElo && elo == cpLossElo;
+        return draftStrengthMode == EngineStrengthMode.cpLossElo &&
+            elo == draftCpLossElo;
       },
       onSelected: (elo) {
         onStrengthModeChanged(EngineStrengthMode.cpLossElo);
@@ -404,7 +443,7 @@ class ChessBoardControls extends StatelessWidget {
                     Navigator.pop(context);
                   },
                   child: Text(
-                    moveNumber == cpLossUciSwitchFullMoveNumber
+                    moveNumber == draftCpLossUciSwitchFullMoveNumber
                         ? '✓ Zug $moveNumber'
                         : 'Zug $moveNumber',
                   ),
@@ -418,9 +457,9 @@ class ChessBoardControls extends StatelessWidget {
 
   Future<void> _showOpeningDialog(BuildContext context) async {
     final localSelectedOpeningMoves = List<BotOpeningMove>.from(
-      selectedOpeningMoves,
+      draftSelectedOpeningMoves,
     );
-    var localBotOpeningMove = botOpeningMove;
+    var localBotOpeningMove = draftBotOpeningMove;
 
     void applyLocalOpeningSelection() {
       if (localSelectedOpeningMoves.isEmpty) {
@@ -632,14 +671,14 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   Future<void> _showPersonalityDialog(BuildContext context) async {
-    var localSource = botPersonalitySource;
-    var localBotPersonality = botPersonality;
-    var localFritz19Personality = fritz19Personality;
+    var localSource = draftBotPersonalitySource;
+    var localBotPersonality = draftBotPersonality;
+    var localFritz19Personality = draftFritz19Personality;
     final localChessiversePersonalities = List<BotPersonality>.from(
-      selectedChessiversePersonalities,
+      draftSelectedChessiversePersonalities,
     );
     final localFritz19Personalities = List<Fritz19Personality>.from(
-      selectedFritz19Personalities,
+      draftSelectedFritz19Personalities,
     );
 
     void clearLocalPersonalitySelection() {
@@ -964,7 +1003,7 @@ class ChessBoardControls extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: columnValues.map((candidateCount) {
                         final isSelected =
-                            candidateCount == personaCandidateCount;
+                            candidateCount == draftPersonaCandidateCount;
 
                         return MouseRegion(
                           cursor: SystemMouseCursors.click,

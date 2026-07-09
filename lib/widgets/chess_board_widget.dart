@@ -519,6 +519,34 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                       selectedFritz19Personalities:
                           _controller.selectedFritz19Personalities,
                       personaCandidateCount: _controller.personaCandidateCount,
+                      draftSkillLevel: _controller.draftSkillLevel,
+                      draftUciElo: _controller.draftUciElo,
+                      draftCpLossElo: _controller.draftCpLossElo,
+                      draftCpLossUciSwitchFullMoveNumber:
+                          _controller.draftCpLossUciSwitchFullMoveNumber,
+                      draftStrengthMode: _controller.draftStrengthMode,
+                      draftBotOpeningMove: _controller.draftBotOpeningMove,
+                      draftEffectiveBotOpeningMove:
+                          _controller.draftEffectiveBotOpeningMove,
+                      draftSelectedOpeningMoves:
+                          _controller.draftSelectedOpeningMoves,
+                      draftBotPersonalitySource:
+                          _controller.draftBotPersonalitySource,
+                      draftEffectiveBotPersonalitySource:
+                          _controller.draftEffectiveBotPersonalitySource,
+                      draftBotPersonality: _controller.draftBotPersonality,
+                      draftEffectiveBotPersonality:
+                          _controller.draftEffectiveBotPersonality,
+                      draftFritz19Personality:
+                          _controller.draftFritz19Personality,
+                      draftEffectiveFritz19Personality:
+                          _controller.draftEffectiveFritz19Personality,
+                      draftSelectedChessiversePersonalities:
+                          _controller.draftSelectedChessiversePersonalities,
+                      draftSelectedFritz19Personalities:
+                          _controller.draftSelectedFritz19Personalities,
+                      draftPersonaCandidateCount:
+                          _controller.draftPersonaCandidateCount,
                       isBotThinking: _controller.isBotThinking,
                       isAnalysisMode: _controller.isAnalysisMode,
                       canToggleAnalysisMode: _controller.canToggleAnalysisMode,
