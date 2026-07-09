@@ -6,7 +6,8 @@
 BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
 	(* Android: Laggs by drag shadow view)
-	* * adding premoves with taking pieces
+	* adding premoves with taking pieces
+	* drag should dissapear when holding and clicking on back or forth buttons at the same time
 
 
 * Opening & Personality Button:
