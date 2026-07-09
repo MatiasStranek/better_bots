@@ -547,6 +547,12 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                           _controller.draftSelectedFritz19Personalities,
                       draftPersonaCandidateCount:
                           _controller.draftPersonaCandidateCount,
+                      activeBotProfile: _controller.activeBotProfile,
+                      draftBotProfile: _controller.draftBotProfile,
+                      normalSettingsLockedByBotProfile:
+                          _controller.normalSettingsLockedByBotProfile,
+                      onBotProfileSelected: _controller.selectBotProfile,
+                      onBotProfileDisabled: _controller.disableBotProfile,
                       isBotThinking: _controller.isBotThinking,
                       isAnalysisMode: _controller.isAnalysisMode,
                       canToggleAnalysisMode: _controller.canToggleAnalysisMode,
@@ -872,4 +878,5 @@ class _PromotionButton extends StatelessWidget {
     );
   }
 }
+
 

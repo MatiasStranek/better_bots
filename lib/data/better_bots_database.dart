@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/bot_opening_move.dart';
+import '../models/bot_profile.dart';
 import '../models/bot_personality.dart';
 import '../models/engine_strength_mode.dart';
 import '../models/player_side.dart';
@@ -157,6 +158,7 @@ class BetterBotsDatabase {
     required String personalitySourceName,
     required String effectivePersonalityName,
     required int personaCandidateCount,
+    BotProfile? activeBotProfile,
   }) {
     final key = buildTrainingCounterKey(
       strengthMode: strengthMode,
@@ -168,6 +170,7 @@ class BetterBotsDatabase {
       personalitySourceName: personalitySourceName,
       effectivePersonalityName: effectivePersonalityName,
       personaCandidateCount: personaCandidateCount,
+      activeBotProfile: activeBotProfile,
     );
 
     final entity = _findCounterByHash(key.keyHash);
@@ -219,6 +222,7 @@ class BetterBotsDatabase {
     required String personalitySourceName,
     required String effectivePersonalityName,
     required int personaCandidateCount,
+    BotProfile? activeBotProfile,
   }) {
     final box = _trainingCounterBox;
 
@@ -232,6 +236,7 @@ class BetterBotsDatabase {
       personalitySourceName: personalitySourceName,
       effectivePersonalityName: effectivePersonalityName,
       personaCandidateCount: personaCandidateCount,
+      activeBotProfile: activeBotProfile,
     );
 
     if (box == null) {
@@ -324,7 +329,26 @@ class BetterBotsDatabase {
     required String personalitySourceName,
     required String effectivePersonalityName,
     required int personaCandidateCount,
+    BotProfile? activeBotProfile,
   }) {
+    final botProfile = activeBotProfile;
+
+    if (botProfile != null) {
+      final canonicalKey = 'bot=${botProfile.id}';
+
+      return TrainingCounterKey(
+        keyHash: _fnv1a64Hex(canonicalKey),
+        canonicalKey: canonicalKey,
+        strengthModeName: 'bot',
+        strengthValue: botProfile.rating,
+        effectiveOpeningName: botProfile.id,
+        personalitySourceName: 'bot',
+        effectivePersonalityName: botProfile.displayName,
+        personaCandidateCount: -1,
+        cpLossUciSwitchFullMoveNumber: -1,
+      );
+    }
+
     final strengthValue = switch (strengthMode) {
       EngineStrengthMode.level => skillLevel,
       EngineStrengthMode.uciElo => uciElo,
@@ -399,4 +423,5 @@ class BetterBotsDatabase {
     return hash.toRadixString(16).padLeft(16, '0');
   }
 }
+
 

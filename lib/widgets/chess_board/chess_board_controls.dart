@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/bot_opening_move.dart';
+import '../../models/bot_profile.dart';
 import '../../models/bot_personality.dart';
 import '../../models/bot_personality_source.dart';
 import '../../models/engine_strength_mode.dart';
@@ -51,6 +52,11 @@ class ChessBoardControls extends StatelessWidget {
     required this.draftSelectedChessiversePersonalities,
     required this.draftSelectedFritz19Personalities,
     required this.draftPersonaCandidateCount,
+    required this.activeBotProfile,
+    required this.draftBotProfile,
+    required this.normalSettingsLockedByBotProfile,
+    required this.onBotProfileSelected,
+    required this.onBotProfileDisabled,
     required this.isBotThinking,
     required this.isAnalysisMode,
     required this.canToggleAnalysisMode,
@@ -117,6 +123,10 @@ class ChessBoardControls extends StatelessWidget {
   final List<Fritz19Personality> draftSelectedFritz19Personalities;
   final int draftPersonaCandidateCount;
 
+  final BotProfile? activeBotProfile;
+  final BotProfile? draftBotProfile;
+  final bool normalSettingsLockedByBotProfile;
+
   final bool isBotThinking;
   final bool isAnalysisMode;
   final bool canToggleAnalysisMode;
@@ -146,6 +156,8 @@ class ChessBoardControls extends StatelessWidget {
   final VoidCallback onPersonalitySelectionCleared;
   final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
+  final ValueChanged<BotProfile> onBotProfileSelected;
+  final VoidCallback onBotProfileDisabled;
 
   String get _strengthButtonText {
     switch (strengthMode) {
@@ -198,6 +210,20 @@ class ChessBoardControls extends StatelessWidget {
 
   String get _candidateButtonText {
     return 'Kandidaten: $personaCandidateCount';
+  }
+
+  String get _botsButtonText {
+    if (!normalSettingsLockedByBotProfile) {
+      return 'Bots';
+    }
+
+    final profile = draftBotProfile ?? activeBotProfile;
+
+    if (profile == null) {
+      return 'Bots';
+    }
+
+    return 'Bots: ${profile.displayName}';
   }
 
   String get _analysisButtonText {
@@ -1039,6 +1065,57 @@ class ChessBoardControls extends StatelessWidget {
     );
   }
 
+  Future<void> _showBotsDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Bots auswählen',
+            style: _dialogTitleTextStyle,
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 20),
+          content: SizedBox(
+            width: 560,
+            height: 520,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _selectableTextButton(
+                  isSelected: !normalSettingsLockedByBotProfile,
+                  label: 'Bots deaktivieren',
+                  onPressed: () {
+                    onBotProfileDisabled();
+                    Navigator.pop(dialogContext);
+                  },
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: BotProfile.maia3Profiles.map((profile) {
+                      return _selectableTextButton(
+                        isSelected: normalSettingsLockedByBotProfile &&
+                            draftBotProfile?.id == profile.id,
+                        label: profile.displayName,
+                        onPressed: () {
+                          onBotProfileSelected(profile);
+                          Navigator.pop(dialogContext);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _clearSelectionButton({
     required bool isEnabled,
     required VoidCallback onPressed,
@@ -1132,6 +1209,8 @@ class ChessBoardControls extends StatelessWidget {
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
     final normalControlsEnabled = !isBotThinking && !isAnalysisMode;
+    final settingsControlsEnabled =
+        normalControlsEnabled && !normalSettingsLockedByBotProfile;
 
     final personalityButtonColor =
         effectiveBotPersonality.isAbstract ? Colors.orange : null;
@@ -1185,22 +1264,22 @@ class ChessBoardControls extends StatelessWidget {
           children: [
             ElevatedButton(
               onPressed:
-                  normalControlsEnabled ? () => _showStrengthDialog(context) : null,
+                  settingsControlsEnabled ? () => _showStrengthDialog(context) : null,
               child: Text(_strengthButtonText),
             ),
             ElevatedButton(
-              onPressed: normalControlsEnabled && cpLossEloEnabled
+              onPressed: settingsControlsEnabled && cpLossEloEnabled
                   ? () => _showCpLossUciSwitchMoveDialog(context)
                   : null,
               child: Text(_uciSwitchButtonText),
             ),
             ElevatedButton(
               onPressed:
-                  normalControlsEnabled ? () => _showOpeningDialog(context) : null,
+                  settingsControlsEnabled ? () => _showOpeningDialog(context) : null,
               child: Text(_openingButtonText),
             ),
             ElevatedButton(
-              onPressed: normalControlsEnabled
+              onPressed: settingsControlsEnabled
                   ? () => _showPersonalityDialog(context)
                   : null,
               child: Text(
@@ -1209,10 +1288,16 @@ class ChessBoardControls extends StatelessWidget {
               ),
             ),
             ElevatedButton(
-              onPressed: normalControlsEnabled && candidatesEnabled
+              onPressed: settingsControlsEnabled && candidatesEnabled
                   ? () => _showCandidateDialog(context)
                   : null,
               child: Text(_candidateButtonText),
+            ),
+            ElevatedButton.icon(
+              onPressed:
+                  normalControlsEnabled ? () => _showBotsDialog(context) : null,
+              icon: const Icon(Icons.smart_toy),
+              label: Text(_botsButtonText),
             ),
           ],
         ),
@@ -1298,3 +1383,4 @@ class _PersonalityDialogLabel extends StatelessWidget {
     return Text(isSelected ? '✓ ${personality.label}' : personality.label);
   }
 }
+

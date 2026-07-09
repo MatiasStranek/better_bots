@@ -1,6 +1,7 @@
 part of chess_board_controller;
 
 const String _persistedOpeningSelectionPrefix = 'selection:';
+const String _persistedBotProfilePrefix = 'botProfile:';
 
 void _controllerRestorePersistedStateIfNeeded(
   ChessBoardController controller,
@@ -19,6 +20,8 @@ void _controllerRestorePersistedStateIfNeeded(
 
   final persistedSelectedOpeningMoves =
       _persistedSelectedOpeningMovesFromState(state);
+  final persistedActiveBotProfile =
+      _persistedActiveBotProfileFromState(state);
 
   controller
     .._playerSide = _playerSideFromName(state.playerSideName)
@@ -57,6 +60,9 @@ void _controllerRestorePersistedStateIfNeeded(
     )
     .._personaCandidateCount =
         state.personaCandidateCount.clamp(4, 128).toInt()
+    .._activeBotProfile = persistedActiveBotProfile
+    .._pendingBotProfile = null
+    .._hasPendingBotProfileChange = false
     .._openingLogicAllowed = state.openingLogicAllowed != 0
     .._analysisUsedDuringCurrentGame =
         state.analysisUsedDuringCurrentGame != 0
@@ -237,6 +243,12 @@ String _persistedEffectivePersonalitySourceName({
   required ChessBoardController controller,
   required _PendingBotSettings? pendingSettings,
 }) {
+  final activeBotProfile = controller._activeBotProfile;
+
+  if (activeBotProfile != null) {
+    return '$_persistedBotProfilePrefix${activeBotProfile.id}';
+  }
+
   if (pendingSettings == null) {
     return controller.effectiveBotPersonalitySource.name;
   }
@@ -293,6 +305,7 @@ void _controllerRefreshTrainingCounterSnapshot(
     personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
     effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
+    activeBotProfile: controller._activeBotProfile,
   );
 }
 
@@ -323,6 +336,7 @@ void _controllerMaybeCountCompletedGame(ChessBoardController controller) {
     personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
     effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
+    activeBotProfile: controller._activeBotProfile,
   );
 
   controller._resultCountedForCurrentGame = true;
@@ -347,6 +361,7 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
     personalitySourceName: _effectiveCounterPersonalitySourceName(controller),
     effectivePersonalityName: _effectiveCounterPersonalityName(controller),
     personaCandidateCount: controller._personaCandidateCount,
+    activeBotProfile: controller._activeBotProfile,
   );
 
   controller.newGame(controller._playerSide);
@@ -492,6 +507,20 @@ List<BoardMove> _decodeBoardMoves(String text) {
   }
 
   return moves;
+}
+
+BotProfile? _persistedActiveBotProfileFromState(AppStateEntity state) {
+  final effectivePersonalitySourceName = state.effectivePersonalitySourceName;
+
+  if (!effectivePersonalitySourceName.startsWith(_persistedBotProfilePrefix)) {
+    return null;
+  }
+
+  final id = effectivePersonalitySourceName.substring(
+    _persistedBotProfilePrefix.length,
+  );
+
+  return BotProfile.byId(id);
 }
 
 List<BotOpeningMove> _persistedSelectedOpeningMovesFromState(
@@ -758,4 +787,5 @@ int _normalizedCpLossSwitchFullMoveNumber(int fullMoveNumber) {
 
   return 11;
 }
+
 

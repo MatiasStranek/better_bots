@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/bot_opening_move.dart';
+import '../../../models/bot_profile.dart';
 import '../../../models/bot_personality.dart';
 import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_strength_mode.dart';
@@ -23,6 +24,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.fritz19Personality,
     required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
+    required this.activeBotProfile,
   });
 
   final int skillLevel;
@@ -39,6 +41,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final Fritz19Personality fritz19Personality;
   final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
+  final BotProfile? activeBotProfile;
 
   String get _strengthText {
     switch (strengthMode) {
@@ -87,16 +90,24 @@ class MobileChessGameInfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <_GameInfoRowData>[
-      _GameInfoRowData(label: 'Spielstärke', value: _strengthText),
-      _GameInfoRowData(label: 'Eröffnung', value: _openingText),
-      _GameInfoRowData(label: 'Persönlichkeit', value: _personalityText),
-      _GameInfoRowData(label: 'Kandidaten', value: '$personaCandidateCount'),
-      _GameInfoRowData(
-        label: 'UCI_ELO Switch',
-        value: 'Zug $cpLossUciSwitchFullMoveNumber',
-      ),
-    ];
+    final activeBotProfile = this.activeBotProfile;
+    final rows = activeBotProfile == null
+        ? <_GameInfoRowData>[
+            _GameInfoRowData(label: 'Spielstärke', value: _strengthText),
+            _GameInfoRowData(label: 'Eröffnung', value: _openingText),
+            _GameInfoRowData(label: 'Persönlichkeit', value: _personalityText),
+            _GameInfoRowData(label: 'Kandidaten', value: '$personaCandidateCount'),
+            _GameInfoRowData(
+              label: 'UCI_ELO Switch',
+              value: 'Zug $cpLossUciSwitchFullMoveNumber',
+            ),
+          ]
+        : <_GameInfoRowData>[
+            _GameInfoRowData(
+              label: 'Bot',
+              value: activeBotProfile.displayName,
+            ),
+          ];
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -165,3 +176,4 @@ class _GameInfoRowData {
   final String label;
   final String value;
 }
+

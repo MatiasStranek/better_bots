@@ -8,6 +8,7 @@ import '../../../data/better_bots_database.dart';
 import '../../../models/board_annotation.dart';
 import '../../../models/board_highlights.dart';
 import '../../../models/bot_opening_move.dart';
+import '../../../models/bot_profile.dart';
 import '../../../models/bot_personality.dart';
 import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_analysis_line.dart';
@@ -74,6 +75,11 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.draftSelectedChessiversePersonalities,
     required this.draftSelectedFritz19Personalities,
     required this.draftPersonaCandidateCount,
+    required this.activeBotProfile,
+    required this.draftBotProfile,
+    required this.normalSettingsLockedByBotProfile,
+    required this.onBotProfileSelected,
+    required this.onBotProfileDisabled,
     required this.isAnalysisMode,
     required this.isAnalysisBranchActive,
     required this.analysisUsedDuringCurrentGame,
@@ -174,6 +180,10 @@ class MobileChessBoardLayout extends StatefulWidget {
   final List<Fritz19Personality> draftSelectedFritz19Personalities;
   final int draftPersonaCandidateCount;
 
+  final BotProfile? activeBotProfile;
+  final BotProfile? draftBotProfile;
+  final bool normalSettingsLockedByBotProfile;
+
   final bool isAnalysisMode;
   final bool isAnalysisBranchActive;
   final bool analysisUsedDuringCurrentGame;
@@ -213,6 +223,8 @@ class MobileChessBoardLayout extends StatefulWidget {
   final VoidCallback onPersonalitySelectionCleared;
   final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
+  final ValueChanged<BotProfile> onBotProfileSelected;
+  final VoidCallback onBotProfileDisabled;
 
   final bool controlsEnabled;
 
@@ -507,6 +519,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   effectiveFritz19Personality:
                       widget.effectiveFritz19Personality,
                   personaCandidateCount: widget.personaCandidateCount,
+                  activeBotProfile: widget.activeBotProfile,
                 ),
               ),
             Positioned(
@@ -629,6 +642,12 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   draftSelectedFritz19Personalities:
                       widget.draftSelectedFritz19Personalities,
                   draftPersonaCandidateCount: widget.draftPersonaCandidateCount,
+                  activeBotProfile: widget.activeBotProfile,
+                  draftBotProfile: widget.draftBotProfile,
+                  normalSettingsLockedByBotProfile:
+                      widget.normalSettingsLockedByBotProfile,
+                  onBotProfileSelected: widget.onBotProfileSelected,
+                  onBotProfileDisabled: widget.onBotProfileDisabled,
                   onNewGame: widget.onNewGame,
                   onRestart: widget.onRestart,
                   onSkillLevelChanged: widget.onSkillLevelChanged,
@@ -736,5 +755,6 @@ class _EdgeSwipeDetector extends StatelessWidget {
     );
   }
 }
+
 
 

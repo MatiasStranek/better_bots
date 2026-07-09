@@ -17,6 +17,7 @@ import '../models/analysis_session.dart';
 import '../models/board_highlights.dart';
 import '../models/board_move.dart';
 import '../models/bot_opening_move.dart';
+import '../models/bot_profile.dart';
 import '../models/bot_personality.dart';
 import '../models/bot_personality_source.dart';
 import '../models/engine_analysis_line.dart';
@@ -35,6 +36,7 @@ part 'chess_board_controller_parts/chess_board_controller_selection.dart';
 part 'chess_board_controller_parts/chess_board_controller_state.dart';
 part 'chess_board_controller_parts/chess_board_controller_review.dart';
 part 'chess_board_controller_parts/chess_board_controller_virtual_board.dart';
+part 'chess_board_controller_parts/chess_board_controller_bot_profiles.dart';
 
 typedef PromotionChoiceCallback =
     Future<String?> Function({
@@ -90,6 +92,10 @@ class ChessBoardController extends ChangeNotifier {
   int _personaCandidateCount = 64;
 
   _PendingBotSettings? _pendingBotSettings;
+
+  BotProfile? _activeBotProfile;
+  BotProfile? _pendingBotProfile;
+  bool _hasPendingBotProfileChange = false;
 
   bool _isBotThinking = false;
   String _engineOutput = '-';
@@ -324,6 +330,22 @@ class ChessBoardController extends ChangeNotifier {
     return _pendingBotSettings?.personaCandidateCount ?? _personaCandidateCount;
   }
 
+  BotProfile? get activeBotProfile => _activeBotProfile;
+
+  BotProfile? get draftBotProfile {
+    if (_hasPendingBotProfileChange) {
+      return _pendingBotProfile;
+    }
+
+    return _activeBotProfile;
+  }
+
+  bool get hasActiveBotProfile => _activeBotProfile != null;
+
+  bool get hasDraftBotProfile => draftBotProfile != null;
+
+  bool get normalSettingsLockedByBotProfile => draftBotProfile != null;
+
   bool get isBotThinking => _isBotThinking;
 
   String get engineOutput => _engineOutput;
@@ -474,6 +496,8 @@ class ChessBoardController extends ChangeNotifier {
       return;
     }
 
+    _controllerApplyPendingBotProfile(this);
+
     _openingLogicAllowed = true;
     _resolvedRandomOpeningMove = null;
     _resolvedRandomPersonality = null;
@@ -568,6 +592,14 @@ class ChessBoardController extends ChangeNotifier {
     return _controllerSetPersonaCandidateCount(this, candidateCount);
   }
 
+  void selectBotProfile(BotProfile profile) {
+    return _controllerSelectBotProfile(this, profile);
+  }
+
+  void disableBotProfile() {
+    return _controllerDisableBotProfile(this);
+  }
+
   void selectSquare(String square) => _controllerSelectSquare(this, square);
 
   void clearSelectedSquare() => _controllerClearSelectedSquare(this);
@@ -622,6 +654,7 @@ class ChessBoardController extends ChangeNotifier {
     return _controllerLoadFenPosition(this, fenInput);
   }
 }
+
 
 
 

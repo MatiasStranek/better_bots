@@ -322,6 +322,12 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                     _controller.draftSelectedFritz19Personalities,
                 draftPersonaCandidateCount:
                     _controller.draftPersonaCandidateCount,
+                activeBotProfile: _controller.activeBotProfile,
+                draftBotProfile: _controller.draftBotProfile,
+                normalSettingsLockedByBotProfile:
+                    _controller.normalSettingsLockedByBotProfile,
+                onBotProfileSelected: _controller.selectBotProfile,
+                onBotProfileDisabled: _controller.disableBotProfile,
                 controlsEnabled: !_controller.isBotThinking,
 
                 isAnalysisMode: _controller.isAnalysisMode,
@@ -520,4 +526,5 @@ class _PromotionChoiceButton extends StatelessWidget {
     );
   }
 }
+
 

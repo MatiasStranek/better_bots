@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/bot_opening_move.dart';
+import '../../../models/bot_profile.dart';
 import '../../../models/bot_personality.dart';
 import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_strength_mode.dart';
@@ -46,6 +47,11 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.draftSelectedChessiversePersonalities,
     required this.draftSelectedFritz19Personalities,
     required this.draftPersonaCandidateCount,
+    required this.activeBotProfile,
+    required this.draftBotProfile,
+    required this.normalSettingsLockedByBotProfile,
+    required this.onBotProfileSelected,
+    required this.onBotProfileDisabled,
     required this.onNewGame,
     required this.onRestart,
     required this.onSkillLevelChanged,
@@ -105,6 +111,10 @@ class MobileChessSideMenu extends StatelessWidget {
   final List<Fritz19Personality> draftSelectedFritz19Personalities;
   final int draftPersonaCandidateCount;
 
+  final BotProfile? activeBotProfile;
+  final BotProfile? draftBotProfile;
+  final bool normalSettingsLockedByBotProfile;
+
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
 
@@ -123,6 +133,8 @@ class MobileChessSideMenu extends StatelessWidget {
   final VoidCallback onPersonalitySelectionCleared;
   final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
+  final ValueChanged<BotProfile> onBotProfileSelected;
+  final VoidCallback onBotProfileDisabled;
 
   final VoidCallback onClose;
   final bool isEnabled;
@@ -178,6 +190,20 @@ class MobileChessSideMenu extends StatelessWidget {
 
   String get _candidateButtonText {
     return 'Kandidaten: $personaCandidateCount';
+  }
+
+  String get _botsButtonText {
+    if (!normalSettingsLockedByBotProfile) {
+      return 'Bots deaktiviert';
+    }
+
+    final profile = draftBotProfile ?? activeBotProfile;
+
+    if (profile == null) {
+      return 'Bots deaktiviert';
+    }
+
+    return profile.displayName;
   }
 
   List<int> get _levelValues {
@@ -735,8 +761,37 @@ class MobileChessSideMenu extends StatelessWidget {
           title: 'Bots',
           tabLabels: const ['Bots'],
           showSingleTab: true,
-          tabContents: const [
-            _EmptyBotsTab(),
+          tabContents: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: MobilePickerChip(
+                    label: 'Bots deaktivieren',
+                    isSelected: !normalSettingsLockedByBotProfile,
+                    onPressed: () {
+                      onBotProfileDisabled();
+                      Navigator.of(sheetContext).pop();
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                MobilePickerChipGrid(
+                  children: BotProfile.maia3Profiles.map((profile) {
+                    return MobilePickerChip(
+                      label: profile.displayName,
+                      isSelected: normalSettingsLockedByBotProfile &&
+                          draftBotProfile?.id == profile.id,
+                      onPressed: () {
+                        onBotProfileSelected(profile);
+                        Navigator.of(sheetContext).pop();
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ],
         );
       },
@@ -770,6 +825,7 @@ class MobileChessSideMenu extends StatelessWidget {
         selectedFritz19Personalities.isNotEmpty;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
+    final settingsControlsEnabled = isEnabled && !normalSettingsLockedByBotProfile;
 
     return SizedBox(
       width: width,
@@ -814,7 +870,7 @@ class MobileChessSideMenu extends StatelessWidget {
                           label: 'Spielstärke',
                           value: _strengthButtonText,
                           onTap: () => _showStrengthDialog(context),
-                          isEnabled: isEnabled,
+                          isEnabled: settingsControlsEnabled,
                           isHighlighted: true,
                         ),
                         _SideMenuButton(
@@ -822,26 +878,26 @@ class MobileChessSideMenu extends StatelessWidget {
                           label: 'Eröffnung',
                           value: _openingButtonText,
                           onTap: () => _showOpeningDialog(context),
-                          isEnabled: isEnabled,
+                          isEnabled: settingsControlsEnabled,
                         ),
                         _SideMenuButton(
                           icon: Icons.psychology,
                           label: 'Persönlichkeit',
                           value: _personalityButtonText,
                           onTap: () => _showPersonalityDialog(context),
-                          isEnabled: isEnabled,
+                          isEnabled: settingsControlsEnabled,
                         ),
                         _SideMenuButton(
                           icon: Icons.list,
                           label: 'Kandidaten',
                           value: _candidateButtonText,
                           onTap: () => _showCandidateDialog(context),
-                          isEnabled: isEnabled && candidatesEnabled,
+                          isEnabled: settingsControlsEnabled && candidatesEnabled,
                         ),
                         _SideMenuButton(
                           icon: Icons.smart_toy,
                           label: 'Bots',
-                          value: 'Demnächst',
+                          value: _botsButtonText,
                           onTap: () => _showBotsDialog(context),
                           isEnabled: isEnabled,
                         ),
@@ -850,7 +906,7 @@ class MobileChessSideMenu extends StatelessWidget {
                           label: 'UCI_ELO Switch',
                           value: _uciSwitchButtonText,
                           onTap: () => _showCpLossUciSwitchMoveDialog(context),
-                          isEnabled: isEnabled && cpLossEloEnabled,
+                          isEnabled: settingsControlsEnabled && cpLossEloEnabled,
                         ),
                       ],
                     ),
@@ -1019,3 +1075,4 @@ class _SideMenuButton extends StatelessWidget {
     );
   }
 }
+
