@@ -189,11 +189,21 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
   }
 
   Future<void> _handleAnalysisBack() async {
-    await _controller.stepAnalysisBack();
+    if (_controller.isAnalysisMode) {
+      await _controller.stepAnalysisBack();
+      return;
+    }
+
+    _controller.stepMainLineBack();
   }
 
   Future<void> _handleAnalysisForward() async {
-    await _controller.stepAnalysisForward();
+    if (_controller.isAnalysisMode) {
+      await _controller.stepAnalysisForward();
+      return;
+    }
+
+    _controller.stepMainLineForward();
   }
 
   void _handleTrainingRestart() {
@@ -201,11 +211,21 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
   }
 
   Future<void> _handleAnalysisBackToStart() async {
-    await _controller.jumpAnalysisToStart();
+    if (_controller.isAnalysisMode) {
+      await _controller.jumpAnalysisToStart();
+      return;
+    }
+
+    _controller.jumpMainLineToStart();
   }
 
   Future<void> _handleAnalysisForwardToEnd() async {
-    await _controller.jumpAnalysisToEnd();
+    if (_controller.isAnalysisMode) {
+      await _controller.jumpAnalysisToEnd();
+      return;
+    }
+
+    _controller.jumpMainLineToEnd();
   }
 
   void _handleSystemBackWhileInAnalysisMode() {
@@ -283,8 +303,12 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 analysisLines: _controller.analysisLines,
                 trainingCounter: _controller.trainingCounterSnapshot,
                 canToggleAnalysisMode: _controller.canToggleAnalysisMode,
-                canNavigateAnalysisBack: _controller.canNavigateAnalysisBack,
-                canNavigateAnalysisForward: _controller.canNavigateAnalysisForward,
+                canNavigateAnalysisBack: _controller.isAnalysisMode
+                    ? _controller.canNavigateAnalysisBack
+                    : _controller.canNavigateMainLineBack,
+                canNavigateAnalysisForward: _controller.isAnalysisMode
+                    ? _controller.canNavigateAnalysisForward
+                    : _controller.canNavigateMainLineForward,
                 onToggleAnalysisMode: _handleToggleAnalysisMode,
                 onTrainingRestart: _handleTrainingRestart,
                 onAnalysisBack: _handleAnalysisBack,
@@ -468,3 +492,4 @@ class _PromotionChoiceButton extends StatelessWidget {
     );
   }
 }
+

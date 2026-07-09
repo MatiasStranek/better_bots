@@ -331,7 +331,15 @@ class BetterBotsDatabase {
       EngineStrengthMode.cpLossElo => cpLossElo,
     };
 
-    final normalizedCandidateCount = math.max(1, personaCandidateCount);
+    final candidatesAffectStrength = strengthMode == EngineStrengthMode.cpLossElo;
+    final candidatesAffectPersonality =
+        effectivePersonalityName != BotPersonality.none.name;
+    final candidatesAffectKey =
+        candidatesAffectStrength || candidatesAffectPersonality;
+
+    final normalizedCandidateCount = candidatesAffectKey
+        ? math.max(1, personaCandidateCount)
+        : -1;
     final normalizedSwitch = strengthMode == EngineStrengthMode.cpLossElo
         ? cpLossUciSwitchFullMoveNumber
         : -1;
@@ -342,7 +350,7 @@ class BetterBotsDatabase {
       'opening=${effectiveOpeningMove.name}',
       'personalitySource=$personalitySourceName',
       'personality=$effectivePersonalityName',
-      'candidates=$normalizedCandidateCount',
+      if (candidatesAffectKey) 'candidates=$normalizedCandidateCount',
       if (strengthMode == EngineStrengthMode.cpLossElo)
         'uciSwitch=$normalizedSwitch',
     ];
@@ -391,3 +399,4 @@ class BetterBotsDatabase {
     return hash.toRadixString(16).padLeft(16, '0');
   }
 }
+

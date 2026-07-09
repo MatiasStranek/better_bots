@@ -1,3 +1,14 @@
+* 2 TB Lichess Data into Bots effiency creating
+* Windows: pfeiltaste oben und unten für komplett stellungsskip
+* Windows: markiert jedes Feld über das man beim drag hovered
+* correcting premoves
+
+BUG SECTION:
+	* Android: Engine deactivated when tapping backbutton
+	(* Android: Laggs by drag shadow view)
+	* * adding premoves with taking pieces
+
+
 * Opening & Personality Button:
 	* multiple selection
 	* random selection (random amount)
@@ -5,53 +16,20 @@
 	* renaming "Ohne ..." with "Ohne ... / Auswahl entfernen"
 
 
-* Arrows forth and back also for the normal games
-* STRONG: Wins, Looses, Remis zählen nicht wenn in der aktuellen Runde bereits einmal Analyse betätigt wurde
-* STRONG: Longpress vor/zurück schneller machen
-* Android: "..." Menü "x" positionierung anpassen
-* Windows: komplett Graufilter für Branches hinzufügen
+* STRONG: Android: "..." Menü "x" positionierung anpassen
+* play from here: setzt die aktuelle Position als Standardpositions
+* Android: BackButton calls close request
+
+* challengeModes: timestamps (bullet, blitz, rapid, classic) AND adding count property for black/white + situation(win, loose, remis, train)
+* creating own bots with names
 (* Analyse, alle existierenden Züge in der Analyse bis Zug 20 analysiert bleibt zwischengespeichert bis Restart oder Reset (oder ResetCount) betätigt wird)
-* Hinter der NotationBar grauen Streifen
-* play from here: setzt die aktuelle Position als Standardposition
+(* Hinter der NotationBar grauen Streifen)
 
-BUG SECTION:
-	* Android: Engine deactivated when tapping backbutton
-	* Windows: entwickelte Dame wird als Pawn gedragt
-	* Android: Laggs by drag shadow view
 
-* Windows: darker green for circle markers
-* Windows & Android: Using notationArrows in normal games, but only allowed to move on actual position
-* Android: BackButon calls close request
-* Android: click only on board for deleting those arrows
-* Android: faster markup with pressure circle
-
-* adding premoves with taking pieces
-* setup presets: CP_Loss_ELO = 1300, Zufall, Zufall & Kandidaten = 64
-
-* Strength Selection Button with 3 Tabs
-
-* Analysis Button:
-	* analysis from the pgn
-	* analysis in actual position
-	* arrows for getting back and forth (alls moves are seperated from the game)
-	* switching from analysis to game again:
-		* analysis gets deleted
-		* continue playing from actual position
-	* arrows with right click hold
-
-* Hotkey for opening Analysis
-
+* Windows & Android: darker green for circle markers
 * adding also very abstract personality: when having max_cp, lowest_cp then there is more room on move 1-5, less-more room on move 6-10 etc. (name: artist or creative) as Button (standard: 11)
-
 * descending from move1 to move10, after it engine continues
 
-* creating own bots with names
-
-(* adding stronger intelligence for 0-1200? With the function to increase intelligence after each step Move1-5, move 6-10 etc.)
-
-* generator for personality moves (counting all moves which got played)
-
-* challengeModes: timestamps (bullet, blitz, rapid, classic)
 * funnyModes: kingchessNoBorder, botIllegalMoves
 
 * calculating all possible bots including ELO from 1320 to 3190 (100er, 10er and 1er)

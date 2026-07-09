@@ -106,19 +106,22 @@ class MobileChessActionBar extends StatelessWidget {
           Expanded(
             child: _ActionBarButton(
               icon: Icons.keyboard_double_arrow_left,
-              tooltip: 'Analyse zurück',
-              isEnabled: isAnalysisMode && canNavigateAnalysisBack,
+              tooltip: isAnalysisMode ? 'Analyse zurück' : 'Zug zurück',
+              isEnabled: canNavigateAnalysisBack,
               onPressed: _goAnalysisBack,
-              onLongPress: _goAnalysisBackToStart,
+              onLongPress:
+                  canNavigateAnalysisBack ? _goAnalysisBackToStart : null,
             ),
           ),
           Expanded(
             child: _ActionBarButton(
               icon: Icons.keyboard_double_arrow_right,
-              tooltip: 'Analyse vor',
-              isEnabled: isAnalysisMode && canNavigateAnalysisForward,
+              tooltip: isAnalysisMode ? 'Analyse vor' : 'Zug vor',
+              isEnabled: canNavigateAnalysisForward,
               onPressed: _goAnalysisForward,
-              onLongPress: _goAnalysisForwardToEnd,
+              onLongPress: canNavigateAnalysisForward
+                  ? _goAnalysisForwardToEnd
+                  : null,
             ),
           ),
           Expanded(
@@ -219,3 +222,4 @@ class _ActionBarButtonState extends State<_ActionBarButton> {
     );
   }
 }
+

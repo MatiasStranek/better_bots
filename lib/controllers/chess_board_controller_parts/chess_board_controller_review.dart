@@ -37,8 +37,36 @@ int _controllerCurrentMainLinePly(ChessBoardController controller) {
   );
 }
 
-bool _controllerCanNavigateMainLineBack(ChessBoardController controller) {
+bool _controllerCanUseNormalMainLineNavigation(
+  ChessBoardController controller,
+) {
   if (controller._analysisSession != null || controller._isBotThinking) {
+    return false;
+  }
+
+  // Wenn wir bereits eine vergangene Stellung betrachten, darf man weiter in
+  // der Mainline navigieren. Figuren bleiben dort trotzdem gesperrt.
+  if (_controllerIsNormalReviewMode(controller)) {
+    return true;
+  }
+
+  // Nach Partieende darf man die gespielte Partie ebenfalls durchgehen.
+  if (controller._game.game_over ||
+      controller._game.in_checkmate ||
+      controller._game.in_stalemate ||
+      controller._game.in_draw) {
+    return true;
+  }
+
+  // Im Live-Spiel darf man nur dann in die Vergangenheit springen, wenn der
+  // Mensch am Zug ist. Während der Gegner/Bot am Zug ist, bleibt Review aus.
+  final whiteToMove = controller._game.turn == chess.Color.WHITE;
+
+  return controller.playerIsWhite ? whiteToMove : !whiteToMove;
+}
+
+bool _controllerCanNavigateMainLineBack(ChessBoardController controller) {
+  if (!_controllerCanUseNormalMainLineNavigation(controller)) {
     return false;
   }
 
@@ -46,7 +74,7 @@ bool _controllerCanNavigateMainLineBack(ChessBoardController controller) {
 }
 
 bool _controllerCanNavigateMainLineForward(ChessBoardController controller) {
-  if (controller._analysisSession != null || controller._isBotThinking) {
+  if (!_controllerCanUseNormalMainLineNavigation(controller)) {
     return false;
   }
 
@@ -73,16 +101,39 @@ void _controllerStepMainLineForward(ChessBoardController controller) {
   _controllerSetNormalReviewPly(controller, currentPly + 1);
 }
 
+
+void _controllerJumpMainLineToStart(ChessBoardController controller) {
+  if (!_controllerCanNavigateMainLineBack(controller)) {
+    return;
+  }
+
+  _controllerSetNormalReviewPly(controller, 0);
+}
+
+void _controllerJumpMainLineToEnd(ChessBoardController controller) {
+  if (!_controllerCanNavigateMainLineForward(controller)) {
+    return;
+  }
+
+  _controllerSetNormalReviewPly(controller, controller._normalGameMoves.length);
+}
+
 Future<void> _controllerJumpToMainLinePly(
   ChessBoardController controller,
   int ply,
 ) async {
-  if (controller._isBotThinking) {
+  final session = controller._analysisSession;
+
+  if (session == null &&
+      !_controllerCanUseNormalMainLineNavigation(controller)) {
+    return;
+  }
+
+  if (session != null && controller._isBotThinking) {
     return;
   }
 
   final targetPly = _clampMainLinePly(controller, ply);
-  final session = controller._analysisSession;
 
   if (session != null) {
     final jumped = session.jumpToStart();

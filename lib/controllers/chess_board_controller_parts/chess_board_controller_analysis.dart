@@ -25,6 +25,267 @@ int _effectiveAnalysisMultiPvForFen(String fen) {
   return legalMoveCount.clamp(1, _analysisMultiPv).toInt();
 }
 
+
+List<EngineAnalysisLine> _analysisLinesWithDisplayMoves(
+  String fen,
+  List<EngineAnalysisLine> lines,
+) {
+  if (lines.isEmpty) {
+    return lines;
+  }
+
+  final game = chess.Chess();
+
+  try {
+    if (!game.load(fen)) {
+      return lines;
+    }
+  } catch (_) {
+    return lines;
+  }
+
+  return [
+    for (final line in lines)
+      line.copyWith(
+        shortMove: _analysisMoveDisplayFromFenGame(
+          game: game,
+          fen: fen,
+          uciMove: line.uciMove,
+        ),
+      ),
+  ];
+}
+
+String _analysisMoveDisplayFromFenGame({
+  required chess.Chess game,
+  required String fen,
+  required String uciMove,
+}) {
+  if (uciMove.length < 4 || uciMove == '(none)') {
+    return uciMove;
+  }
+
+  final from = uciMove.substring(0, 2);
+  final to = uciMove.substring(2, 4);
+  final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+  final piece = game.get(from);
+
+  if (piece == null) {
+    return EngineAnalysisLine.fallbackShortMoveFromUci(uciMove);
+  }
+
+  final pieceLetter = _analysisPieceLetter(piece);
+  final isPawn = pieceLetter.isEmpty;
+  final targetPiece = game.get(to);
+  final isCapture = targetPiece != null || (isPawn && from[0] != to[0]);
+  final suffix = _analysisCheckSuffixAfterMove(
+    fen: fen,
+    from: from,
+    to: to,
+    promotion: promotion,
+  );
+
+  if (pieceLetter == 'K' && _analysisIsCastlingMove(from: from, to: to)) {
+    return '${to[0] == 'g' ? 'O-O' : 'O-O-O'}$suffix';
+  }
+
+  final promotionText = promotion.isEmpty ? '' : '=${promotion.toUpperCase()}';
+
+  if (isPawn) {
+    final capturePrefix = isCapture ? '${from[0]}x' : '';
+    return '$capturePrefix$to$promotionText$suffix';
+  }
+
+  final disambiguation = _analysisMoveDisambiguation(
+    game: game,
+    from: from,
+    to: to,
+    piece: piece,
+  );
+  final captureText = isCapture ? 'x' : '';
+
+  return '$pieceLetter$disambiguation$captureText$to$promotionText$suffix';
+}
+
+bool _analysisIsCastlingMove({required String from, required String to}) {
+  return (from == 'e1' && (to == 'g1' || to == 'c1')) ||
+      (from == 'e8' && (to == 'g8' || to == 'c8'));
+}
+
+String _analysisMoveDisambiguation({
+  required chess.Chess game,
+  required String from,
+  required String to,
+  required chess.Piece piece,
+}) {
+  final ambiguousFromSquares = <String>[];
+
+  for (final square in _analysisAllSquares()) {
+    if (square == from) {
+      continue;
+    }
+
+    final otherPiece = game.get(square);
+
+    if (otherPiece == null ||
+        otherPiece.color != piece.color ||
+        _analysisPieceTypeKey(otherPiece) != _analysisPieceTypeKey(piece)) {
+      continue;
+    }
+
+    if (_analysisCanMoveFromTo(game: game, from: square, to: to)) {
+      ambiguousFromSquares.add(square);
+    }
+  }
+
+  if (ambiguousFromSquares.isEmpty) {
+    return '';
+  }
+
+  final fromFile = from[0];
+  final fromRank = from[1];
+  final sameFileExists = ambiguousFromSquares.any((square) => square[0] == fromFile);
+  final sameRankExists = ambiguousFromSquares.any((square) => square[1] == fromRank);
+
+  if (!sameFileExists) {
+    return fromFile;
+  }
+
+  if (!sameRankExists) {
+    return fromRank;
+  }
+
+  return from;
+}
+
+bool _analysisCanMoveFromTo({
+  required chess.Chess game,
+  required String from,
+  required String to,
+}) {
+  final moves = game.moves({'square': from, 'verbose': true});
+
+  for (final move in moves) {
+    if (move is chess.Move) {
+      if (move.toAlgebraic == to) {
+        return true;
+      }
+    } else if (move is Map && move['to'] == to) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+String _analysisCheckSuffixAfterMove({
+  required String fen,
+  required String from,
+  required String to,
+  required String promotion,
+}) {
+  final game = chess.Chess();
+
+  try {
+    if (!game.load(fen)) {
+      return '';
+    }
+  } catch (_) {
+    return '';
+  }
+
+  final moveData = <String, String>{'from': from, 'to': to};
+
+  if (promotion.isNotEmpty) {
+    moveData['promotion'] = promotion;
+  }
+
+  final moved = game.move(moveData);
+
+  if (!moved) {
+    return '';
+  }
+
+  if (game.in_checkmate) {
+    return '#';
+  }
+
+  if (game.in_check) {
+    return '+';
+  }
+
+  return '';
+}
+
+Iterable<String> _analysisAllSquares() sync* {
+  for (var file = 0; file < 8; file++) {
+    for (var rank = 1; rank <= 8; rank++) {
+      yield '${String.fromCharCode('a'.codeUnitAt(0) + file)}$rank';
+    }
+  }
+}
+
+String _analysisPieceLetter(chess.Piece piece) {
+  final typeKey = _analysisPieceTypeKey(piece);
+
+  switch (typeKey) {
+    case 'n':
+      return 'N';
+    case 'b':
+      return 'B';
+    case 'r':
+      return 'R';
+    case 'q':
+      return 'Q';
+    case 'k':
+      return 'K';
+    default:
+      return '';
+  }
+}
+
+String _analysisPieceTypeKey(chess.Piece piece) {
+  final typeText = piece.type.toString().toLowerCase();
+
+  if (typeText == 'p' ||
+      typeText.endsWith('.p') ||
+      typeText.contains('pawn')) {
+    return 'p';
+  }
+
+  if (typeText == 'n' ||
+      typeText.endsWith('.n') ||
+      typeText.contains('knight')) {
+    return 'n';
+  }
+
+  if (typeText == 'b' ||
+      typeText.endsWith('.b') ||
+      typeText.contains('bishop')) {
+    return 'b';
+  }
+
+  if (typeText == 'r' ||
+      typeText.endsWith('.r') ||
+      typeText.contains('rook')) {
+    return 'r';
+  }
+
+  if (typeText == 'q' ||
+      typeText.endsWith('.q') ||
+      typeText.contains('queen')) {
+    return 'q';
+  }
+
+  if (typeText == 'k' ||
+      typeText.endsWith('.k') ||
+      typeText.contains('king')) {
+    return 'k';
+  }
+
+  return typeText;
+}
+
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
     if (!controller.canStartAnalysisMode) {
@@ -404,7 +665,7 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
 
             currentSession.updateLiveTopLinesForFen(
               fen: fen,
-              lines: liveLines,
+              lines: _analysisLinesWithDisplayMoves(fen, liveLines),
               targetDepth: _analysisDepth,
             );
 
@@ -431,9 +692,11 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
           continue;
         }
 
+        final displayLines = _analysisLinesWithDisplayMoves(fen, lines);
+
         session.updateCompletedTopLinesForFen(
           fen: fen,
-          lines: lines,
+          lines: displayLines,
           targetDepth: _analysisDepth,
         );
 
@@ -442,11 +705,11 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
         );
 
         session
-          ..statusText = lines.isEmpty
+          ..statusText = displayLines.isEmpty
               ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
               : hasCompletedLines
                   ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
-                  : 'Analyse aktiv. ${lines.length} Linien bis Tiefe ${_maxAnalysisDepth(lines)}.'
+                  : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe ${_maxAnalysisDepth(displayLines)}.'
           ..isAnalyzing = false;
 
         _safeNotify(controller);

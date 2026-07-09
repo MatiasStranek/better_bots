@@ -1,5 +1,7 @@
 part of chess_board_controller;
 
+const String _persistedOpeningSelectionPrefix = 'selection:';
+
 void _controllerRestorePersistedStateIfNeeded(
   ChessBoardController controller,
 ) {
@@ -15,6 +17,9 @@ void _controllerRestorePersistedStateIfNeeded(
     return;
   }
 
+  final persistedSelectedOpeningMoves =
+      _persistedSelectedOpeningMovesFromState(state);
+
   controller
     .._playerSide = _playerSideFromName(state.playerSideName)
     .._skillLevel = state.skillLevel.clamp(0, 20).toInt()
@@ -28,8 +33,7 @@ void _controllerRestorePersistedStateIfNeeded(
     .._botOpeningMove = _openingMoveFromName(state.botOpeningMoveName)
     .._resolvedRandomOpeningMove =
         _openingMoveFromNameOrNull(state.effectiveBotOpeningMoveName)
-    .._selectedOpeningMoves
-        .addAll(_openingMoveListFromNames(state.selectedOpeningMoveNames))
+    .._selectedOpeningMoves.addAll(persistedSelectedOpeningMoves)
     .._botPersonalitySource =
         _botPersonalitySourceFromName(state.personalitySourceName)
     .._resolvedRandomPersonalitySource =
@@ -62,10 +66,36 @@ void _controllerRestorePersistedStateIfNeeded(
     .._selectedSquare = null
     .._premoves.clear();
 
-  if (controller._selectedOpeningMoves.length >= 2) {
-    controller._botOpeningMove = BotOpeningMove.random;
-  } else if (controller._botOpeningMove != BotOpeningMove.random) {
-    controller._resolvedRandomOpeningMove = null;
+  _controllerNormalizePersistedOpeningSelection(controller);
+
+  if (controller._botPersonalitySource == BotPersonalitySource.chessiverse &&
+      controller._selectedChessiversePersonalities.isNotEmpty) {
+    controller._selectedFritz19Personalities.clear();
+
+    if (controller._selectedChessiversePersonalities.length == 1) {
+      controller._botPersonality =
+          controller._selectedChessiversePersonalities.first;
+    } else {
+      controller._botPersonality = BotPersonality.random;
+    }
+
+    controller._resolvedRandomPersonality = null;
+    controller._resolvedRandomFritz19Personality = null;
+  }
+
+  if (controller._botPersonalitySource == BotPersonalitySource.fritz19 &&
+      controller._selectedFritz19Personalities.isNotEmpty) {
+    controller._selectedChessiversePersonalities.clear();
+
+    if (controller._selectedFritz19Personalities.length == 1) {
+      controller._fritz19Personality =
+          controller._selectedFritz19Personalities.first;
+    } else {
+      controller._fritz19Personality = Fritz19Personality.random;
+    }
+
+    controller._resolvedRandomPersonality = null;
+    controller._resolvedRandomFritz19Personality = null;
   }
 
   if (controller._botPersonalitySource != BotPersonalitySource.random) {
@@ -91,39 +121,80 @@ void _controllerPersistCurrentState(ChessBoardController controller) {
     return;
   }
 
-  final effectiveOpeningMove = controller.effectiveBotOpeningMove;
-  final effectivePersonalitySource = controller.effectiveBotPersonalitySource;
-  final effectiveBotPersonality = controller.effectiveBotPersonality;
-  final effectiveFritz19Personality = controller.effectiveFritz19Personality;
+  final pendingSettings = controller._pendingBotSettings;
+
+  final skillLevel = pendingSettings?.skillLevel ?? controller._skillLevel;
+  final strengthMode = pendingSettings?.strengthMode ?? controller._strengthMode;
+  final uciElo = pendingSettings?.uciElo ?? controller._uciElo;
+  final cpLossElo = pendingSettings?.cpLossElo ?? controller._cpLossElo;
+  final cpLossUciSwitchFullMoveNumber =
+      pendingSettings?.cpLossUciSwitchFullMoveNumber ??
+          controller._cpLossUciSwitchFullMoveNumber;
+
+  final rawBotOpeningMove =
+      pendingSettings?.botOpeningMove ?? controller._botOpeningMove;
+  final selectedOpeningMoves = _normalizedOpeningMoveList(
+    pendingSettings?.selectedOpeningMoves ?? controller._selectedOpeningMoves,
+  );
+  final botOpeningMove = _persistedBotOpeningMove(
+    botOpeningMove: rawBotOpeningMove,
+    selectedOpeningMoves: selectedOpeningMoves,
+  );
+
+  final botPersonalitySource =
+      pendingSettings?.botPersonalitySource ?? controller._botPersonalitySource;
+  final botPersonality =
+      pendingSettings?.botPersonality ?? controller._botPersonality;
+  final fritz19Personality =
+      pendingSettings?.fritz19Personality ?? controller._fritz19Personality;
+  final selectedChessiversePersonalities =
+      pendingSettings?.selectedChessiversePersonalities ??
+          controller._selectedChessiversePersonalities;
+  final selectedFritz19Personalities =
+      pendingSettings?.selectedFritz19Personalities ??
+          controller._selectedFritz19Personalities;
+  final personaCandidateCount =
+      pendingSettings?.personaCandidateCount ?? controller._personaCandidateCount;
 
   BetterBotsDatabase.instance.saveAppState(
     AppStateEntity(
       id: 1,
       playerSideName: controller._playerSide.name,
-      skillLevel: controller._skillLevel,
-      strengthModeName: controller._strengthMode.name,
-      uciElo: controller._uciElo,
-      cpLossElo: controller._cpLossElo,
-      cpLossUciSwitchFullMoveNumber:
-          controller._cpLossUciSwitchFullMoveNumber,
-      botOpeningMoveName: controller._botOpeningMove.name,
-      effectiveBotOpeningMoveName: effectiveOpeningMove.name,
-      selectedOpeningMoveNames: _encodeOpeningMoves(
-        controller._selectedOpeningMoves,
+      skillLevel: skillLevel,
+      strengthModeName: strengthMode.name,
+      uciElo: uciElo,
+      cpLossElo: cpLossElo,
+      cpLossUciSwitchFullMoveNumber: cpLossUciSwitchFullMoveNumber,
+      botOpeningMoveName: botOpeningMove.name,
+      effectiveBotOpeningMoveName: _persistedEffectiveOpeningMoveName(
+        controller: controller,
+        pendingSettings: pendingSettings,
+        botOpeningMove: botOpeningMove,
+        selectedOpeningMoves: selectedOpeningMoves,
       ),
-      personalitySourceName: controller._botPersonalitySource.name,
-      effectivePersonalitySourceName: effectivePersonalitySource.name,
-      botPersonalityName: controller._botPersonality.name,
-      effectiveBotPersonalityName: effectiveBotPersonality.name,
-      fritz19PersonalityName: controller._fritz19Personality.name,
-      effectiveFritz19PersonalityName: effectiveFritz19Personality.name,
+      selectedOpeningMoveNames: _encodeOpeningMoves(selectedOpeningMoves),
+      personalitySourceName: botPersonalitySource.name,
+      effectivePersonalitySourceName: _persistedEffectivePersonalitySourceName(
+        controller: controller,
+        pendingSettings: pendingSettings,
+      ),
+      botPersonalityName: botPersonality.name,
+      effectiveBotPersonalityName: _persistedEffectiveBotPersonalityName(
+        controller: controller,
+        pendingSettings: pendingSettings,
+      ),
+      fritz19PersonalityName: fritz19Personality.name,
+      effectiveFritz19PersonalityName: _persistedEffectiveFritz19PersonalityName(
+        controller: controller,
+        pendingSettings: pendingSettings,
+      ),
       selectedChessiversePersonalityNames: _encodeBotPersonalities(
-        controller._selectedChessiversePersonalities,
+        selectedChessiversePersonalities,
       ),
       selectedFritz19PersonalityNames: _encodeFritz19Personalities(
-        controller._selectedFritz19Personalities,
+        selectedFritz19Personalities,
       ),
-      personaCandidateCount: controller._personaCandidateCount,
+      personaCandidateCount: personaCandidateCount,
       openingLogicAllowed: controller._openingLogicAllowed ? 1 : 0,
       startFen: controller._normalGameStartFen,
       moveListText: _encodeBoardMoves(controller._normalGameMoves),
@@ -136,6 +207,75 @@ void _controllerPersistCurrentState(ChessBoardController controller) {
           controller._resultCountedForCurrentGame ? 1 : 0,
     ),
   );
+}
+
+String _persistedEffectiveOpeningMoveName({
+  required ChessBoardController controller,
+  required _PendingBotSettings? pendingSettings,
+  required BotOpeningMove botOpeningMove,
+  required List<BotOpeningMove> selectedOpeningMoves,
+}) {
+  if (selectedOpeningMoves.isNotEmpty) {
+    return _encodePersistedOpeningSelection(selectedOpeningMoves);
+  }
+
+  if (pendingSettings != null) {
+    return botOpeningMove.name;
+  }
+
+  if (controller._botOpeningMove == BotOpeningMove.random) {
+    // Eine globale Zufallseröffnung bleibt als Zufallsauswahl gespeichert.
+    // Das gezogene Ergebnis ist nur effektiv für die laufende Partie.
+    return BotOpeningMove.random.name;
+  }
+
+  return controller.effectiveBotOpeningMove.name;
+}
+
+
+String _persistedEffectivePersonalitySourceName({
+  required ChessBoardController controller,
+  required _PendingBotSettings? pendingSettings,
+}) {
+  if (pendingSettings == null) {
+    return controller.effectiveBotPersonalitySource.name;
+  }
+
+  if (pendingSettings.botPersonalitySource == BotPersonalitySource.random) {
+    return BotPersonalitySource.random.name;
+  }
+
+  return pendingSettings.botPersonalitySource.name;
+}
+
+String _persistedEffectiveBotPersonalityName({
+  required ChessBoardController controller,
+  required _PendingBotSettings? pendingSettings,
+}) {
+  if (pendingSettings == null) {
+    return controller.effectiveBotPersonality.name;
+  }
+
+  if (pendingSettings.botPersonalitySource == BotPersonalitySource.random) {
+    return BotPersonality.random.name;
+  }
+
+  return pendingSettings.botPersonality.name;
+}
+
+String _persistedEffectiveFritz19PersonalityName({
+  required ChessBoardController controller,
+  required _PendingBotSettings? pendingSettings,
+}) {
+  if (pendingSettings == null) {
+    return controller.effectiveFritz19Personality.name;
+  }
+
+  if (pendingSettings.botPersonalitySource == BotPersonalitySource.random) {
+    return Fritz19Personality.random.name;
+  }
+
+  return pendingSettings.fritz19Personality.name;
 }
 
 void _controllerRefreshTrainingCounterSnapshot(
@@ -354,6 +494,115 @@ List<BoardMove> _decodeBoardMoves(String text) {
   return moves;
 }
 
+List<BotOpeningMove> _persistedSelectedOpeningMovesFromState(
+  AppStateEntity state,
+) {
+  final selectedOpeningMoves = _openingMoveListFromNames(
+    state.selectedOpeningMoveNames,
+  );
+
+  if (selectedOpeningMoves.isNotEmpty) {
+    return _normalizedOpeningMoveList(selectedOpeningMoves);
+  }
+
+  return _openingMoveListFromPersistedEffectiveName(
+    state.effectiveBotOpeningMoveName,
+  );
+}
+
+void _controllerNormalizePersistedOpeningSelection(
+  ChessBoardController controller,
+) {
+  final selectedOpeningMoves = _normalizedOpeningMoveList(
+    controller._selectedOpeningMoves,
+  );
+
+  controller._selectedOpeningMoves
+    ..clear()
+    ..addAll(selectedOpeningMoves);
+
+  if (selectedOpeningMoves.length >= 2) {
+    controller._botOpeningMove = BotOpeningMove.random;
+    controller._resolvedRandomOpeningMove = null;
+    return;
+  }
+
+  if (selectedOpeningMoves.length == 1) {
+    controller._botOpeningMove = selectedOpeningMoves.first;
+    controller._resolvedRandomOpeningMove = null;
+    return;
+  }
+
+  if (controller._botOpeningMove != BotOpeningMove.random) {
+    controller._resolvedRandomOpeningMove = null;
+  }
+}
+
+BotOpeningMove _persistedBotOpeningMove({
+  required BotOpeningMove botOpeningMove,
+  required List<BotOpeningMove> selectedOpeningMoves,
+}) {
+  if (selectedOpeningMoves.length >= 2) {
+    return BotOpeningMove.random;
+  }
+
+  if (selectedOpeningMoves.length == 1) {
+    return selectedOpeningMoves.first;
+  }
+
+  return botOpeningMove;
+}
+
+List<BotOpeningMove> _normalizedOpeningMoveList(
+  Iterable<BotOpeningMove> openingMoves,
+) {
+  final normalizedOpeningMoves = <BotOpeningMove>[];
+
+  for (final openingMove in openingMoves) {
+    if (!openingMove.isRealOpening) {
+      continue;
+    }
+
+    if (normalizedOpeningMoves.contains(openingMove)) {
+      continue;
+    }
+
+    normalizedOpeningMoves.add(openingMove);
+  }
+
+  return normalizedOpeningMoves;
+}
+
+String _encodePersistedOpeningSelection(
+  List<BotOpeningMove> openingMoves,
+) {
+  final encodedOpeningMoves = _encodeOpeningMoves(
+    _normalizedOpeningMoveList(openingMoves),
+  );
+
+  if (encodedOpeningMoves.isEmpty) {
+    return '';
+  }
+
+  return '$_persistedOpeningSelectionPrefix$encodedOpeningMoves';
+}
+
+List<BotOpeningMove> _openingMoveListFromPersistedEffectiveName(
+  String effectiveOpeningMoveName,
+) {
+  if (!effectiveOpeningMoveName.startsWith(_persistedOpeningSelectionPrefix)) {
+    return <BotOpeningMove>[];
+  }
+
+  return _normalizedOpeningMoveList(
+    _openingMoveListFromNames(
+      effectiveOpeningMoveName.substring(
+        _persistedOpeningSelectionPrefix.length,
+      ),
+    ),
+  );
+}
+
 String _encodeOpeningMoves(List<BotOpeningMove> openingMoves) {
   return openingMoves.map((openingMove) => openingMove.name).join(',');
 }
@@ -443,7 +692,9 @@ BotOpeningMove _openingMoveFromName(String name) {
 }
 
 BotOpeningMove? _openingMoveFromNameOrNull(String name) {
-  if (name.isEmpty || name == BotOpeningMove.random.name) {
+  if (name.isEmpty ||
+      name == BotOpeningMove.random.name ||
+      name.startsWith(_persistedOpeningSelectionPrefix)) {
     return null;
   }
 
@@ -507,3 +758,4 @@ int _normalizedCpLossSwitchFullMoveNumber(int fullMoveNumber) {
 
   return 11;
 }
+

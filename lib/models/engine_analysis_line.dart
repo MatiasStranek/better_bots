@@ -108,6 +108,10 @@ class EngineAnalysisLine {
     );
   }
 
+  static String fallbackShortMoveFromUci(String uciMove) {
+    return _fallbackShortMoveFromUci(uciMove);
+  }
+
   static String _fallbackShortMoveFromUci(String uciMove) {
     if (uciMove.length < 4 || uciMove == '(none)') {
       return uciMove;
@@ -136,3 +140,4 @@ class EngineAnalysisLine {
         ')';
   }
 }
+

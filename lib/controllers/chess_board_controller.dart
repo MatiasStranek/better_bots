@@ -370,6 +370,10 @@ class ChessBoardController extends ChangeNotifier {
 
   void stepMainLineForward() => _controllerStepMainLineForward(this);
 
+  void jumpMainLineToStart() => _controllerJumpMainLineToStart(this);
+
+  void jumpMainLineToEnd() => _controllerJumpMainLineToEnd(this);
+
   Future<void> jumpToMainLinePly(int ply) {
     return _controllerJumpToMainLinePly(this, ply);
   }

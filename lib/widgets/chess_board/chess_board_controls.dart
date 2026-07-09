@@ -44,6 +44,8 @@ class ChessBoardControls extends StatelessWidget {
     required this.onToggleAnalysisMode,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
+    required this.onAnalysisBackToStart,
+    required this.onAnalysisForwardToEnd,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
@@ -90,6 +92,8 @@ class ChessBoardControls extends StatelessWidget {
   final VoidCallback onToggleAnalysisMode;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
+  final Future<void> Function() onAnalysisBackToStart;
+  final Future<void> Function() onAnalysisForwardToEnd;
 
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
@@ -1119,11 +1123,17 @@ class ChessBoardControls extends StatelessWidget {
             ),
             OutlinedButton.icon(
               onPressed: canNavigateAnalysisBack ? () => onAnalysisBack() : null,
+              onLongPress:
+                  canNavigateAnalysisBack ? () => onAnalysisBackToStart() : null,
               icon: const Icon(Icons.chevron_left),
               label: const Text('Zurück'),
             ),
             OutlinedButton.icon(
-              onPressed: canNavigateAnalysisForward ? () => onAnalysisForward() : null,
+              onPressed:
+                  canNavigateAnalysisForward ? () => onAnalysisForward() : null,
+              onLongPress: canNavigateAnalysisForward
+                  ? () => onAnalysisForwardToEnd()
+                  : null,
               icon: const Icon(Icons.chevron_right),
               label: const Text('Vor'),
             ),

@@ -376,6 +376,24 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     _controller.stepMainLineForward();
   }
 
+  Future<void> _handleBoardBackToStartButton() async {
+    if (_controller.isAnalysisMode) {
+      await _controller.jumpAnalysisToStart();
+      return;
+    }
+
+    _controller.jumpMainLineToStart();
+  }
+
+  Future<void> _handleBoardForwardToEndButton() async {
+    if (_controller.isAnalysisMode) {
+      await _controller.jumpAnalysisToEnd();
+      return;
+    }
+
+    _controller.jumpMainLineToEnd();
+  }
+
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) {
@@ -515,6 +533,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                       onToggleAnalysisMode: _controller.toggleAnalysisMode,
                       onAnalysisBack: _handleBoardBackButton,
                       onAnalysisForward: _handleBoardForwardButton,
+                      onAnalysisBackToStart: _handleBoardBackToStartButton,
+                      onAnalysisForwardToEnd: _handleBoardForwardToEndButton,
                       onSkillLevelChanged: _controller.setSkillLevel,
                       onUciEloChanged: _controller.setUciElo,
                       onCpLossEloChanged: _controller.setCpLossElo,
