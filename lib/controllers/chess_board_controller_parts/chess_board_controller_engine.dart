@@ -214,13 +214,19 @@ Future<String> _selectMoveWithActiveBotProfile({
       temperature: profile.defaultTemperature,
       topP: profile.defaultTopP,
     );
-  } else {
-    botMove = await botEngine.getBestMoveFromFen(
+  } else if (botEngine is Maia3AndroidMethodChannelEngine) {
+    botMove = await botEngine.getBestMoveFromGame(
+      startFen: controller._normalGameStartFen,
+      moves: moveHistory,
       fen: controller._game.fen,
-      skillLevel: 0,
-      useUciElo: true,
-      uciElo: profile.rating,
-      moveTimeMs: 800,
+      elo: profile.rating,
+      temperature: profile.defaultTemperature,
+      topP: profile.defaultTopP,
+    );
+  } else {
+    throw UnsupportedError(
+      'Für ${profile.displayName} ist auf dieser Plattform noch keine '
+      'Maia-Engine verfügbar.',
     );
   }
 

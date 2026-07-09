@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'chess_engine.dart';
+import 'maia3_android_method_channel_engine.dart';
 import 'maia3_windows_uci_engine.dart';
 import 'noop_chess_engine.dart';
 import 'stockfish_plugin_engine.dart';
@@ -42,6 +43,8 @@ class ChessEngineFactory {
         return Maia3WindowsUciEngine();
 
       case TargetPlatform.android:
+        return Maia3AndroidMethodChannelEngine();
+
       case TargetPlatform.linux:
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:

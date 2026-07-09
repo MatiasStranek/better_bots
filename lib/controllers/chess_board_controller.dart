@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
 import '../engine/chess_engine_factory.dart';
+import '../engine/maia3_android_method_channel_engine.dart';
 import '../engine/maia3_windows_uci_engine.dart';
 import '../data/better_bots_database.dart';
 import '../data/entities/better_bots_app_state_entity.dart';
