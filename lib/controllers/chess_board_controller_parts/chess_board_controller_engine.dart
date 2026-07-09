@@ -16,6 +16,16 @@ void _controllerStart(ChessBoardController controller) {
     controller.notifyListeners();
   });
 
+  controller._botProfileEngineSubscription ??=
+      controller._botProfileEngine.output.listen((line) {
+    if (controller._isDisposed) {
+      return;
+    }
+
+    controller._engineOutput = line;
+    controller.notifyListeners();
+  });
+
   _controllerRestorePersistedStateIfNeeded(controller);
   _safeNotify(controller);
 
@@ -50,94 +60,13 @@ Future<void> _controllerMakeBotMoveIfNeeded(
   var botMoved = false;
 
   try {
-    final openingMove = _getForcedOpeningMove(controller);
+    final activeBotProfile = controller._activeBotProfile;
 
-    if (openingMove != null) {
-      if (controller._isDisposed ||
-          currentSearchGeneration != controller._searchGeneration) {
-        return;
-      }
-
-      botMoved = _applyUciMove(controller, openingMove);
-    } else {
-      final currentFen = controller._game.fen;
-      final effectivePersonality = _controllerEffectiveBotPersonality(
-        controller,
+    if (activeBotProfile != null) {
+      final botMove = await _selectMoveWithActiveBotProfile(
+        controller: controller,
+        profile: activeBotProfile,
       );
-      final effectivePersonalitySource =
-          _controllerEffectiveBotPersonalitySource(controller);
-      final effectiveFritz19Personality =
-          _controllerEffectiveFritz19Personality(controller);
-      final usesFritz19 =
-          effectivePersonalitySource == BotPersonalitySource.fritz19;
-
-      String botMove;
-
-      if (controller._strengthMode == EngineStrengthMode.cpLossElo) {
-        final shouldUseUciEloInsteadOfCpLoss = _shouldUseUciEloInsteadOfCpLoss(
-          controller,
-        );
-
-        if (shouldUseUciEloInsteadOfCpLoss) {
-          botMove = await _selectMoveWithUciEloAfterCpLossSwitch(
-            controller: controller,
-            fen: currentFen,
-            personality: effectivePersonality,
-          );
-        } else {
-          botMove = await _selectMoveWithCpLossElo(
-            controller: controller,
-            fen: currentFen,
-            personality: effectivePersonality,
-          );
-        }
-      } else if (!usesFritz19 &&
-          effectivePersonality == BotPersonality.none) {
-        botMove = await controller._engine.getBestMoveFromFen(
-          fen: currentFen,
-          skillLevel: controller._skillLevel,
-          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-          uciElo: controller._uciElo,
-          moveTimeMs: 800,
-        );
-      } else {
-        final candidates = await controller._engine.getMoveCandidatesFromFen(
-          fen: currentFen,
-          skillLevel: controller._skillLevel,
-          useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-          uciElo: controller._uciElo,
-          candidateCount: controller._personaCandidateCount,
-          moveTimeMs: 800,
-        );
-
-        if (usesFritz19) {
-          final selection = const Fritz19MoveSelector().selectMove(
-            fen: currentFen,
-            candidates: candidates,
-            personality: effectiveFritz19Personality,
-            skillLevel: controller._skillLevel,
-            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-            uciElo: controller._uciElo,
-          );
-
-          botMove = selection.uciMove;
-          controller._engineOutput = selection.debugText;
-        } else {
-          botMove = const PersonaMoveSelector().selectMove(
-            fen: currentFen,
-            candidates: candidates,
-            personality: effectivePersonality,
-            skillLevel: controller._skillLevel,
-            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
-            uciElo: controller._uciElo,
-          );
-
-          controller._engineOutput =
-              'Chessiverse: ${effectivePersonality.label} | '
-              'Kandidaten: ${controller._personaCandidateCount} | '
-              'Zug: $botMove';
-        }
-      }
 
       if (controller._isDisposed ||
           currentSearchGeneration != controller._searchGeneration) {
@@ -145,6 +74,102 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       }
 
       botMoved = _applyUciMove(controller, botMove);
+    } else {
+      final openingMove = _getForcedOpeningMove(controller);
+
+      if (openingMove != null) {
+        if (controller._isDisposed ||
+            currentSearchGeneration != controller._searchGeneration) {
+          return;
+        }
+
+        botMoved = _applyUciMove(controller, openingMove);
+      } else {
+        final currentFen = controller._game.fen;
+        final effectivePersonality = _controllerEffectiveBotPersonality(
+          controller,
+        );
+        final effectivePersonalitySource =
+            _controllerEffectiveBotPersonalitySource(controller);
+        final effectiveFritz19Personality =
+            _controllerEffectiveFritz19Personality(controller);
+        final usesFritz19 =
+            effectivePersonalitySource == BotPersonalitySource.fritz19;
+
+        String botMove;
+
+        if (controller._strengthMode == EngineStrengthMode.cpLossElo) {
+          final shouldUseUciEloInsteadOfCpLoss =
+              _shouldUseUciEloInsteadOfCpLoss(controller);
+
+          if (shouldUseUciEloInsteadOfCpLoss) {
+            botMove = await _selectMoveWithUciEloAfterCpLossSwitch(
+              controller: controller,
+              fen: currentFen,
+              personality: effectivePersonality,
+            );
+          } else {
+            botMove = await _selectMoveWithCpLossElo(
+              controller: controller,
+              fen: currentFen,
+              personality: effectivePersonality,
+            );
+          }
+        } else if (!usesFritz19 &&
+            effectivePersonality == BotPersonality.none) {
+          botMove = await controller._engine.getBestMoveFromFen(
+            fen: currentFen,
+            skillLevel: controller._skillLevel,
+            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+            uciElo: controller._uciElo,
+            moveTimeMs: 800,
+          );
+        } else {
+          final candidates = await controller._engine.getMoveCandidatesFromFen(
+            fen: currentFen,
+            skillLevel: controller._skillLevel,
+            useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+            uciElo: controller._uciElo,
+            candidateCount: controller._personaCandidateCount,
+            moveTimeMs: 800,
+          );
+
+          if (usesFritz19) {
+            final selection = const Fritz19MoveSelector().selectMove(
+              fen: currentFen,
+              candidates: candidates,
+              personality: effectiveFritz19Personality,
+              skillLevel: controller._skillLevel,
+              useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+              uciElo: controller._uciElo,
+            );
+
+            botMove = selection.uciMove;
+            controller._engineOutput = selection.debugText;
+          } else {
+            botMove = const PersonaMoveSelector().selectMove(
+              fen: currentFen,
+              candidates: candidates,
+              personality: effectivePersonality,
+              skillLevel: controller._skillLevel,
+              useUciElo: controller._strengthMode == EngineStrengthMode.uciElo,
+              uciElo: controller._uciElo,
+            );
+
+            controller._engineOutput =
+                'Chessiverse: ${effectivePersonality.label} | '
+                'Kandidaten: ${controller._personaCandidateCount} | '
+                'Zug: $botMove';
+          }
+        }
+
+        if (controller._isDisposed ||
+            currentSearchGeneration != controller._searchGeneration) {
+          return;
+        }
+
+        botMoved = _applyUciMove(controller, botMove);
+      }
     }
   } catch (e) {
     if (controller._isDisposed ||
@@ -167,6 +192,41 @@ Future<void> _controllerMakeBotMoveIfNeeded(
       botMoved) {
     await _tryPlayNextPremoveIfPossible(controller);
   }
+}
+
+
+Future<String> _selectMoveWithActiveBotProfile({
+  required ChessBoardController controller,
+  required BotProfile profile,
+}) async {
+  final botEngine = controller._botProfileEngine;
+  final moveHistory = controller._normalGameMoves
+      .map((move) => move.toString())
+      .toList(growable: false);
+
+  String botMove;
+
+  if (botEngine is Maia3WindowsUciEngine) {
+    botMove = await botEngine.getBestMoveFromGame(
+      startFen: controller._normalGameStartFen,
+      moves: moveHistory,
+      elo: profile.rating,
+      temperature: profile.defaultTemperature,
+      topP: profile.defaultTopP,
+    );
+  } else {
+    botMove = await botEngine.getBestMoveFromFen(
+      fen: controller._game.fen,
+      skillLevel: 0,
+      useUciElo: true,
+      uciElo: profile.rating,
+      moveTimeMs: 800,
+    );
+  }
+
+  controller._engineOutput = '${profile.displayName} | Zug: $botMove';
+
+  return botMove;
 }
 
 Future<String> _selectMoveWithCpLossElo({

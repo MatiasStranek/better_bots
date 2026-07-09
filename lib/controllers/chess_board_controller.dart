@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../engine/chess_engine.dart';
 import '../engine/chess_engine_factory.dart';
+import '../engine/maia3_windows_uci_engine.dart';
 import '../data/better_bots_database.dart';
 import '../data/entities/better_bots_app_state_entity.dart';
 import '../engine/personality/cp_loss_move_selector.dart';
@@ -49,17 +50,22 @@ class ChessBoardController extends ChangeNotifier {
   ChessBoardController({
     ChessEngine? engine,
     ChessEngine? analysisEngine,
+    ChessEngine? botProfileEngine,
     PromotionChoiceCallback? onPromotionChoiceRequested,
   }) : _engine = engine ?? ChessEngineFactory.createDefaultEngine(),
        _analysisEngine = analysisEngine ?? ChessEngineFactory.createDefaultEngine(),
+       _botProfileEngine =
+           botProfileEngine ?? ChessEngineFactory.createBotProfileEngine(),
        _onPromotionChoiceRequested = onPromotionChoiceRequested;
 
   final chess.Chess _game = chess.Chess();
   final ChessEngine _engine;
   final ChessEngine _analysisEngine;
+  final ChessEngine _botProfileEngine;
   final PromotionChoiceCallback? _onPromotionChoiceRequested;
 
   StreamSubscription<String>? _engineSubscription;
+  StreamSubscription<String>? _botProfileEngineSubscription;
 
   PlayerSide _playerSide = PlayerSide.white;
 
@@ -486,8 +492,10 @@ class ChessBoardController extends ChangeNotifier {
     _isDisposed = true;
     _analysisGeneration++;
     _engineSubscription?.cancel();
+    _botProfileEngineSubscription?.cancel();
     unawaited(_engine.stop());
     unawaited(_analysisEngine.stop());
+    unawaited(_botProfileEngine.stop());
     super.dispose();
   }
 

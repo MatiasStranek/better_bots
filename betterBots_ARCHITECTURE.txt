@@ -3,6 +3,8 @@
 * Windows: markiert jedes Feld über das man beim drag hovered
 * correcting premoves
 
+* changing hardcode maia to native code
+
 BUG SECTION:
 	* Android: Engine deactivated when tapping backbutton
 	(* Android: Laggs by drag shadow view)
@@ -41,11 +43,6 @@ BUG SECTION:
 * adding feedback for random functions
 
 * add multiple selection for Openings and Personalities
-
-* bigger Pieces
-* Schlagschatten auf Figuren
-* hitbox on complete field
-* better UserInterface
 
 ( * add UCI_ELO 1320 -3190 Bots (10er)
 * -1 Elo Bot plays Random

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'chess_engine.dart';
+import 'maia3_windows_uci_engine.dart';
 import 'noop_chess_engine.dart';
 import 'stockfish_plugin_engine.dart';
 import 'stockfish_windows_engine.dart';
@@ -30,7 +31,27 @@ class ChessEngineFactory {
     }
   }
 
+
+  static ChessEngine createBotProfileEngine() {
+    if (kIsWeb) {
+      return NoopChessEngine();
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.windows:
+        return Maia3WindowsUciEngine();
+
+      case TargetPlatform.android:
+      case TargetPlatform.linux:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.fuchsia:
+        return NoopChessEngine();
+    }
+  }
+
   static ChessEngine createMobileEngine() {
     return createDefaultEngine();
   }
 }
+
