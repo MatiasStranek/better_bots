@@ -846,7 +846,14 @@ class MobileChessSideMenu extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 6),
-                const Center(child: FlutterLogo(size: 72)),
+                Center(
+                  child: Image.asset(
+                    'assets/icons/sidebar_icon.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                ),
                 const SizedBox(height: 14),
                 const Center(
                   child: Text(
@@ -1075,4 +1082,3 @@ class _SideMenuButton extends StatelessWidget {
     );
   }
 }
-
