@@ -107,6 +107,11 @@ class MobileChessGameInfoPanel extends StatelessWidget {
               label: 'Bot',
               value: activeBotProfile.displayName,
             ),
+            if (effectiveBotOpeningMove.isRealOpening)
+              _GameInfoRowData(
+                label: 'Eröffnung',
+                value: effectiveBotOpeningMove.label,
+              ),
           ];
 
     return ClipRRect(
@@ -176,4 +181,3 @@ class _GameInfoRowData {
   final String label;
   final String value;
 }
-

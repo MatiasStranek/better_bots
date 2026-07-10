@@ -26,6 +26,11 @@ class StockfishWindowsEngine implements ChessEngine {
 
   int _analysisRequestedMultiPv = 5;
   int _lastEmittedAnalysisDepth = 0;
+
+  /// Stockfish liefert UCI-Analyse-Scores aus Sicht der Seite am Zug.
+  /// Für die UI normalisieren wir Analysewerte auf Weiß-Sicht:
+  /// positiv = Weiß steht besser, negativ = Schwarz steht besser.
+  int _analysisScoreSign = 1;
   int _searchCancelGeneration = 0;
 
   final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
@@ -223,6 +228,7 @@ class StockfishWindowsEngine implements ChessEngine {
 
     final safeMultiPv = multiPv.clamp(1, 5).toInt();
     final safeDepth = depth.clamp(1, 20).toInt();
+    _analysisScoreSign = _analysisScoreSignFromFen(fen);
 
     _sendCommand('setoption name UCI_LimitStrength value false');
     _sendCommand('setoption name Skill Level value 20');
@@ -430,9 +436,9 @@ class StockfishWindowsEngine implements ChessEngine {
       final scoreValue = int.tryParse(parts[scoreIndex + 2]);
 
       if (scoreType == 'cp') {
-        scoreCp = scoreValue;
+        scoreCp = _analysisScoreCpFromEngine(scoreValue);
       } else if (scoreType == 'mate') {
-        mate = scoreValue;
+        mate = _analysisMateFromEngine(scoreValue);
       }
     }
 
@@ -444,6 +450,39 @@ class StockfishWindowsEngine implements ChessEngine {
       uciMove: pv.first,
       pv: pv,
     );
+  }
+
+
+  int _analysisScoreSignFromFen(String fen) {
+    final trimmedFen = fen.trim();
+
+    if (trimmedFen.isEmpty || trimmedFen == 'startpos') {
+      return 1;
+    }
+
+    final parts = trimmedFen.split(RegExp(r'\s+'));
+
+    if (parts.length >= 2 && parts[1] == 'b') {
+      return -1;
+    }
+
+    return 1;
+  }
+
+  int? _analysisScoreCpFromEngine(int? scoreCp) {
+    if (scoreCp == null) {
+      return null;
+    }
+
+    return scoreCp * _analysisScoreSign;
+  }
+
+  int? _analysisMateFromEngine(int? mate) {
+    if (mate == null) {
+      return null;
+    }
+
+    return mate * _analysisScoreSign;
   }
 
   int _mateScoreToCentipawns(int mateScore) {
