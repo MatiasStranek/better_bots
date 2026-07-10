@@ -60,30 +60,30 @@ Future<void> _controllerMakeBotMoveIfNeeded(
   var botMoved = false;
 
   try {
-    final activeBotProfile = controller._activeBotProfile;
+    final openingMove = _getForcedOpeningMove(controller);
 
-    if (activeBotProfile != null) {
-      final botMove = await _selectMoveWithActiveBotProfile(
-        controller: controller,
-        profile: activeBotProfile,
-      );
-
+    if (openingMove != null) {
       if (controller._isDisposed ||
           currentSearchGeneration != controller._searchGeneration) {
         return;
       }
 
-      botMoved = _applyUciMove(controller, botMove);
+      botMoved = _applyUciMove(controller, openingMove);
     } else {
-      final openingMove = _getForcedOpeningMove(controller);
+      final activeBotProfile = controller._activeBotProfile;
 
-      if (openingMove != null) {
+      if (activeBotProfile != null) {
+        final botMove = await _selectMoveWithActiveBotProfile(
+          controller: controller,
+          profile: activeBotProfile,
+        );
+
         if (controller._isDisposed ||
             currentSearchGeneration != controller._searchGeneration) {
           return;
         }
 
-        botMoved = _applyUciMove(controller, openingMove);
+        botMoved = _applyUciMove(controller, botMove);
       } else {
         final currentFen = controller._game.fen;
         final effectivePersonality = _controllerEffectiveBotPersonality(
@@ -546,6 +546,3 @@ bool _applyUciMove(ChessBoardController controller, String uciMove) {
 
   return true;
 }
-
-
-

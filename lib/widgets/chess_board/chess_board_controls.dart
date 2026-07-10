@@ -1275,7 +1275,7 @@ class ChessBoardControls extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed:
-                  settingsControlsEnabled ? () => _showOpeningDialog(context) : null,
+                  normalControlsEnabled ? () => _showOpeningDialog(context) : null,
               child: Text(_openingButtonText),
             ),
             ElevatedButton(
@@ -1383,4 +1383,3 @@ class _PersonalityDialogLabel extends StatelessWidget {
     return Text(isSelected ? '✓ ${personality.label}' : personality.label);
   }
 }
-

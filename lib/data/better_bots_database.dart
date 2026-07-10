@@ -334,14 +334,18 @@ class BetterBotsDatabase {
     final botProfile = activeBotProfile;
 
     if (botProfile != null) {
-      final canonicalKey = 'bot=${botProfile.id}';
+      final hasOpening = effectiveOpeningMove.isRealOpening;
+      final canonicalKey = hasOpening
+          ? 'bot=${botProfile.id}|opening=${effectiveOpeningMove.name}'
+          : 'bot=${botProfile.id}';
 
       return TrainingCounterKey(
         keyHash: _fnv1a64Hex(canonicalKey),
         canonicalKey: canonicalKey,
         strengthModeName: 'bot',
         strengthValue: botProfile.rating,
-        effectiveOpeningName: botProfile.id,
+        effectiveOpeningName:
+            hasOpening ? effectiveOpeningMove.name : botProfile.id,
         personalitySourceName: 'bot',
         effectivePersonalityName: botProfile.displayName,
         personaCandidateCount: -1,
@@ -423,5 +427,3 @@ class BetterBotsDatabase {
     return hash.toRadixString(16).padLeft(16, '0');
   }
 }
-
-

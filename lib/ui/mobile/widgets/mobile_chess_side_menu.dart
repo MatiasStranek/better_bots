@@ -885,7 +885,7 @@ class MobileChessSideMenu extends StatelessWidget {
                           label: 'Eröffnung',
                           value: _openingButtonText,
                           onTap: () => _showOpeningDialog(context),
-                          isEnabled: settingsControlsEnabled,
+                          isEnabled: isEnabled,
                         ),
                         _SideMenuButton(
                           icon: Icons.psychology,
