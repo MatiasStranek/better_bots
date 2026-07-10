@@ -429,7 +429,15 @@ class AnalysisSession {
       ..sort((a, b) => a.rank.compareTo(b.rank));
 
     return sortedLines.map((line) {
-      return line.copyWith(shortMove: _shortMoveFromUci(fen, line.uciMove));
+      final existingShortMove = line.shortMove?.trim();
+
+      if (existingShortMove != null && existingShortMove.isNotEmpty) {
+        return line;
+      }
+
+      return line.copyWith(
+        shortMove: _shortMoveFromUci(fen, line.uciMove),
+      );
     }).toList(growable: false);
   }
 

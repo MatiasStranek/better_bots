@@ -1,0 +1,1630 @@
+
+===== lib\controllers\chess_board_controller_parts\chess_board_controller_analysis.dart =====
+
+part of chess_board_controller;
+
+const int _analysisMultiPv = 5;
+const int _analysisDepth = 20;
+
+int _effectiveAnalysisMultiPvForFen(String fen) {
+  final analysisGame = chess.Chess();
+
+  try {
+    final loaded = analysisGame.load(fen);
+
+    if (!loaded) {
+      return _analysisMultiPv;
+    }
+  } catch (_) {
+    return _analysisMultiPv;
+  }
+
+  final legalMoveCount = analysisGame.moves().length;
+
+  if (legalMoveCount <= 0) {
+    return 1;
+  }
+
+  return legalMoveCount.clamp(1, _analysisMultiPv).toInt();
+}
+
+
+List<EngineAnalysisLine> _analysisLinesWithDisplayMoves(
+  String fen,
+  List<EngineAnalysisLine> lines,
+) {
+  if (lines.isEmpty) {
+    return lines;
+  }
+
+  final game = chess.Chess();
+
+  try {
+    if (!game.load(fen)) {
+      return lines;
+    }
+  } catch (_) {
+    return lines;
+  }
+
+  return [
+    for (final line in lines)
+      line.copyWith(
+        shortMove: _analysisMoveDisplayFromFenGame(
+          game: game,
+          fen: fen,
+          uciMove: line.uciMove,
+        ),
+      ),
+  ];
+}
+
+String _analysisMoveDisplayFromFenGame({
+  required chess.Chess game,
+  required String fen,
+  required String uciMove,
+}) {
+  if (uciMove.length < 4 || uciMove == '(none)') {
+    return uciMove;
+  }
+
+  final from = uciMove.substring(0, 2);
+  final to = uciMove.substring(2, 4);
+  final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+  final piece = game.get(from);
+
+  if (piece == null) {
+    return EngineAnalysisLine.fallbackShortMoveFromUci(uciMove);
+  }
+
+  final pieceLetter = _analysisPieceLetter(piece);
+  final isPawn = pieceLetter.isEmpty;
+  final targetPiece = game.get(to);
+  final isCapture = targetPiece != null || (isPawn && from[0] != to[0]);
+  final suffix = _analysisCheckSuffixAfterMove(
+    fen: fen,
+    from: from,
+    to: to,
+    promotion: promotion,
+  );
+
+  if (pieceLetter == 'K' && _analysisIsCastlingMove(from: from, to: to)) {
+    return '${to[0] == 'g' ? 'O-O' : 'O-O-O'}$suffix';
+  }
+
+  final promotionText = promotion.isEmpty ? '' : '=${promotion.toUpperCase()}';
+
+  if (isPawn) {
+    final capturePrefix = isCapture ? '${from[0]}x' : '';
+    return '$capturePrefix$to$promotionText$suffix';
+  }
+
+  final disambiguation = _analysisMoveDisambiguation(
+    game: game,
+    from: from,
+    to: to,
+    piece: piece,
+  );
+  final captureText = isCapture ? 'x' : '';
+
+  return '$pieceLetter$disambiguation$captureText$to$promotionText$suffix';
+}
+
+bool _analysisIsCastlingMove({required String from, required String to}) {
+  return (from == 'e1' && (to == 'g1' || to == 'c1')) ||
+      (from == 'e8' && (to == 'g8' || to == 'c8'));
+}
+
+String _analysisMoveDisambiguation({
+  required chess.Chess game,
+  required String from,
+  required String to,
+  required chess.Piece piece,
+}) {
+  final ambiguousFromSquares = <String>[];
+
+  for (final square in _analysisAllSquares()) {
+    if (square == from) {
+      continue;
+    }
+
+    final otherPiece = game.get(square);
+
+    if (otherPiece == null ||
+        otherPiece.color != piece.color ||
+        _analysisPieceTypeKey(otherPiece) != _analysisPieceTypeKey(piece)) {
+      continue;
+    }
+
+    if (_analysisCanMoveFromTo(game: game, from: square, to: to)) {
+      ambiguousFromSquares.add(square);
+    }
+  }
+
+  if (ambiguousFromSquares.isEmpty) {
+    return '';
+  }
+
+  final fromFile = from[0];
+  final fromRank = from[1];
+  final sameFileExists = ambiguousFromSquares.any((square) => square[0] == fromFile);
+  final sameRankExists = ambiguousFromSquares.any((square) => square[1] == fromRank);
+
+  if (!sameFileExists) {
+    return fromFile;
+  }
+
+  if (!sameRankExists) {
+    return fromRank;
+  }
+
+  return from;
+}
+
+bool _analysisCanMoveFromTo({
+  required chess.Chess game,
+  required String from,
+  required String to,
+}) {
+  final moves = game.moves({'square': from, 'verbose': true});
+
+  for (final move in moves) {
+    if (move is chess.Move) {
+      if (move.toAlgebraic == to) {
+        return true;
+      }
+    } else if (move is Map && move['to'] == to) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+String _analysisCheckSuffixAfterMove({
+  required String fen,
+  required String from,
+  required String to,
+  required String promotion,
+}) {
+  final game = chess.Chess();
+
+  try {
+    if (!game.load(fen)) {
+      return '';
+    }
+  } catch (_) {
+    return '';
+  }
+
+  final moveData = <String, String>{'from': from, 'to': to};
+
+  if (promotion.isNotEmpty) {
+    moveData['promotion'] = promotion;
+  }
+
+  final moved = game.move(moveData);
+
+  if (!moved) {
+    return '';
+  }
+
+  if (game.in_checkmate) {
+    return '#';
+  }
+
+  if (game.in_check) {
+    return '+';
+  }
+
+  return '';
+}
+
+Iterable<String> _analysisAllSquares() sync* {
+  for (var file = 0; file < 8; file++) {
+    for (var rank = 1; rank <= 8; rank++) {
+      yield '${String.fromCharCode('a'.codeUnitAt(0) + file)}$rank';
+    }
+  }
+}
+
+String _analysisPieceLetter(chess.Piece piece) {
+  final typeKey = _analysisPieceTypeKey(piece);
+
+  switch (typeKey) {
+    case 'n':
+      return 'N';
+    case 'b':
+      return 'B';
+    case 'r':
+      return 'R';
+    case 'q':
+      return 'Q';
+    case 'k':
+      return 'K';
+    default:
+      return '';
+  }
+}
+
+String _analysisPieceTypeKey(chess.Piece piece) {
+  final typeText = piece.type.toString().toLowerCase();
+
+  if (typeText == 'p' ||
+      typeText.endsWith('.p') ||
+      typeText.contains('pawn')) {
+    return 'p';
+  }
+
+  if (typeText == 'n' ||
+      typeText.endsWith('.n') ||
+      typeText.contains('knight')) {
+    return 'n';
+  }
+
+  if (typeText == 'b' ||
+      typeText.endsWith('.b') ||
+      typeText.contains('bishop')) {
+    return 'b';
+  }
+
+  if (typeText == 'r' ||
+      typeText.endsWith('.r') ||
+      typeText.contains('rook')) {
+    return 'r';
+  }
+
+  if (typeText == 'q' ||
+      typeText.endsWith('.q') ||
+      typeText.contains('queen')) {
+    return 'q';
+  }
+
+  if (typeText == 'k' ||
+      typeText.endsWith('.k') ||
+      typeText.contains('king')) {
+    return 'k';
+  }
+
+  return typeText;
+}
+
+void _controllerToggleAnalysisMode(ChessBoardController controller) {
+  if (controller._analysisSession == null) {
+    if (!controller.canStartAnalysisMode) {
+      return;
+    }
+
+    _controllerStartAnalysisMode(controller);
+    return;
+  }
+
+  _controllerStopAnalysisMode(controller);
+}
+
+void _controllerStartAnalysisMode(ChessBoardController controller) {
+  if (!controller.canStartAnalysisMode) {
+    return;
+  }
+
+  final initialPly = _controllerCurrentMainLinePly(controller);
+  controller._normalReviewPlyBeforeAnalysis = controller._normalReviewPly;
+  controller._analysisMainLinePly = initialPly;
+
+  controller._searchGeneration++;
+  controller._analysisGeneration++;
+  controller._isBotThinking = false;
+  controller._selectedSquare = null;
+  controller._premoves.clear();
+
+  if (!(controller._game.game_over ||
+      controller._game.in_checkmate ||
+      controller._game.in_stalemate ||
+      controller._game.in_draw)) {
+    controller._analysisUsedDuringCurrentGame = true;
+  }
+
+  try {
+    controller._analysisSession = AnalysisSession(
+      startFen: controller._normalGameStartFen,
+      initialMoves: controller._normalGameMoves,
+      initialPly: initialPly,
+    )..statusText = controller._normalGameMoves.isEmpty
+        ? 'Analysemodus aktiv. Startposition übernommen.'
+        : 'Analysemodus aktiv. Ganze Partie geladen: '
+            '${controller._normalGameMoves.length} Halbzüge verfügbar. '
+            'Start bei Halbzug $initialPly.';
+  } catch (e) {
+    controller._analysisSession = null;
+    controller._normalReviewPlyBeforeAnalysis = null;
+    controller._analysisMainLinePly = null;
+    controller._engineOutput = 'Analyse konnte nicht gestartet werden: $e';
+    _safeNotify(controller);
+    return;
+  }
+
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+void _controllerStopAnalysisMode(ChessBoardController controller) {
+  controller._analysisGeneration++;
+  controller._analysisSession = null;
+  controller._analysisSearchQueued = false;
+  controller._analysisSearchInFlight = false;
+  controller._selectedSquare = null;
+  controller._premoves.clear();
+
+  controller._normalReviewPly = controller._normalReviewPlyBeforeAnalysis;
+  controller._normalReviewPlyBeforeAnalysis = null;
+  controller._analysisMainLinePly = null;
+
+  unawaited(controller._analysisEngine.cancelSearch());
+
+  _safeNotify(controller);
+}
+
+Future<void> _controllerStepAnalysisBack(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final stepped = session.stepBack();
+
+  if (!stepped) {
+    return;
+  }
+
+  controller._analysisMainLinePly = _clampMainLinePly(
+    controller,
+    (controller._analysisMainLinePly ?? controller._normalGameMoves.length) - 1,
+  );
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+
+Future<void> _controllerStepAnalysisForward(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final stepped = session.stepForward();
+
+  if (!stepped) {
+    return;
+  }
+
+  controller._analysisMainLinePly = _clampMainLinePly(
+    controller,
+    (controller._analysisMainLinePly ?? 0) + 1,
+  );
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+
+Future<void> _controllerJumpAnalysisToStart(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final jumped = session.jumpToStart();
+
+  if (!jumped) {
+    return;
+  }
+
+  controller._analysisMainLinePly = 0;
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+
+Future<void> _controllerJumpAnalysisToEnd(
+  ChessBoardController controller,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return;
+  }
+
+  final jumped = session.jumpToEnd();
+
+  if (!jumped) {
+    return;
+  }
+
+  controller._analysisMainLinePly = controller._normalGameMoves.length;
+  controller._selectedSquare = null;
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+}
+
+
+Future<void> _controllerOnAnalysisSquareTap(
+  ChessBoardController controller,
+  String square,
+) async {
+  final session = controller._analysisSession;
+
+  if (session == null || session.isGameOver) {
+    return;
+  }
+
+  final piece = session.pieceAt(square);
+
+  if (controller._selectedSquare == null) {
+    if (piece == null || piece.color != session.analysisGame.turn) {
+      return;
+    }
+
+    _controllerSelectSquare(controller, square);
+    return;
+  }
+
+  if (controller._selectedSquare == square) {
+    _controllerClearSelectedSquare(controller);
+    return;
+  }
+
+  final from = controller._selectedSquare!;
+  final moved = await _controllerTryAnalysisMove(
+    controller,
+    from: from,
+    to: square,
+  );
+
+  if (moved) {
+    return;
+  }
+
+  if (piece != null && piece.color == session.analysisGame.turn) {
+    _controllerSelectSquare(controller, square);
+    return;
+  }
+
+  _controllerClearSelectedSquare(controller);
+}
+
+Future<bool> _controllerTryAnalysisMove(
+  ChessBoardController controller, {
+  required String from,
+  required String to,
+  String? promotion,
+}) async {
+  final session = controller._analysisSession;
+
+  if (session == null || session.isGameOver) {
+    return false;
+  }
+
+  final selectedPromotion = await _promotionForAnalysisMoveIfNeeded(
+    controller,
+    from: from,
+    to: to,
+    promotion: promotion,
+  );
+
+  if (selectedPromotion == null) {
+    _controllerClearSelectedSquare(controller);
+    return false;
+  }
+
+  final moved = session.playMove(
+    from: from,
+    to: to,
+    promotion: selectedPromotion.isEmpty ? null : selectedPromotion,
+  );
+
+  if (!moved) {
+    return false;
+  }
+
+  controller._selectedSquare = null;
+
+  _safeNotify(controller);
+  _requestAnalysisForCurrentPosition(controller);
+
+  return true;
+}
+
+Future<String?> _promotionForAnalysisMoveIfNeeded(
+  ChessBoardController controller, {
+  required String from,
+  required String to,
+  String? promotion,
+}) async {
+  final session = controller._analysisSession;
+
+  if (session == null) {
+    return null;
+  }
+
+  final piece = session.pieceAt(from);
+
+  if (piece == null || !_isPawn(piece)) {
+    return '';
+  }
+
+  final targetRank = to.substring(1, 2);
+  final isPromotion = piece.color == chess.Color.WHITE
+      ? targetRank == '8'
+      : targetRank == '1';
+
+  if (!isPromotion) {
+    return '';
+  }
+
+  if (promotion != null && promotion.isNotEmpty) {
+    return _normalizePromotion(promotion);
+  }
+
+  if (controller._onPromotionChoiceRequested == null) {
+    return 'q';
+  }
+
+  final choice = await controller._onPromotionChoiceRequested!(
+    from: from,
+    to: to,
+    playerSide: piece.color == chess.Color.WHITE
+        ? PlayerSide.white
+        : PlayerSide.black,
+  );
+
+  if (choice == null || choice.isEmpty) {
+    return null;
+  }
+
+  return _normalizePromotion(choice);
+}
+
+void _requestAnalysisForCurrentPosition(ChessBoardController controller) {
+  final session = controller._analysisSession;
+
+  if (session == null || controller._isDisposed) {
+    return;
+  }
+
+  controller._analysisGeneration++;
+
+  if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+    session
+      ..isAnalyzing = false
+      ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+    _safeNotify(controller);
+    return;
+  }
+
+  session
+    ..isAnalyzing = true
+    ..statusText = 'Analyse läuft für ${session.sideToMoveText} am Zug...';
+  _safeNotify(controller);
+
+  if (controller._analysisSearchInFlight) {
+    controller._analysisSearchQueued = true;
+    unawaited(controller._analysisEngine.cancelSearch());
+    return;
+  }
+
+  unawaited(_runQueuedAnalysis(controller));
+}
+
+Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
+  controller._analysisSearchInFlight = true;
+
+  try {
+    while (!controller._isDisposed) {
+      final session = controller._analysisSession;
+
+      if (session == null) {
+        return;
+      }
+
+      if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+        session
+          ..isAnalyzing = false
+          ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+        _safeNotify(controller);
+        return;
+      }
+
+      controller._analysisSearchQueued = false;
+      final generation = controller._analysisGeneration;
+      final fen = session.fen;
+      final effectiveMultiPv = _effectiveAnalysisMultiPvForFen(fen);
+
+      try {
+        final lines = await controller._analysisEngine.analyzePositionFromFen(
+          fen: fen,
+          multiPv: effectiveMultiPv,
+          depth: _analysisDepth,
+          onUpdate: (liveLines) {
+            final currentSession = controller._analysisSession;
+
+            if (currentSession == null ||
+                !identical(currentSession, session) ||
+                currentSession.fen != fen ||
+                generation != controller._analysisGeneration ||
+                controller._isDisposed) {
+              return;
+            }
+
+            currentSession.updateLiveTopLinesForFen(
+              fen: fen,
+              lines: _analysisLinesWithDisplayMoves(fen, liveLines),
+              targetDepth: _analysisDepth,
+            );
+
+            final maxDepth = _maxAnalysisDepth(currentSession.topLines);
+            currentSession.statusText = currentSession
+                    .hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)
+                ? 'Tiefe $_analysisDepth erreicht und gespeichert.'
+                : 'Analyse läuft: aktuelle Tiefe $maxDepth/$_analysisDepth.';
+
+            _safeNotify(controller);
+          },
+        );
+
+        final currentSession = controller._analysisSession;
+
+        if (currentSession == null ||
+            !identical(currentSession, session) ||
+            currentSession.fen != fen ||
+            generation != controller._analysisGeneration ||
+            controller._isDisposed) {
+          if (!controller._analysisSearchQueued) {
+            return;
+          }
+          continue;
+        }
+
+        final displayLines = _analysisLinesWithDisplayMoves(fen, lines);
+
+        session.updateCompletedTopLinesForFen(
+          fen: fen,
+          lines: displayLines,
+          targetDepth: _analysisDepth,
+        );
+
+        final hasCompletedLines = session.hasCompletedLinesForCurrentFen(
+          targetDepth: _analysisDepth,
+        );
+
+        session
+          ..statusText = displayLines.isEmpty
+              ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
+              : hasCompletedLines
+                  ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
+                  : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe ${_maxAnalysisDepth(displayLines)}.'
+          ..isAnalyzing = false;
+
+        _safeNotify(controller);
+      } catch (e) {
+        final currentSession = controller._analysisSession;
+
+        if (currentSession == null ||
+            !identical(currentSession, session) ||
+            currentSession.fen != fen ||
+            generation != controller._analysisGeneration ||
+            controller._isDisposed) {
+          if (!controller._analysisSearchQueued) {
+            return;
+          }
+          continue;
+        }
+
+        session
+          ..isAnalyzing = false
+          ..statusText = 'Analysefehler: $e';
+
+        _safeNotify(controller);
+      }
+
+      if (!controller._analysisSearchQueued) {
+        return;
+      }
+
+      final queuedSession = controller._analysisSession;
+      if (queuedSession != null) {
+        if (queuedSession.hasCompletedLinesForCurrentFen(
+          targetDepth: _analysisDepth,
+        )) {
+          queuedSession
+            ..isAnalyzing = false
+            ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
+        } else {
+          queuedSession
+            ..isAnalyzing = true
+            ..statusText =
+                'Analyse läuft für ${queuedSession.sideToMoveText} am Zug...';
+        }
+
+        _safeNotify(controller);
+      }
+    }
+  } finally {
+    controller._analysisSearchInFlight = false;
+
+    final session = controller._analysisSession;
+    if (session != null && !controller._analysisSearchQueued) {
+      session.isAnalyzing = false;
+      _safeNotify(controller);
+    }
+  }
+}
+
+int _maxAnalysisDepth(List<EngineAnalysisLine> lines) {
+  var maxDepth = 0;
+
+  for (final line in lines) {
+    if (line.depth > maxDepth) {
+      maxDepth = line.depth;
+    }
+  }
+
+  return maxDepth;
+}
+
+
+===== lib\models\analysis_session.dart =====
+
+import 'package:chess/chess.dart' as chess;
+
+import 'board_move.dart';
+import 'engine_analysis_line.dart';
+
+class AnalysisSession {
+  AnalysisSession({
+    required this.startFen,
+    List<BoardMove> initialMoves = const <BoardMove>[],
+    int? initialPly,
+  }) : analysisGame = chess.Chess() {
+    final loaded = analysisGame.load(startFen);
+
+    if (!loaded) {
+      throw ArgumentError.value(startFen, 'startFen', 'Ungültige Analyse-FEN');
+    }
+
+    _analysisMoves.addAll(initialMoves);
+    currentPly = (initialPly ?? _analysisMoves.length)
+        .clamp(0, _analysisMoves.length)
+        .toInt();
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+  }
+
+  /// Ausgangs-FEN der Originalpartie.
+  /// Bei einer normalen Partie ist das die Startstellung; bei einer geladenen
+  /// FEN ist es genau diese geladene FEN. Die aktuelle Stellung entsteht durch
+  /// Replay der Hauptvariante oder des temporären Analysezweigs.
+  final String startFen;
+
+  /// Komplett getrenntes Analysebrett. Dieses Objekt darf nie in _game kopiert
+  /// werden und _game darf nie aus diesem Objekt ersetzt werden.
+  final chess.Chess analysisGame;
+
+  /// Hauptvariante der übernommenen Partie. Diese Liste wird durch temporäre
+  /// Analysezweige nicht mehr überschrieben.
+  final List<BoardMove> _analysisMoves = [];
+
+  /// Temporärer Zweig ab [_branchStartPly]. Der Zweig lebt nur innerhalb der
+  /// Analyse-Session und wird verworfen, sobald man zurück bis zum Abzweigpunkt
+  /// navigiert.
+  final List<BoardMove> _branchMoves = [];
+  int? _branchStartPly;
+
+  /// Fertige Tiefe-20-Analysen pro Analyse-FEN.
+  /// Diese Map lebt nur innerhalb der AnalysisSession und wird beim Verlassen
+  /// des Analysemodus zusammen mit der Session verworfen.
+  final Map<String, List<EngineAnalysisLine>> _completedTopLinesByFen = {};
+
+  int currentPly = 0;
+
+  List<EngineAnalysisLine> topLines = const [];
+
+  bool isAnalyzing = false;
+
+  String statusText = 'Analysemodus aktiv.';
+
+  bool get isBranchActive {
+    return _branchStartPly != null;
+  }
+
+  List<BoardMove> get analysisMoves {
+    return List.unmodifiable(_activeMoves);
+  }
+
+  bool get canStepBack {
+    return currentPly > 0;
+  }
+
+  bool get canStepForward {
+    return currentPly < _activeMoveCount;
+  }
+
+  String get fen {
+    return analysisGame.fen;
+  }
+
+  String get pgn {
+    final currentPgn = analysisGame.pgn();
+    return currentPgn.isEmpty ? '-' : currentPgn;
+  }
+
+  bool get isGameOver {
+    return analysisGame.game_over ||
+        analysisGame.in_checkmate ||
+        analysisGame.in_stalemate ||
+        analysisGame.in_draw;
+  }
+
+  String? get lastFrom {
+    if (currentPly <= 0 || currentPly > _activeMoveCount) {
+      return null;
+    }
+
+    return _activeMoveAt(currentPly - 1).from;
+  }
+
+  String? get lastTo {
+    if (currentPly <= 0 || currentPly > _activeMoveCount) {
+      return null;
+    }
+
+    return _activeMoveAt(currentPly - 1).to;
+  }
+
+  String get sideToMoveText {
+    return analysisGame.turn == chess.Color.WHITE ? 'Weiß' : 'Schwarz';
+  }
+
+  chess.Piece? pieceAt(String square) {
+    return analysisGame.get(square);
+  }
+
+  bool canSelectPiece(String square) {
+    if (isGameOver) {
+      return false;
+    }
+
+    final piece = pieceAt(square);
+
+    if (piece == null) {
+      return false;
+    }
+
+    return piece.color == analysisGame.turn;
+  }
+
+  bool canMoveTo({required String from, required String to}) {
+    if (from == to || isGameOver) {
+      return false;
+    }
+
+    return legalTargetsFromSquare(from).contains(to);
+  }
+
+  List<String> legalTargetsFromSquare(String fromSquare) {
+    final moves = analysisGame.moves({
+      'square': fromSquare,
+      'verbose': true,
+    });
+
+    final targets = <String>[];
+
+    for (final move in moves) {
+      if (move is chess.Move) {
+        targets.add(move.toAlgebraic);
+      } else if (move is Map && move['to'] is String) {
+        targets.add(move['to'] as String);
+      }
+    }
+
+    return targets;
+  }
+
+  bool playMove({required String from, required String to, String? promotion}) {
+    final normalizedPromotion = promotion == null || promotion.isEmpty
+        ? null
+        : promotion.toLowerCase();
+
+    final moveData = <String, String>{'from': from, 'to': to};
+
+    if (normalizedPromotion != null && normalizedPromotion.isNotEmpty) {
+      moveData['promotion'] = normalizedPromotion;
+    }
+
+    final moved = analysisGame.move(moveData);
+
+    if (!moved) {
+      return false;
+    }
+
+    final newMove = BoardMove(
+      from: from,
+      to: to,
+      promotion: normalizedPromotion,
+    );
+
+    if (isBranchActive) {
+      _playMoveInsideBranch(newMove);
+    } else if (currentPly < _analysisMoves.length) {
+      _playMoveFromMainlinePast(newMove);
+    } else {
+      _playMoveFromMainlineEnd(newMove);
+    }
+
+    restoreCompletedLinesForCurrentFen();
+
+    return true;
+  }
+
+  bool stepBack() {
+    if (!canStepBack) {
+      return false;
+    }
+
+    currentPly -= 1;
+
+    final branchStartPly = _branchStartPly;
+    final leftBranch = branchStartPly != null && currentPly <= branchStartPly;
+
+    if (leftBranch) {
+      currentPly = branchStartPly;
+      _clearBranch();
+    }
+
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+
+    if (leftBranch) {
+      statusText = hasCompletedLinesForCurrentFen()
+          ? 'Analysezweig verlassen. Hauptvariante geladen.'
+          : 'Analysezweig verlassen.';
+    } else {
+      statusText = hasCompletedLinesForCurrentFen()
+          ? 'Analyse: einen Zug zurück. Gespeicherte Tiefe-20-Analyse geladen.'
+          : 'Analyse: einen Zug zurück.';
+    }
+
+    return true;
+  }
+
+  bool stepForward() {
+    if (!canStepForward) {
+      return false;
+    }
+
+    currentPly += 1;
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: einen Zug vor. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: einen Zug vor.';
+
+    return true;
+  }
+
+  bool jumpToStart() {
+    if (!canStepBack) {
+      return false;
+    }
+
+    currentPly = 0;
+    _clearBranch();
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: Grundstellung. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: Grundstellung.';
+
+    return true;
+  }
+
+  bool jumpToEnd() {
+    if (!canStepForward) {
+      return false;
+    }
+
+    currentPly = _activeMoveCount;
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    statusText = hasCompletedLinesForCurrentFen()
+        ? 'Analyse: letzter verfügbarer Zug. Gespeicherte Tiefe-20-Analyse geladen.'
+        : 'Analyse: letzter verfügbarer Zug.';
+
+    return true;
+  }
+
+  bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
+    final cachedLines = _completedTopLinesByFen[fen];
+
+    if (cachedLines == null || cachedLines.isEmpty) {
+      return false;
+    }
+
+    return _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth);
+  }
+
+  bool restoreCompletedLinesForCurrentFen({int targetDepth = 20}) {
+    final cachedLines = _completedTopLinesByFen[fen];
+
+    if (cachedLines != null &&
+        cachedLines.isNotEmpty &&
+        _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth)) {
+      topLines = cachedLines;
+      return true;
+    }
+
+    topLines = const [];
+    return false;
+  }
+
+  void updateLiveTopLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+    int targetDepth = 20,
+  }) {
+    if (fen != this.fen) {
+      return;
+    }
+
+    final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
+
+    topLines = List.unmodifiable(sortedLines.take(5));
+
+    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
+      _completedTopLinesByFen[fen] = topLines;
+    }
+  }
+
+  void updateCompletedTopLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+    int targetDepth = 20,
+  }) {
+    if (fen != this.fen) {
+      return;
+    }
+
+    final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
+
+    topLines = List.unmodifiable(sortedLines.take(5));
+
+    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
+      _completedTopLinesByFen[fen] = topLines;
+    }
+  }
+
+  void clearTopLines() {
+    topLines = const [];
+  }
+
+  int get _activeMoveCount {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null) {
+      return _analysisMoves.length;
+    }
+
+    return branchStartPly + _branchMoves.length;
+  }
+
+  List<BoardMove> get _activeMoves {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null) {
+      return List<BoardMove>.from(_analysisMoves);
+    }
+
+    return <BoardMove>[
+      ..._analysisMoves.take(branchStartPly),
+      ..._branchMoves,
+    ];
+  }
+
+  BoardMove _activeMoveAt(int index) {
+    final branchStartPly = _branchStartPly;
+
+    if (branchStartPly == null || index < branchStartPly) {
+      return _analysisMoves[index];
+    }
+
+    return _branchMoves[index - branchStartPly];
+  }
+
+  void _playMoveInsideBranch(BoardMove newMove) {
+    final branchStartPly = _branchStartPly!;
+    final relativePly = currentPly - branchStartPly;
+
+    if (relativePly < _branchMoves.length) {
+      final nextBranchMove = _branchMoves[relativePly];
+
+      if (_sameMove(nextBranchMove, newMove)) {
+        currentPly += 1;
+        statusText = 'Analysezweig: vorhandenen Zug gespielt.';
+        return;
+      }
+
+      _branchMoves.removeRange(relativePly, _branchMoves.length);
+    }
+
+    _branchMoves.add(newMove);
+    currentPly = branchStartPly + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig gespielt: $newMove';
+  }
+
+  void _playMoveFromMainlinePast(BoardMove newMove) {
+    final nextMainMove = _analysisMoves[currentPly];
+
+    if (_sameMove(nextMainMove, newMove)) {
+      currentPly += 1;
+      statusText = 'Analyse: Hauptvariante fortgesetzt.';
+      return;
+    }
+
+    _branchStartPly = currentPly;
+    _branchMoves
+      ..clear()
+      ..add(newMove);
+    currentPly = _branchStartPly! + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig erstellt: $newMove';
+  }
+
+  void _playMoveFromMainlineEnd(BoardMove newMove) {
+    _branchStartPly = currentPly;
+    _branchMoves
+      ..clear()
+      ..add(newMove);
+    currentPly = _branchStartPly! + _branchMoves.length;
+    statusText = 'Temporärer Analysezweig erstellt: $newMove';
+  }
+
+  void _clearBranch() {
+    _branchStartPly = null;
+    _branchMoves.clear();
+  }
+
+  bool _sameMove(BoardMove left, BoardMove right) {
+    return left.from == right.from &&
+        left.to == right.to &&
+        (left.promotion ?? '') == (right.promotion ?? '');
+  }
+
+  List<EngineAnalysisLine> _formatLinesForFen({
+    required String fen,
+    required List<EngineAnalysisLine> lines,
+  }) {
+    final sortedLines = List<EngineAnalysisLine>.from(lines)
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    return sortedLines.map((line) {
+      return line.copyWith(shortMove: _shortMoveFromUci(fen, line.uciMove));
+    }).toList(growable: false);
+  }
+
+  bool _linesReachedTargetDepth(
+    List<EngineAnalysisLine> lines, {
+    required int targetDepth,
+  }) {
+    if (lines.isEmpty) {
+      return false;
+    }
+
+    return lines.every((line) => line.depth >= targetDepth);
+  }
+
+  String _shortMoveFromUci(String fen, String uciMove) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final from = uciMove.substring(0, 2);
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    final scratch = chess.Chess();
+    final loaded = scratch.load(fen);
+
+    if (!loaded) {
+      return _fallbackShortMoveFromUci(uciMove);
+    }
+
+    final piece = scratch.get(from);
+    final targetPiece = scratch.get(to);
+    final moveData = <String, String>{'from': from, 'to': to};
+
+    if (promotion.isNotEmpty) {
+      moveData['promotion'] = promotion.toLowerCase();
+    }
+
+    final moved = scratch.move(moveData);
+
+    if (moved) {
+      if (scratch.history.isNotEmpty) {
+        final san = scratch.history.last.toString().trim();
+
+        if (_looksLikeSan(san)) {
+          return _withCheckOrMateSuffix(san, scratch);
+        }
+      }
+
+      return _fallbackShortMoveFromUci(
+        uciMove,
+        movingPiece: piece,
+        targetPiece: targetPiece,
+        postMoveGame: scratch,
+      );
+    }
+
+    return _fallbackShortMoveFromUci(
+      uciMove,
+      movingPiece: piece,
+      targetPiece: targetPiece,
+    );
+  }
+
+  bool _looksLikeSan(String value) {
+    if (value.isEmpty || value.length > 12) {
+      return false;
+    }
+
+    final lower = value.toLowerCase();
+
+    if (lower.contains('move') ||
+        lower.contains('instance') ||
+        value.contains('{') ||
+        value.contains('}')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  String _fallbackShortMoveFromUci(
+    String uciMove, {
+    chess.Piece? movingPiece,
+    chess.Piece? targetPiece,
+    chess.Chess? postMoveGame,
+  }) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final from = uciMove.substring(0, 2);
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    if (movingPiece != null && _isKing(movingPiece)) {
+      if ((from == 'e1' && to == 'g1') || (from == 'e8' && to == 'g8')) {
+        return 'O-O';
+      }
+
+      if ((from == 'e1' && to == 'c1') || (from == 'e8' && to == 'c8')) {
+        return 'O-O-O';
+      }
+    }
+
+    final isPawn = movingPiece == null || _isPawn(movingPiece);
+    final isCapture = targetPiece != null || (isPawn && from[0] != to[0]);
+    final promotionText = promotion.isEmpty ? '' : '=${promotion.toUpperCase()}';
+    final checkSuffix = postMoveGame == null
+        ? ''
+        : _checkOrMateSuffix(postMoveGame);
+
+    if (isPawn) {
+      if (isCapture) {
+        return '${from[0]}x$to$promotionText$checkSuffix';
+      }
+
+      return '$to$promotionText$checkSuffix';
+    }
+
+    final pieceLetter = _pieceLetter(movingPiece);
+    final captureText = isCapture ? 'x' : '';
+
+    return '$pieceLetter$captureText$to$promotionText$checkSuffix';
+  }
+
+  String _withCheckOrMateSuffix(String san, chess.Chess postMoveGame) {
+    if (san.endsWith('#') || san.endsWith('+')) {
+      return san;
+    }
+
+    return '$san${_checkOrMateSuffix(postMoveGame)}';
+  }
+
+  String _checkOrMateSuffix(chess.Chess postMoveGame) {
+    if (postMoveGame.in_checkmate) {
+      return '#';
+    }
+
+    if (postMoveGame.in_check) {
+      return '+';
+    }
+
+    return '';
+  }
+
+  String _pieceLetter(chess.Piece? piece) {
+    if (piece == null) {
+      return '';
+    }
+
+    final typeText = piece.type.toString().toLowerCase();
+
+    if (typeText == 'n' ||
+        typeText.endsWith('.n') ||
+        typeText.contains('knight')) {
+      return 'N';
+    }
+
+    if (typeText == 'b' ||
+        typeText.endsWith('.b') ||
+        typeText.contains('bishop')) {
+      return 'B';
+    }
+
+    if (typeText == 'r' ||
+        typeText.endsWith('.r') ||
+        typeText.contains('rook')) {
+      return 'R';
+    }
+
+    if (typeText == 'q' ||
+        typeText.endsWith('.q') ||
+        typeText.contains('queen')) {
+      return 'Q';
+    }
+
+    if (typeText == 'k' ||
+        typeText.endsWith('.k') ||
+        typeText.contains('king')) {
+      return 'K';
+    }
+
+    return '';
+  }
+
+  bool _isPawn(chess.Piece piece) {
+    final typeText = piece.type.toString().toLowerCase();
+
+    return typeText == 'p' ||
+        typeText.endsWith('.p') ||
+        typeText.contains('pawn');
+  }
+
+  bool _isKing(chess.Piece piece) {
+    final typeText = piece.type.toString().toLowerCase();
+
+    return typeText == 'k' ||
+        typeText.endsWith('.k') ||
+        typeText.contains('king');
+  }
+
+  void _rebuildCurrentPosition() {
+    final loaded = analysisGame.load(startFen);
+
+    if (!loaded) {
+      throw StateError('Analyse-Start-FEN konnte nicht erneut geladen werden.');
+    }
+
+    for (var index = 0; index < currentPly; index += 1) {
+      final move = _activeMoveAt(index);
+      final moveData = <String, String>{'from': move.from, 'to': move.to};
+      final promotion = move.promotion;
+
+      if (promotion != null && promotion.isNotEmpty) {
+        moveData['promotion'] = promotion;
+      }
+
+      final moved = analysisGame.move(moveData);
+
+      if (!moved) {
+        throw StateError('Analysezug konnte nicht rekonstruiert werden: $move');
+      }
+    }
+  }
+}
+
+
+===== lib\models\engine_analysis_line.dart =====
+
+class EngineAnalysisLine {
+  const EngineAnalysisLine({
+    required this.rank,
+    required this.depth,
+    required this.uciMove,
+    required this.pv,
+    this.scoreCp,
+    this.mate,
+    this.shortMove,
+  });
+
+  /// Engine-Rang aus MultiPV.
+  /// 1 = beste Linie, 2 = zweitbeste Linie usw.
+  final int rank;
+
+  /// Suchtiefe, aus der diese Linie stammt.
+  final int depth;
+
+  /// Bewertung in Centipawns aus Sicht der Seite am Zug.
+  final int? scoreCp;
+
+  /// Mate-Distanz aus Sicht der Seite am Zug, falls Stockfish Mate meldet.
+  final int? mate;
+
+  /// Erster Zug der PV im UCI-Format, z. B. e2e4 oder e7e8q.
+  final String uciMove;
+
+  /// Optionaler Kurzschrieb für die UI, z. B. e4, Nf3 oder O-O.
+  /// Wird im Analysemodus aus der FEN berechnet.
+  final String? shortMove;
+
+  /// Vollständige Principal Variation als UCI-Zugliste.
+  final List<String> pv;
+
+  int get multiPv => rank;
+
+  bool get hasMateScore => mate != null;
+
+  bool get isValidMove {
+    if (uciMove.length < 4) {
+      return false;
+    }
+
+    if (uciMove == '(none)') {
+      return false;
+    }
+
+    return true;
+  }
+
+  String get displayMove {
+    final move = shortMove;
+
+    if (move != null && move.trim().isNotEmpty) {
+      return move.trim();
+    }
+
+    return _fallbackShortMoveFromUci(uciMove);
+  }
+
+  String get formattedEvaluation {
+    final mateScore = mate;
+
+    if (mateScore != null) {
+      if (mateScore > 0) {
+        return 'M$mateScore';
+      }
+
+      if (mateScore < 0) {
+        return '-M${mateScore.abs()}';
+      }
+
+      return 'M0';
+    }
+
+    final cp = scoreCp ?? 0;
+    final pawns = cp / 100.0;
+    final prefix = pawns > 0 ? '+' : '';
+
+    return '$prefix${pawns.toStringAsFixed(2)}';
+  }
+
+  String get pvText {
+    if (pv.isEmpty) {
+      return '-';
+    }
+
+    return pv.join(' ');
+  }
+
+  EngineAnalysisLine copyWith({
+    int? rank,
+    int? depth,
+    int? scoreCp,
+    int? mate,
+    String? uciMove,
+    String? shortMove,
+    List<String>? pv,
+  }) {
+    return EngineAnalysisLine(
+      rank: rank ?? this.rank,
+      depth: depth ?? this.depth,
+      scoreCp: scoreCp ?? this.scoreCp,
+      mate: mate ?? this.mate,
+      uciMove: uciMove ?? this.uciMove,
+      shortMove: shortMove ?? this.shortMove,
+      pv: pv ?? this.pv,
+    );
+  }
+
+  static String fallbackShortMoveFromUci(String uciMove) {
+    return _fallbackShortMoveFromUci(uciMove);
+  }
+
+  static String _fallbackShortMoveFromUci(String uciMove) {
+    if (uciMove.length < 4 || uciMove == '(none)') {
+      return uciMove;
+    }
+
+    final to = uciMove.substring(2, 4);
+    final promotion = uciMove.length >= 5 ? uciMove.substring(4, 5) : '';
+
+    if (promotion.isEmpty) {
+      return to;
+    }
+
+    return '$to=${promotion.toUpperCase()}';
+  }
+
+  @override
+  String toString() {
+    return 'EngineAnalysisLine('
+        'rank: $rank, '
+        'depth: $depth, '
+        'scoreCp: $scoreCp, '
+        'mate: $mate, '
+        'uciMove: $uciMove, '
+        'shortMove: $shortMove, '
+        'pv: $pv'
+        ')';
+  }
+}
+
+
+
+===== pubspec.yaml =====
+
+name: better_bots
+description: "Better Bots"
+publish_to: 'none'
+version: 0.1.75+75
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  chess: ^0.8.1
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.3.0
+  multistockfish: ^0.5.0
+  objectbox: ^5.3.2
+  objectbox_flutter_libs: ^5.3.2
+  path: ^1.9.1
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.15.0
+  flutter_lints: ^6.0.0
+  objectbox_generator: ^5.3.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/board/maple.jpg
+    - assets/pieces/
+    - assets/background/
+
