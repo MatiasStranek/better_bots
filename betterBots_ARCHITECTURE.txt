@@ -2,6 +2,7 @@
 * Windows: pfeiltaste oben und unten für komplett stellungsskip
 * Windows: markiert jedes Feld über das man beim drag hovered
 * correcting premoves
+* FEN/PGN Import shoould not be allowing generating wins (cancel wins/looses/remis from imports or fixed positions)
 
 * changing hardcode maia to native code
 

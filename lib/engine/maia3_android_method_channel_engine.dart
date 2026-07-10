@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
+import 'maia3_android_position_encoder.dart';
 import 'personality/persona_move_candidate.dart';
 
 class Maia3AndroidMethodChannelEngine implements ChessEngine {
@@ -13,6 +14,9 @@ class Maia3AndroidMethodChannelEngine implements ChessEngine {
 
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
+
+  final Maia3AndroidPositionEncoder _encoder =
+      const Maia3AndroidPositionEncoder();
 
   bool _isRunning = false;
 
@@ -64,17 +68,23 @@ class Maia3AndroidMethodChannelEngine implements ChessEngine {
     await _ensureStarted();
 
     _addOutput(
-      'Maia3 Android angefragt: Elo $elo, '
+      'Maia3 Android kodiert Position: Elo $elo, '
       '${moves.length} Halbzüge History.',
+    );
+
+    final encoded = _encoder.encode(
+      startFen: startFen,
+      moves: moves,
+      fen: fen,
     );
 
     try {
       final response = await _channel.invokeMapMethod<String, Object?>(
         'maia3GetBestMove',
         <String, Object?>{
-          'startFen': startFen,
-          'moves': moves,
-          'fen': fen,
+          'tokens': encoded.tokens,
+          'legalMoveIndices': encoded.legalMoveIndices,
+          'legalMoveUcis': encoded.legalMoveUcis,
           'elo': elo,
           'temperature': temperature,
           'topP': topP,
@@ -87,7 +97,13 @@ class Maia3AndroidMethodChannelEngine implements ChessEngine {
         throw StateError('Maia3 Android hat keinen bestMove zurückgegeben.');
       }
 
-      _addOutput('Maia3 Android bestmove $bestMove');
+      final debug = response?['debug']?.toString();
+
+      if (debug == null || debug.isEmpty) {
+        _addOutput('Maia3 Android bestmove $bestMove');
+      } else {
+        _addOutput('Maia3 Android bestmove $bestMove | $debug');
+      }
 
       return bestMove;
     } on PlatformException catch (e) {
