@@ -45,3 +45,4 @@ app.*.map.json
 /android/app/release
 engines/stockfish.exe
 engines/*.exe
+betterBots_ARCHITECTURE.txt
