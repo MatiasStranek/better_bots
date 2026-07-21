@@ -113,22 +113,8 @@ class MobileChessMoreSheet extends StatelessWidget {
   }
 
   void _togglePlayFromHere(BuildContext context) {
-    final wasActive = isPlayFromHereActive;
-    final isActive = onTogglePlayFromHere();
-    final messenger = ScaffoldMessenger.of(context);
-    final message = isActive
-        ? 'Aktuelle Brettposition wurde für Play From Here markiert.'
-        : wasActive
-            ? 'Play From Here wurde deaktiviert.'
-            : 'Aktuelle Brettposition konnte nicht markiert werden.';
-
+    onTogglePlayFromHere();
     Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   @override

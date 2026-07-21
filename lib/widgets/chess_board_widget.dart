@@ -342,17 +342,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   }
 
   void _togglePlayFromHere() {
-    final wasActive = _controller.isPlayFromHereActive;
-    final isActive = _controller.togglePlayFromHere();
-    final message = isActive
-        ? 'Aktuelle Brettposition wurde für Play From Here markiert.'
-        : wasActive
-            ? 'Play From Here wurde deaktiviert.'
-            : 'Aktuelle Brettposition konnte nicht markiert werden.';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    _controller.togglePlayFromHere();
   }
 
   Future<void> _showLoadFenDialog() async {
