@@ -25,6 +25,7 @@ class MobileChessMoveStrip extends StatefulWidget {
 class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
   static const double _horizontalPadding = 12;
   static const double _tokenSpacing = 6;
+  static const double _edgeInset = 6;
   static const TextStyle _moveNumberStyle = TextStyle(
     color: Color(0xFF9A9A9A),
     fontSize: 15,
@@ -36,6 +37,8 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
   );
 
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _viewportKey = GlobalKey();
+  final Map<int, GlobalKey> _moveKeys = <int, GlobalKey>{};
   int _scrollRequestSerial = 0;
   DateTime? _lastSelectionChangeAt;
 
@@ -77,34 +80,35 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
 
   void _scrollToSelectedMove({required bool animated}) {
     final position = _scrollController.position;
-    final tokens = _buildTokens();
 
-    if (tokens.isEmpty || widget.selectedPly <= 0) {
+    if (widget.selectedPly <= 0) {
       _moveScrollPositionTo(position.minScrollExtent, animated: animated);
       return;
     }
 
-    final selectedIndex = tokens.indexWhere(
-      (token) => token.ply == widget.selectedPly,
-    );
+    final viewportContext = _viewportKey.currentContext;
+    final selectedContext = _moveKeys[widget.selectedPly]?.currentContext;
+    final viewportBox = viewportContext?.findRenderObject();
+    final selectedBox = selectedContext?.findRenderObject();
 
-    if (selectedIndex < 0) {
+    if (viewportBox is! RenderBox || selectedBox is! RenderBox) {
       return;
     }
 
-    var leadingOffset = _horizontalPadding;
-    for (var index = 0; index < selectedIndex; index++) {
-      leadingOffset += _tokenWidth(tokens[index]) + _tokenSpacing;
-    }
+    final viewportOrigin = viewportBox.localToGlobal(Offset.zero);
+    final selectedOrigin = selectedBox.localToGlobal(Offset.zero);
+    final viewportLeft = viewportOrigin.dx + _edgeInset;
+    final viewportRight =
+        viewportOrigin.dx + viewportBox.size.width - _edgeInset;
+    final selectedLeft = selectedOrigin.dx;
+    final selectedRight = selectedOrigin.dx + selectedBox.size.width;
 
-    final selectedWidth = _tokenWidth(tokens[selectedIndex]);
-    final centeredOffset = leadingOffset +
-        selectedWidth / 2 -
-        position.viewportDimension / 2;
-    final targetOffset = centeredOffset.clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
+    double? targetOffset;
+    if (selectedLeft < viewportLeft) {
+      targetOffset = position.pixels - (viewportLeft - selectedLeft);
+    } else if (selectedRight > viewportRight) {
+      targetOffset = position.pixels + (selectedRight - viewportRight);
+    }
 
     final now = DateTime.now();
     final isRapidNavigation = _lastSelectionChangeAt != null &&
@@ -112,8 +116,17 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
             const Duration(milliseconds: 140);
     _lastSelectionChangeAt = now;
 
+    if (targetOffset == null) {
+      return;
+    }
+
+    final clampedTarget = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+
     _moveScrollPositionTo(
-      targetOffset.toDouble(),
+      clampedTarget.toDouble(),
       animated: animated && !isRapidNavigation,
     );
   }
@@ -133,17 +146,6 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
       duration: const Duration(milliseconds: 130),
       curve: Curves.easeOutCubic,
     );
-  }
-
-  double _tokenWidth(_MoveStripToken token) {
-    final style = token.isMoveNumber ? _moveNumberStyle : _moveTextStyle;
-    final painter = TextPainter(
-      text: TextSpan(text: token.text, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-
-    return painter.width + (token.isMoveNumber ? 4 : 20);
   }
 
   List<_MoveStripToken> _buildTokens() {
@@ -195,28 +197,41 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
         ),
         child: tokens.isEmpty
             ? const _EmptyMoveStrip()
-            : ListView.separated(
+            : SingleChildScrollView(
+                key: _viewportKey,
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: tokens.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 6),
-                itemBuilder: (context, index) {
-                  final token = tokens[index];
-
-                  return Center(
-                    child: _MoveStripChip(
-                      token: token,
-                      isAnalysisBranchActive: widget.isAnalysisBranchActive,
-                      onTap: token.ply == null
-                          ? null
-                          : () {
-                              widget.onMoveSelected(token.ply!);
-                            },
-                    ),
-                  );
-                },
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _horizontalPadding,
+                ),
+                child: Row(
+                  children: [
+                    for (var index = 0; index < tokens.length; index++) ...[
+                      if (index > 0)
+                        const SizedBox(width: _tokenSpacing),
+                      Padding(
+                        key: tokens[index].ply == null
+                            ? null
+                            : _moveKeys.putIfAbsent(
+                                tokens[index].ply!,
+                                () => GlobalKey(),
+                              ),
+                        padding: EdgeInsets.zero,
+                        child: _MoveStripChip(
+                          token: tokens[index],
+                          isAnalysisBranchActive:
+                              widget.isAnalysisBranchActive,
+                          onTap: tokens[index].ply == null
+                              ? null
+                              : () {
+                                  widget.onMoveSelected(tokens[index].ply!);
+                                },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
       ),
     );
