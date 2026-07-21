@@ -85,6 +85,11 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.analysisUsedDuringCurrentGame,
     required this.analysisLines,
     required this.trainingCounter,
+    required this.isPlayFromHereActive,
+    required this.displayedPlayFromHereFen,
+    required this.onPastePgn,
+    required this.onPasteFen,
+    required this.onTogglePlayFromHere,
     required this.canToggleAnalysisMode,
     required this.canNavigateAnalysisBack,
     required this.canNavigateAnalysisForward,
@@ -189,6 +194,11 @@ class MobileChessBoardLayout extends StatefulWidget {
   final bool analysisUsedDuringCurrentGame;
   final List<EngineAnalysisLine> analysisLines;
   final TrainingCounterSnapshot trainingCounter;
+  final bool isPlayFromHereActive;
+  final String? displayedPlayFromHereFen;
+  final Future<bool> Function(String text) onPastePgn;
+  final Future<bool> Function(String text) onPasteFen;
+  final bool Function() onTogglePlayFromHere;
   final bool canToggleAnalysisMode;
   final bool canNavigateAnalysisBack;
   final bool canNavigateAnalysisForward;
@@ -481,7 +491,10 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 right: 8,
                 top: resultStatsTop,
                 height: _resultStatsHeight,
-                child: MobileChessResultStatsPanel(counter: widget.trainingCounter),
+                child: MobileChessResultStatsPanel(
+                  counter: widget.trainingCounter,
+                  trainedOnly: widget.isPlayFromHereActive,
+                ),
               ),
             if (widget.isAnalysisMode)
               Positioned(
@@ -520,6 +533,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                       widget.effectiveFritz19Personality,
                   personaCandidateCount: widget.personaCandidateCount,
                   activeBotProfile: widget.activeBotProfile,
+                  playFromHereFen: widget.displayedPlayFromHereFen,
                 ),
               ),
             Positioned(
@@ -554,13 +568,15 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   pgnText: widget.pgnText,
                   fenText: widget.fenText,
                   onTrainingRestart: widget.onTrainingRestart,
+                  onPastePgn: widget.onPastePgn,
+                  onPasteFen: widget.onPasteFen,
+                  isPlayFromHereActive: widget.isPlayFromHereActive,
+                  onTogglePlayFromHere: widget.onTogglePlayFromHere,
                   onMenuPressed: _toggleSideMenu,
                   isSideMenuOpen: _isSideMenuOpen,
                   isAnalysisMode: widget.isAnalysisMode,
-                  canToggleAnalysisMode: widget.canToggleAnalysisMode,
                   canNavigateAnalysisBack: widget.canNavigateAnalysisBack,
                   canNavigateAnalysisForward: widget.canNavigateAnalysisForward,
-                  onToggleAnalysisMode: widget.onToggleAnalysisMode,
                   onAnalysisBack: widget.onAnalysisBack,
                   onAnalysisForward: widget.onAnalysisForward,
                   onAnalysisBackToStart: widget.onAnalysisBackToStart,

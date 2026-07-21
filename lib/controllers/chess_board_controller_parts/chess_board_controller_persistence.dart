@@ -12,9 +12,18 @@ void _controllerRestorePersistedStateIfNeeded(
 
   controller._hasLoadedPersistedState = true;
 
+  final playFromHereMarker =
+      BetterBotsDatabase.instance.loadPlayFromHereMarker();
+
+  controller
+    .._playFromHereFen = playFromHereMarker?.fen
+    .._playFromHerePositionLoaded =
+        playFromHereMarker?.hasBeenLoaded ?? false;
+
   final state = BetterBotsDatabase.instance.loadAppState();
 
   if (state == null) {
+    _controllerRefreshTrainingCounterSnapshot(controller);
     return;
   }
 
@@ -293,6 +302,16 @@ String _persistedEffectiveFritz19PersonalityName({
 void _controllerRefreshTrainingCounterSnapshot(
   ChessBoardController controller,
 ) {
+  final playFromHereFen = controller._playFromHereFen;
+
+  if (playFromHereFen != null && playFromHereFen.trim().isNotEmpty) {
+    controller._trainingCounterSnapshot =
+        BetterBotsDatabase.instance.playFromHereCounterSnapshotFor(
+      fen: playFromHereFen,
+    );
+    return;
+  }
+
   controller._trainingCounterSnapshot =
       BetterBotsDatabase.instance.counterSnapshotFor(
     strengthMode: controller._strengthMode,
@@ -311,6 +330,7 @@ void _controllerRefreshTrainingCounterSnapshot(
 
 void _controllerMaybeCountCompletedGame(ChessBoardController controller) {
   if (controller.isAnalysisMode ||
+      controller.isPlayFromHereActive ||
       controller._resultCountedForCurrentGame ||
       controller._analysisUsedDuringCurrentGame) {
     return;
@@ -344,6 +364,18 @@ void _controllerMaybeCountCompletedGame(ChessBoardController controller) {
 
 void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
   if (controller.isAnalysisMode) {
+    return;
+  }
+
+  final playFromHereFen = controller._playFromHereFen;
+
+  if (playFromHereFen != null && playFromHereFen.trim().isNotEmpty) {
+    controller._trainingCounterSnapshot =
+        BetterBotsDatabase.instance.incrementPlayFromHereCounter(
+      fen: playFromHereFen,
+      playerSide: controller._playerSide,
+    );
+    controller.newGame(controller._playerSide);
     return;
   }
 

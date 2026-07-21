@@ -141,33 +141,67 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
 
   _controllerApplyPendingBotSettings(controller);
 
-  controller._analysisUsedDuringCurrentGame = false;
-  controller._resultCountedForCurrentGame = false;
-  controller._playerSide = side;
-  controller._game.reset();
-  controller._normalGameStartFen = _defaultStartFen;
-  controller._normalGameMoves.clear();
+  controller
+    .._resultCountedForCurrentGame = false
+    .._playerSide = side
+    .._selectedSquare = null
+    .._lastFrom = null
+    .._lastTo = null
+    .._isBotThinking = false
+    .._engineOutput = '-'
+    .._premoves.clear();
+
   _controllerClearNormalReview(controller);
-  controller._selectedSquare = null;
-  controller._lastFrom = null;
-  controller._lastTo = null;
-  controller._premoves.clear();
-
-  controller._isBotThinking = false;
-  controller._engineOutput = '-';
-
-  controller._openingLogicAllowed = true;
   _controllerResetResolvedOpeningMove(controller);
-  _controllerResolveRandomOpeningMove(controller);
-
   _controllerResetResolvedRandomPersonalities(controller);
+
+  final markedFen = controller._playFromHereFen;
+  var loadedPlayFromHerePosition = false;
+
+  if (markedFen != null && markedFen.trim().isNotEmpty) {
+    try {
+      loadedPlayFromHerePosition = controller._game.load(markedFen);
+    } catch (_) {
+      loadedPlayFromHerePosition = false;
+    }
+  }
+
+  if (loadedPlayFromHerePosition) {
+    final playFromHereFen = markedFen!;
+
+    controller
+      .._analysisUsedDuringCurrentGame = true
+      .._playFromHerePositionLoaded = true
+      .._openingLogicAllowed = false
+      .._normalGameStartFen = playFromHereFen.trim()
+      .._normalGameMoves.clear();
+
+    BetterBotsDatabase.instance.markPlayFromHerePositionLoaded(
+      playFromHereFen,
+    );
+  } else {
+    if (markedFen != null) {
+      controller
+        .._playFromHereFen = null
+        .._playFromHerePositionLoaded = false;
+      BetterBotsDatabase.instance.clearPlayFromHereMarker();
+    }
+
+    controller
+      .._analysisUsedDuringCurrentGame = false
+      .._openingLogicAllowed = true
+      .._normalGameStartFen = _defaultStartFen
+      .._normalGameMoves.clear()
+      .._game.reset();
+
+    _controllerResolveRandomOpeningMove(controller);
+  }
+
   _controllerResolveRandomPersonalities(controller);
-
   _controllerRefreshTrainingCounterSnapshot(controller);
-
   _safeNotify(controller);
 
-  if (controller._playerSide == PlayerSide.black) {
+  if (!controller.isGameOver && !controller.isPlayersTurn) {
     unawaited(_controllerMakeBotMoveIfNeeded(controller));
   }
 }

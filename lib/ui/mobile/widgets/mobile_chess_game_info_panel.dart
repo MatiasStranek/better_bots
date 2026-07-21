@@ -25,6 +25,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
     required this.activeBotProfile,
+    this.playFromHereFen,
   });
 
   final int skillLevel;
@@ -42,6 +43,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
   final BotProfile? activeBotProfile;
+  final String? playFromHereFen;
 
   String get _strengthText {
     switch (strengthMode) {
@@ -127,6 +129,20 @@ class MobileChessGameInfoPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (playFromHereFen != null &&
+                  playFromHereFen!.trim().isNotEmpty) ...[
+                Text(
+                  'FEN-ID: ${playFromHereFen!.trim()}',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFFFA726),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 7),
+              ],
               for (final row in rows) _GameInfoRow(data: row),
             ],
           ),

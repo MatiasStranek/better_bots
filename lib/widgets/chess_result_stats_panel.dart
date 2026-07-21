@@ -6,6 +6,7 @@ class ChessResultStatsPanel extends StatelessWidget {
   const ChessResultStatsPanel({
     super.key,
     this.counter = const TrainingCounterSnapshot.zero(),
+    this.trainedOnly = false,
   });
 
   static const Color wonColor = Color(0xFF55C878);
@@ -14,12 +15,25 @@ class ChessResultStatsPanel extends StatelessWidget {
   static const Color trainedColor = Color(0xFFFFA726);
 
   final TrainingCounterSnapshot counter;
+  final bool trainedOnly;
 
   bool get _hasWonWithBothColors {
     return counter.wonWhiteCount >= 1 && counter.wonBlackCount >= 1;
   }
 
   List<ChessResultStatData> get _stats {
+    final trained = ChessResultStatData(
+      title: 'Trainiert',
+      value: '${counter.trainedCount}',
+      whiteCount: counter.trainedWhiteCount,
+      blackCount: counter.trainedBlackCount,
+      titleColor: trainedColor,
+    );
+
+    if (trainedOnly) {
+      return [trained];
+    }
+
     return [
       ChessResultStatData(
         title: 'Gewonnen',
@@ -43,13 +57,7 @@ class ChessResultStatsPanel extends StatelessWidget {
         blackCount: counter.drawBlackCount,
         titleColor: drawColor,
       ),
-      ChessResultStatData(
-        title: 'Trainiert',
-        value: '${counter.trainedCount}',
-        whiteCount: counter.trainedWhiteCount,
-        blackCount: counter.trainedBlackCount,
-        titleColor: trainedColor,
-      ),
+      trained,
     ];
   }
 
@@ -73,17 +81,19 @@ class ChessResultStatsTextView extends StatelessWidget {
     super.key,
     this.counter = const TrainingCounterSnapshot.zero(),
     required this.analysisUsedDuringCurrentGame,
+    this.trainedOnly = false,
   });
 
   final TrainingCounterSnapshot counter;
   final bool analysisUsedDuringCurrentGame;
+  final bool trainedOnly;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChessResultStatsPanel(counter: counter),
+        ChessResultStatsPanel(counter: counter, trainedOnly: trainedOnly),
         const SizedBox(height: 8),
         _AnalysisUsageBadge(
           analysisUsedDuringCurrentGame: analysisUsedDuringCurrentGame,

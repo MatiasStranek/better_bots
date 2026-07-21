@@ -10,13 +10,15 @@ class MobileChessActionBar extends StatelessWidget {
     required this.pgnText,
     required this.fenText,
     required this.onTrainingRestart,
+    required this.onPastePgn,
+    required this.onPasteFen,
+    required this.isPlayFromHereActive,
+    required this.onTogglePlayFromHere,
     required this.onMenuPressed,
     required this.isSideMenuOpen,
     required this.isAnalysisMode,
-    required this.canToggleAnalysisMode,
     required this.canNavigateAnalysisBack,
     required this.canNavigateAnalysisForward,
-    required this.onToggleAnalysisMode,
     required this.onAnalysisBack,
     required this.onAnalysisForward,
     required this.onAnalysisBackToStart,
@@ -27,13 +29,15 @@ class MobileChessActionBar extends StatelessWidget {
   final String pgnText;
   final String fenText;
   final VoidCallback onTrainingRestart;
+  final Future<bool> Function(String text) onPastePgn;
+  final Future<bool> Function(String text) onPasteFen;
+  final bool isPlayFromHereActive;
+  final bool Function() onTogglePlayFromHere;
   final VoidCallback onMenuPressed;
   final bool isSideMenuOpen;
   final bool isAnalysisMode;
-  final bool canToggleAnalysisMode;
   final bool canNavigateAnalysisBack;
   final bool canNavigateAnalysisForward;
-  final VoidCallback onToggleAnalysisMode;
   final Future<void> Function() onAnalysisBack;
   final Future<void> Function() onAnalysisForward;
   final Future<void> Function() onAnalysisBackToStart;
@@ -53,8 +57,10 @@ class MobileChessActionBar extends StatelessWidget {
           fenText: fenText,
           onTrainingRestart: onTrainingRestart,
           isAnalysisMode: isAnalysisMode,
-          canToggleAnalysisMode: canToggleAnalysisMode,
-          onToggleAnalysisMode: onToggleAnalysisMode,
+          onPastePgn: onPastePgn,
+          onPasteFen: onPasteFen,
+          isPlayFromHereActive: isPlayFromHereActive,
+          onTogglePlayFromHere: onTogglePlayFromHere,
         );
       },
     );

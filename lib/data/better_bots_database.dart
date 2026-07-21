@@ -63,6 +63,16 @@ class TrainingCounterSnapshot {
   final int trainedBlackCount;
 }
 
+class PlayFromHereMarkerSnapshot {
+  const PlayFromHereMarkerSnapshot({
+    required this.fen,
+    required this.hasBeenLoaded,
+  });
+
+  final String fen;
+  final bool hasBeenLoaded;
+}
+
 class TrainingCounterKey {
   const TrainingCounterKey({
     required this.keyHash,
@@ -89,6 +99,9 @@ class TrainingCounterKey {
 
 class BetterBotsDatabase {
   BetterBotsDatabase._();
+
+  static const String _playFromHereMarkerKeyHash =
+      '__better_bots_play_from_here_marker_v1__';
 
   static final BetterBotsDatabase instance = BetterBotsDatabase._();
 
@@ -317,6 +330,192 @@ class BetterBotsDatabase {
       trainedWhiteCount: entity.trainedWhiteCount,
       trainedBlackCount: entity.trainedBlackCount,
     );
+  }
+
+  PlayFromHereMarkerSnapshot? loadPlayFromHereMarker() {
+    final entity = _findCounterByHash(_playFromHereMarkerKeyHash);
+
+    if (entity == null || entity.canonicalKey.trim().isEmpty) {
+      return null;
+    }
+
+    return PlayFromHereMarkerSnapshot(
+      fen: entity.canonicalKey.trim(),
+      hasBeenLoaded: entity.trainedCount != 0,
+    );
+  }
+
+  void savePlayFromHereMarker(
+    String fen, {
+    bool hasBeenLoaded = false,
+  }) {
+    final box = _trainingCounterBox;
+    final normalizedFen = _normalizeFen(fen);
+
+    if (box == null || normalizedFen.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = _findCounterByHash(_playFromHereMarkerKeyHash) ??
+        TrainingCounterEntity(
+          keyHash: _playFromHereMarkerKeyHash,
+          canonicalKey: normalizedFen,
+          strengthModeName: 'playFromHereMarker',
+          strengthValue: -1,
+          effectiveOpeningName: 'playFromHereMarker',
+          personalitySourceName: 'playFromHereMarker',
+          effectivePersonalityName: 'playFromHereMarker',
+          personaCandidateCount: -1,
+          cpLossUciSwitchFullMoveNumber: -1,
+          createdAtMillis: now,
+        );
+
+    entity
+      ..canonicalKey = normalizedFen
+      ..strengthModeName = 'playFromHereMarker'
+      ..strengthValue = -1
+      ..effectiveOpeningName = 'playFromHereMarker'
+      ..personalitySourceName = 'playFromHereMarker'
+      ..effectivePersonalityName = 'playFromHereMarker'
+      ..personaCandidateCount = -1
+      ..cpLossUciSwitchFullMoveNumber = -1
+      ..trainedCount = hasBeenLoaded ? 1 : 0
+      ..updatedAtMillis = now;
+
+    box.put(entity);
+  }
+
+  void markPlayFromHerePositionLoaded(String fen) {
+    savePlayFromHereMarker(fen, hasBeenLoaded: true);
+  }
+
+  void clearPlayFromHereMarker() {
+    final box = _trainingCounterBox;
+    final entity = _findCounterByHash(_playFromHereMarkerKeyHash);
+
+    if (box == null || entity == null) {
+      return;
+    }
+
+    box.remove(entity.id);
+  }
+
+  TrainingCounterSnapshot playFromHereCounterSnapshotFor({
+    required String fen,
+  }) {
+    final key = _buildPlayFromHereCounterKey(fen);
+    final entity = _findCounterByHash(key.keyHash);
+
+    if (entity == null) {
+      return TrainingCounterSnapshot(
+        keyHash: key.keyHash,
+        wonCount: 0,
+        lostCount: 0,
+        drawCount: 0,
+        trainedCount: 0,
+        wonWhiteCount: 0,
+        wonBlackCount: 0,
+        lostWhiteCount: 0,
+        lostBlackCount: 0,
+        drawWhiteCount: 0,
+        drawBlackCount: 0,
+        trainedWhiteCount: 0,
+        trainedBlackCount: 0,
+      );
+    }
+
+    return _snapshotFromEntity(entity);
+  }
+
+  TrainingCounterSnapshot incrementPlayFromHereCounter({
+    required String fen,
+    required PlayerSide playerSide,
+  }) {
+    final box = _trainingCounterBox;
+    final key = _buildPlayFromHereCounterKey(fen);
+
+    if (box == null || key.canonicalKey.isEmpty) {
+      return const TrainingCounterSnapshot.zero();
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = _findCounterByHash(key.keyHash) ??
+        TrainingCounterEntity(
+          keyHash: key.keyHash,
+          canonicalKey: key.canonicalKey,
+          strengthModeName: key.strengthModeName,
+          strengthValue: key.strengthValue,
+          effectiveOpeningName: key.effectiveOpeningName,
+          personalitySourceName: key.personalitySourceName,
+          effectivePersonalityName: key.effectivePersonalityName,
+          personaCandidateCount: key.personaCandidateCount,
+          cpLossUciSwitchFullMoveNumber: key.cpLossUciSwitchFullMoveNumber,
+          createdAtMillis: now,
+        );
+
+    entity.trainedCount += 1;
+
+    if (playerSide == PlayerSide.white) {
+      entity.trainedWhiteCount += 1;
+    } else {
+      entity.trainedBlackCount += 1;
+    }
+
+    entity
+      ..canonicalKey = key.canonicalKey
+      ..strengthModeName = key.strengthModeName
+      ..strengthValue = key.strengthValue
+      ..effectiveOpeningName = key.effectiveOpeningName
+      ..personalitySourceName = key.personalitySourceName
+      ..effectivePersonalityName = key.effectivePersonalityName
+      ..personaCandidateCount = key.personaCandidateCount
+      ..cpLossUciSwitchFullMoveNumber = key.cpLossUciSwitchFullMoveNumber
+      ..updatedAtMillis = now;
+
+    box.put(entity);
+    return _snapshotFromEntity(entity);
+  }
+
+  TrainingCounterKey _buildPlayFromHereCounterKey(String fen) {
+    final normalizedFen = _normalizeFen(fen);
+    final canonicalKey = normalizedFen.isEmpty
+        ? ''
+        : 'playFromHereFen=$normalizedFen';
+
+    return TrainingCounterKey(
+      keyHash: _fnv1a64Hex(canonicalKey),
+      canonicalKey: canonicalKey,
+      strengthModeName: 'playFromHere',
+      strengthValue: -1,
+      effectiveOpeningName: normalizedFen,
+      personalitySourceName: 'playFromHere',
+      effectivePersonalityName: 'playFromHere',
+      personaCandidateCount: -1,
+      cpLossUciSwitchFullMoveNumber: -1,
+    );
+  }
+
+  TrainingCounterSnapshot _snapshotFromEntity(TrainingCounterEntity entity) {
+    return TrainingCounterSnapshot(
+      keyHash: entity.keyHash,
+      wonCount: entity.wonCount,
+      lostCount: entity.lostCount,
+      drawCount: entity.drawCount,
+      trainedCount: entity.trainedCount,
+      wonWhiteCount: entity.wonWhiteCount,
+      wonBlackCount: entity.wonBlackCount,
+      lostWhiteCount: entity.lostWhiteCount,
+      lostBlackCount: entity.lostBlackCount,
+      drawWhiteCount: entity.drawWhiteCount,
+      drawBlackCount: entity.drawBlackCount,
+      trainedWhiteCount: entity.trainedWhiteCount,
+      trainedBlackCount: entity.trainedBlackCount,
+    );
+  }
+
+  String _normalizeFen(String fen) {
+    return fen.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   TrainingCounterKey buildTrainingCounterKey({

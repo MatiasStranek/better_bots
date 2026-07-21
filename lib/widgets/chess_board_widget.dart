@@ -269,6 +269,92 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     );
   }
 
+  Future<String?> _readClipboardText() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  Future<void> _pastePgnFromClipboard() async {
+    if (_controller.isAnalysisMode) {
+      return;
+    }
+
+    final text = await _readClipboardText();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (text == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Die Zwischenablage enthält keine PGN.')),
+      );
+      return;
+    }
+
+    final loaded = await _controller.pastePgn(text);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          loaded ? 'PGN wurde eingefügt.' : 'PGN konnte nicht eingefügt werden.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pasteFenFromClipboard() async {
+    if (_controller.isAnalysisMode) {
+      return;
+    }
+
+    final text = await _readClipboardText();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (text == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Die Zwischenablage enthält keine FEN.')),
+      );
+      return;
+    }
+
+    final loaded = await _controller.pasteFen(text);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          loaded ? 'FEN wurde eingefügt.' : 'FEN konnte nicht eingefügt werden.',
+        ),
+      ),
+    );
+  }
+
+  void _togglePlayFromHere() {
+    final wasActive = _controller.isPlayFromHereActive;
+    final isActive = _controller.togglePlayFromHere();
+    final message = isActive
+        ? 'Aktuelle Brettposition wurde für Play From Here markiert.'
+        : wasActive
+            ? 'Play From Here wurde deaktiviert.'
+            : 'Aktuelle Brettposition konnte nicht markiert werden.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _showLoadFenDialog() async {
     if (_controller.isAnalysisMode) {
       return;
@@ -640,6 +726,18 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                   analysisLines: _controller.analysisLines,
                                 ),
                                 const SizedBox(height: 12),
+                                if (_controller.displayedPlayFromHereFen != null) ...[
+                                  Text(
+                                    'FEN-ID: ${_controller.displayedPlayFromHereFen}',
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFA726),
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
@@ -663,6 +761,53 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                       icon: const Icon(Icons.restart_alt),
                                       label: const Text('Neustart Zähler'),
                                     ),
+                                    OutlinedButton.icon(
+                                      onPressed: _controller.isAnalysisMode
+                                          ? null
+                                          : _pastePgnFromClipboard,
+                                      icon: const Icon(Icons.content_paste),
+                                      label: const Text('Paste PGN'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _controller.isAnalysisMode
+                                          ? null
+                                          : _pasteFenFromClipboard,
+                                      icon: const Icon(Icons.content_paste_go),
+                                      label: const Text('Paste FEN'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _togglePlayFromHere,
+                                      style: _controller.isPlayFromHereActive
+                                          ? OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  const Color(0xFF55C878),
+                                              side: const BorderSide(
+                                                color: Color(0xFF55C878),
+                                                width: 1.5,
+                                              ),
+                                            )
+                                          : null,
+                                      icon: const Icon(
+                                        Icons.person_pin_circle_outlined,
+                                      ),
+                                      label: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text('Play From Here'),
+                                          if (_controller.isPlayFromHereActive) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              width: 9,
+                                              height: 9,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFF55C878),
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -670,6 +815,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                   counter: _controller.trainingCounterSnapshot,
                                   analysisUsedDuringCurrentGame:
                                       _controller.analysisUsedDuringCurrentGame,
+                                  trainedOnly:
+                                      _controller.isPlayFromHereActive,
                                 ),
                               ],
                             ),

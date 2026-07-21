@@ -7,12 +7,17 @@ class MobileChessResultStatsPanel extends StatelessWidget {
   const MobileChessResultStatsPanel({
     super.key,
     required this.counter,
+    this.trainedOnly = false,
   });
 
   final TrainingCounterSnapshot counter;
+  final bool trainedOnly;
 
   @override
   Widget build(BuildContext context) {
-    return ChessResultStatsPanel(counter: counter);
+    return ChessResultStatsPanel(
+      counter: counter,
+      trainedOnly: trainedOnly,
+    );
   }
 }

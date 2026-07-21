@@ -109,6 +109,9 @@ class ChessBoardController extends ChangeNotifier {
 
   bool _analysisUsedDuringCurrentGame = false;
   bool _resultCountedForCurrentGame = false;
+
+  String? _playFromHereFen;
+  bool _playFromHerePositionLoaded = false;
   bool _hasLoadedPersistedState = false;
   TrainingCounterSnapshot _trainingCounterSnapshot =
       const TrainingCounterSnapshot.zero();
@@ -365,6 +368,22 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get analysisUsedDuringCurrentGame {
     return _analysisUsedDuringCurrentGame;
+  }
+
+  bool get isPlayFromHereActive {
+    return _playFromHereFen != null && _playFromHereFen!.trim().isNotEmpty;
+  }
+
+  bool get isPlayFromHerePositionLoaded {
+    return isPlayFromHereActive && _playFromHerePositionLoaded;
+  }
+
+  String? get playFromHereFen {
+    return isPlayFromHereActive ? _playFromHereFen : null;
+  }
+
+  String? get displayedPlayFromHereFen {
+    return isPlayFromHerePositionLoaded ? _playFromHereFen : null;
   }
 
   TrainingCounterSnapshot get trainingCounterSnapshot {
@@ -652,14 +671,39 @@ class ChessBoardController extends ChangeNotifier {
     return _controllerMakeBotMoveIfNeeded(this);
   }
 
+  bool togglePlayFromHere() {
+    return _controllerTogglePlayFromHere(this);
+  }
+
+  Future<bool> pastePgn(String pgnInput) {
+    if (isAnalysisMode) {
+      return Future<bool>.value(false);
+    }
+
+    return _controllerLoadPgnGame(
+      this,
+      pgnInput,
+      markAnalysisUsed: true,
+    );
+  }
+
+  Future<bool> pasteFen(String fenInput) {
+    if (isAnalysisMode) {
+      return Future<bool>.value(false);
+    }
+
+    return _controllerLoadFenPosition(
+      this,
+      fenInput,
+      markAnalysisUsed: true,
+    );
+  }
+
   Future<bool> loadFenPosition(String fenInput) {
     if (isAnalysisMode) {
       return Future<bool>.value(false);
     }
 
-    _openingLogicAllowed = false;
-    _resolvedRandomOpeningMove = null;
-    _resolvedRandomPersonality = null;
     return _controllerLoadFenPosition(this, fenInput);
   }
 }

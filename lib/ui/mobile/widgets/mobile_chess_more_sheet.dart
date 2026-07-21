@@ -8,16 +8,20 @@ class MobileChessMoreSheet extends StatelessWidget {
     required this.fenText,
     required this.onTrainingRestart,
     required this.isAnalysisMode,
-    required this.canToggleAnalysisMode,
-    required this.onToggleAnalysisMode,
+    required this.onPastePgn,
+    required this.onPasteFen,
+    required this.isPlayFromHereActive,
+    required this.onTogglePlayFromHere,
   });
 
   final String pgnText;
   final String fenText;
   final VoidCallback onTrainingRestart;
   final bool isAnalysisMode;
-  final bool canToggleAnalysisMode;
-  final VoidCallback onToggleAnalysisMode;
+  final Future<bool> Function(String text) onPastePgn;
+  final Future<bool> Function(String text) onPasteFen;
+  final bool isPlayFromHereActive;
+  final bool Function() onTogglePlayFromHere;
 
   bool get _hasPgn {
     return pgnText.trim().isNotEmpty && pgnText.trim() != '-';
@@ -44,7 +48,6 @@ class MobileChessMoreSheet extends StatelessWidget {
     }
 
     final messenger = ScaffoldMessenger.of(context);
-
     await Clipboard.setData(ClipboardData(text: text));
 
     if (!context.mounted) {
@@ -60,22 +63,76 @@ class MobileChessMoreSheet extends StatelessWidget {
     );
   }
 
+  Future<void> _pasteText({
+    required BuildContext context,
+    required Future<bool> Function(String text) onPaste,
+    required String emptyMessage,
+    required String successMessage,
+    required String errorMessage,
+  }) async {
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = clipboardData?.text?.trim() ?? '';
+
+    if (!context.mounted) {
+      return;
+    }
+
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(emptyMessage),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final loaded = await onPaste(text);
+
+    if (!context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (loaded) {
+      Navigator.of(context).pop();
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(loaded ? successMessage : errorMessage),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _resetBoard(BuildContext context) {
     Navigator.of(context).pop();
     onTrainingRestart();
   }
 
-  void _toggleAnalysis(BuildContext context) {
+  void _togglePlayFromHere(BuildContext context) {
+    final wasActive = isPlayFromHereActive;
+    final isActive = onTogglePlayFromHere();
+    final messenger = ScaffoldMessenger.of(context);
+    final message = isActive
+        ? 'Aktuelle Brettposition wurde für Play From Here markiert.'
+        : wasActive
+            ? 'Play From Here wurde deaktiviert.'
+            : 'Aktuelle Brettposition konnte nicht markiert werden.';
+
     Navigator.of(context).pop();
-    onToggleAnalysisMode();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final analysisLabel = isAnalysisMode
-        ? 'FINISH ANALYSIS'
-        : 'ANALYZE CURRENT PGN';
-
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF151515),
@@ -132,21 +189,36 @@ class MobileChessMoreSheet extends StatelessWidget {
                 successMessage: 'FEN wurde kopiert.',
               ),
             ),
-            const _SheetAction(
-              icon: Icons.save,
-              label: 'SAVE CURRENT PGN',
-              isEnabled: false,
+            _SheetAction(
+              icon: Icons.content_paste,
+              label: 'PASTE PGN',
+              isEnabled: !isAnalysisMode,
+              onTap: () => _pasteText(
+                context: context,
+                onPaste: onPastePgn,
+                emptyMessage: 'Die Zwischenablage enthält keine PGN.',
+                successMessage: 'PGN wurde eingefügt.',
+                errorMessage: 'PGN konnte nicht eingefügt werden.',
+              ),
             ),
             _SheetAction(
-              icon: Icons.analytics_outlined,
-              label: analysisLabel,
-              isEnabled: canToggleAnalysisMode,
-              onTap: () => _toggleAnalysis(context),
+              icon: Icons.content_paste_go,
+              label: 'PASTE FEN',
+              isEnabled: !isAnalysisMode,
+              onTap: () => _pasteText(
+                context: context,
+                onPaste: onPasteFen,
+                emptyMessage: 'Die Zwischenablage enthält keine FEN.',
+                successMessage: 'FEN wurde eingefügt.',
+                errorMessage: 'FEN konnte nicht eingefügt werden.',
+              ),
             ),
-            const _SheetAction(
-              icon: Icons.person,
+            _SheetAction(
+              icon: Icons.person_pin_circle_outlined,
               label: 'PLAY FROM HERE',
-              isEnabled: false,
+              isEnabled: true,
+              isActive: isPlayFromHereActive,
+              onTap: () => _togglePlayFromHere(context),
             ),
           ],
         ),
@@ -160,6 +232,7 @@ class _SheetAction extends StatelessWidget {
     required this.icon,
     required this.label,
     this.isEnabled = true,
+    this.isActive = false,
     this.foregroundColor,
     this.onTap,
   });
@@ -167,12 +240,15 @@ class _SheetAction extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isEnabled;
+  final bool isActive;
   final Color? foregroundColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = foregroundColor ?? Colors.white;
+    final baseColor = isActive
+        ? const Color(0xFF55C878)
+        : foregroundColor ?? Colors.white;
     final color = isEnabled ? baseColor : baseColor.withAlpha(70);
 
     return InkWell(
@@ -200,6 +276,15 @@ class _SheetAction extends StatelessWidget {
                 ),
               ),
             ),
+            if (isActive)
+              Container(
+                width: 11,
+                height: 11,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF55C878),
+                  shape: BoxShape.circle,
+                ),
+              ),
           ],
         ),
       ),

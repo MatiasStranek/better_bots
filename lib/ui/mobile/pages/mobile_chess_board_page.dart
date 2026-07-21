@@ -210,6 +210,18 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     _controller.restartTrainingCounterGame();
   }
 
+  Future<bool> _handlePastePgn(String text) {
+    return _controller.pastePgn(text);
+  }
+
+  Future<bool> _handlePasteFen(String text) {
+    return _controller.pasteFen(text);
+  }
+
+  bool _handleTogglePlayFromHere() {
+    return _controller.togglePlayFromHere();
+  }
+
   Future<void> _handleAnalysisBackToStart() async {
     if (_controller.isAnalysisMode) {
       await _controller.jumpAnalysisToStart();
@@ -336,6 +348,12 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                     _controller.analysisUsedDuringCurrentGame,
                 analysisLines: _controller.analysisLines,
                 trainingCounter: _controller.trainingCounterSnapshot,
+                isPlayFromHereActive: _controller.isPlayFromHereActive,
+                displayedPlayFromHereFen:
+                    _controller.displayedPlayFromHereFen,
+                onPastePgn: _handlePastePgn,
+                onPasteFen: _handlePasteFen,
+                onTogglePlayFromHere: _handleTogglePlayFromHere,
                 canToggleAnalysisMode: _controller.canToggleAnalysisMode,
                 canNavigateAnalysisBack: _controller.isAnalysisMode
                     ? _controller.canNavigateAnalysisBack
