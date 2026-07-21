@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:chess/chess.dart' as chess;
 import 'package:flutter/material.dart';
 
+import '../../../controllers/chess_board_controller.dart';
 import '../../../data/better_bots_database.dart';
 
 import '../../../models/board_annotation.dart';
@@ -32,6 +33,9 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.playerSideText,
     required this.pgnText,
     required this.fenText,
+    required this.mainLineMoveEntries,
+    required this.currentMainLinePly,
+    required this.onMainLineMoveSelected,
     required this.playerIsWhite,
     required this.pieceAt,
     required this.highlights,
@@ -106,6 +110,8 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onToggleAnnotationArrow,
     required this.onNewGame,
     required this.onRestart,
+    required this.isSoloMode,
+    required this.onSoloModeChanged,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
@@ -128,6 +134,9 @@ class MobileChessBoardLayout extends StatefulWidget {
   final String playerSideText;
   final String pgnText;
   final String fenText;
+  final List<ChessMoveListEntry> mainLineMoveEntries;
+  final int currentMainLinePly;
+  final Future<void> Function(int ply) onMainLineMoveSelected;
 
   final bool playerIsWhite;
   final chess.Piece? Function(String square) pieceAt;
@@ -217,6 +226,8 @@ class MobileChessBoardLayout extends StatefulWidget {
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
+  final bool isSoloMode;
+  final ValueChanged<bool> onSoloModeChanged;
 
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
@@ -481,7 +492,9 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
               height: _moveStripHeight,
               child: MobileChessMoveStrip(
                 height: _moveStripHeight,
-                pgnText: widget.pgnText,
+                entries: widget.mainLineMoveEntries,
+                selectedPly: widget.currentMainLinePly,
+                onMoveSelected: widget.onMainLineMoveSelected,
                 isAnalysisBranchActive: widget.isAnalysisBranchActive,
               ),
             ),
@@ -493,7 +506,9 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 height: _resultStatsHeight,
                 child: MobileChessResultStatsPanel(
                   counter: widget.trainingCounter,
-                  trainedOnly: widget.isPlayFromHereActive,
+                  trainedOnly:
+                      widget.displayedPlayFromHereFen?.trim().isNotEmpty ??
+                          false,
                 ),
               ),
             if (widget.isAnalysisMode)
@@ -575,6 +590,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onMenuPressed: _toggleSideMenu,
                   isSideMenuOpen: _isSideMenuOpen,
                   isAnalysisMode: widget.isAnalysisMode,
+                  canCopyPgn:
+                      widget.displayedPlayFromHereFen?.trim().isEmpty ?? true,
                   canNavigateAnalysisBack: widget.canNavigateAnalysisBack,
                   canNavigateAnalysisForward: widget.canNavigateAnalysisForward,
                   onAnalysisBack: widget.onAnalysisBack,
@@ -666,6 +683,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   onBotProfileDisabled: widget.onBotProfileDisabled,
                   onNewGame: widget.onNewGame,
                   onRestart: widget.onRestart,
+                  isSoloMode: widget.isSoloMode,
+                  onSoloModeChanged: widget.onSoloModeChanged,
                   onSkillLevelChanged: widget.onSkillLevelChanged,
                   onUciEloChanged: widget.onUciEloChanged,
                   onCpLossEloChanged: widget.onCpLossEloChanged,

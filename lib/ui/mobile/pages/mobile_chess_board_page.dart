@@ -270,6 +270,9 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 playerSideText: _playerSideText,
                 pgnText: _controller.pgn,
                 fenText: _controller.fen,
+                mainLineMoveEntries: _controller.mainLineMoveEntries,
+                currentMainLinePly: _controller.currentMainLinePly,
+                onMainLineMoveSelected: _controller.jumpToMainLinePly,
 
                 playerIsWhite: _controller.playerIsWhite,
                 pieceAt: _controller.pieceAt,
@@ -375,6 +378,8 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
 
                 onNewGame: _controller.newGame,
                 onRestart: _controller.restartGame,
+                isSoloMode: _controller.isSoloMode,
+                onSoloModeChanged: _controller.setSoloMode,
 
                 onSkillLevelChanged: _controller.setSkillLevel,
                 onUciEloChanged: _controller.setUciElo,

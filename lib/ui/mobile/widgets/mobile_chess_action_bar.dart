@@ -17,6 +17,7 @@ class MobileChessActionBar extends StatelessWidget {
     required this.onMenuPressed,
     required this.isSideMenuOpen,
     required this.isAnalysisMode,
+    required this.canCopyPgn,
     required this.canNavigateAnalysisBack,
     required this.canNavigateAnalysisForward,
     required this.onAnalysisBack,
@@ -36,6 +37,7 @@ class MobileChessActionBar extends StatelessWidget {
   final VoidCallback onMenuPressed;
   final bool isSideMenuOpen;
   final bool isAnalysisMode;
+  final bool canCopyPgn;
   final bool canNavigateAnalysisBack;
   final bool canNavigateAnalysisForward;
   final Future<void> Function() onAnalysisBack;
@@ -57,6 +59,7 @@ class MobileChessActionBar extends StatelessWidget {
           fenText: fenText,
           onTrainingRestart: onTrainingRestart,
           isAnalysisMode: isAnalysisMode,
+          canCopyPgn: canCopyPgn,
           onPastePgn: onPastePgn,
           onPasteFen: onPasteFen,
           isPlayFromHereActive: isPlayFromHereActive,

@@ -14,11 +14,31 @@ void _controllerRestorePersistedStateIfNeeded(
 
   final playFromHereMarker =
       BetterBotsDatabase.instance.loadPlayFromHereMarker();
+  final persistedPlayFromHereSessionFen =
+      BetterBotsDatabase.instance.loadPlayFromHereSessionFen();
+  final legacyPlayFromHereSessionFen =
+      (playFromHereMarker?.hasBeenLoaded ?? false)
+          ? playFromHereMarker?.fen
+          : null;
+  final playFromHereSessionFen =
+      persistedPlayFromHereSessionFen ?? legacyPlayFromHereSessionFen;
+  final soloModeEnabled =
+      BetterBotsDatabase.instance.loadSoloModeEnabled();
 
   controller
+    .._isSoloMode = soloModeEnabled
     .._playFromHereFen = playFromHereMarker?.fen
     .._playFromHerePositionLoaded =
-        playFromHereMarker?.hasBeenLoaded ?? false;
+        playFromHereSessionFen != null &&
+        playFromHereSessionFen.trim().isNotEmpty;
+
+  if (persistedPlayFromHereSessionFen == null &&
+      legacyPlayFromHereSessionFen != null &&
+      legacyPlayFromHereSessionFen.trim().isNotEmpty) {
+    BetterBotsDatabase.instance.savePlayFromHereSession(
+      legacyPlayFromHereSessionFen,
+    );
+  }
 
   final state = BetterBotsDatabase.instance.loadAppState();
 
@@ -302,9 +322,11 @@ String _persistedEffectiveFritz19PersonalityName({
 void _controllerRefreshTrainingCounterSnapshot(
   ChessBoardController controller,
 ) {
-  final playFromHereFen = controller._playFromHereFen;
+  final playFromHereFen = controller.isPlayFromHerePositionLoaded
+      ? controller._normalGameStartFen.trim()
+      : '';
 
-  if (playFromHereFen != null && playFromHereFen.trim().isNotEmpty) {
+  if (playFromHereFen.isNotEmpty) {
     controller._trainingCounterSnapshot =
         BetterBotsDatabase.instance.playFromHereCounterSnapshotFor(
       fen: playFromHereFen,
@@ -330,7 +352,8 @@ void _controllerRefreshTrainingCounterSnapshot(
 
 void _controllerMaybeCountCompletedGame(ChessBoardController controller) {
   if (controller.isAnalysisMode ||
-      controller.isPlayFromHereActive ||
+      controller._isSoloMode ||
+      controller.isPlayFromHerePositionLoaded ||
       controller._resultCountedForCurrentGame ||
       controller._analysisUsedDuringCurrentGame) {
     return;
@@ -367,12 +390,21 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
     return;
   }
 
-  final playFromHereFen = controller._playFromHereFen;
+  if (controller._isSoloMode) {
+    controller.newGame(controller._playerSide);
+    return;
+  }
 
-  if (playFromHereFen != null && playFromHereFen.trim().isNotEmpty) {
+  // Count the game that is currently running. A newly set marker belongs
+  // only to the next game and must not change the counter of this game.
+  final currentPlayFromHereFen = controller.isPlayFromHerePositionLoaded
+      ? controller._normalGameStartFen.trim()
+      : '';
+
+  if (currentPlayFromHereFen.isNotEmpty) {
     controller._trainingCounterSnapshot =
         BetterBotsDatabase.instance.incrementPlayFromHereCounter(
-      fen: playFromHereFen,
+      fen: currentPlayFromHereFen,
       playerSide: controller._playerSide,
     );
     controller.newGame(controller._playerSide);

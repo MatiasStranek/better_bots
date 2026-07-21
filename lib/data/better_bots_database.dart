@@ -102,6 +102,10 @@ class BetterBotsDatabase {
 
   static const String _playFromHereMarkerKeyHash =
       '__better_bots_play_from_here_marker_v1__';
+  static const String _playFromHereSessionKeyHash =
+      '__better_bots_play_from_here_session_v1__';
+  static const String _soloModeMarkerKeyHash =
+      '__better_bots_solo_mode_marker_v1__';
 
   static final BetterBotsDatabase instance = BetterBotsDatabase._();
 
@@ -332,6 +336,55 @@ class BetterBotsDatabase {
     );
   }
 
+  bool loadSoloModeEnabled() {
+    return _findCounterByHash(_soloModeMarkerKeyHash) != null;
+  }
+
+  void saveSoloModeEnabled(bool enabled) {
+    final box = _trainingCounterBox;
+
+    if (box == null) {
+      return;
+    }
+
+    final existing = _findCounterByHash(_soloModeMarkerKeyHash);
+
+    if (!enabled) {
+      if (existing != null) {
+        box.remove(existing.id);
+      }
+      return;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = existing ??
+        TrainingCounterEntity(
+          keyHash: _soloModeMarkerKeyHash,
+          canonicalKey: 'enabled',
+          strengthModeName: 'soloModeMarker',
+          strengthValue: -1,
+          effectiveOpeningName: 'soloModeMarker',
+          personalitySourceName: 'soloModeMarker',
+          effectivePersonalityName: 'soloModeMarker',
+          personaCandidateCount: -1,
+          cpLossUciSwitchFullMoveNumber: -1,
+          createdAtMillis: now,
+        );
+
+    entity
+      ..canonicalKey = 'enabled'
+      ..strengthModeName = 'soloModeMarker'
+      ..strengthValue = -1
+      ..effectiveOpeningName = 'soloModeMarker'
+      ..personalitySourceName = 'soloModeMarker'
+      ..effectivePersonalityName = 'soloModeMarker'
+      ..personaCandidateCount = -1
+      ..cpLossUciSwitchFullMoveNumber = -1
+      ..updatedAtMillis = now;
+
+    box.put(entity);
+  }
+
   PlayFromHereMarkerSnapshot? loadPlayFromHereMarker() {
     final entity = _findCounterByHash(_playFromHereMarkerKeyHash);
 
@@ -388,6 +441,62 @@ class BetterBotsDatabase {
 
   void markPlayFromHerePositionLoaded(String fen) {
     savePlayFromHereMarker(fen, hasBeenLoaded: true);
+    savePlayFromHereSession(fen);
+  }
+
+  String? loadPlayFromHereSessionFen() {
+    final entity = _findCounterByHash(_playFromHereSessionKeyHash);
+    final fen = entity?.canonicalKey.trim() ?? '';
+
+    return fen.isEmpty ? null : fen;
+  }
+
+  void savePlayFromHereSession(String fen) {
+    final box = _trainingCounterBox;
+    final normalizedFen = _normalizeFen(fen);
+
+    if (box == null || normalizedFen.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = _findCounterByHash(_playFromHereSessionKeyHash) ??
+        TrainingCounterEntity(
+          keyHash: _playFromHereSessionKeyHash,
+          canonicalKey: normalizedFen,
+          strengthModeName: 'playFromHereSession',
+          strengthValue: -1,
+          effectiveOpeningName: 'playFromHereSession',
+          personalitySourceName: 'playFromHereSession',
+          effectivePersonalityName: 'playFromHereSession',
+          personaCandidateCount: -1,
+          cpLossUciSwitchFullMoveNumber: -1,
+          createdAtMillis: now,
+        );
+
+    entity
+      ..canonicalKey = normalizedFen
+      ..strengthModeName = 'playFromHereSession'
+      ..strengthValue = -1
+      ..effectiveOpeningName = 'playFromHereSession'
+      ..personalitySourceName = 'playFromHereSession'
+      ..effectivePersonalityName = 'playFromHereSession'
+      ..personaCandidateCount = -1
+      ..cpLossUciSwitchFullMoveNumber = -1
+      ..updatedAtMillis = now;
+
+    box.put(entity);
+  }
+
+  void clearPlayFromHereSession() {
+    final box = _trainingCounterBox;
+    final entity = _findCounterByHash(_playFromHereSessionKeyHash);
+
+    if (box == null || entity == null) {
+      return;
+    }
+
+    box.remove(entity.id);
   }
 
   void clearPlayFromHereMarker() {

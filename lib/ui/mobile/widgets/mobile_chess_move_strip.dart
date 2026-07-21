@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../controllers/chess_board_controller.dart';
+
 class MobileChessMoveStrip extends StatefulWidget {
   const MobileChessMoveStrip({
     super.key,
-    required this.pgnText,
+    required this.entries,
+    required this.selectedPly,
+    required this.onMoveSelected,
     this.isAnalysisBranchActive = false,
     this.height = 54,
   });
 
-  final String pgnText;
+  final List<ChessMoveListEntry> entries;
+  final int selectedPly;
+  final Future<void> Function(int ply) onMoveSelected;
   final bool isAnalysisBranchActive;
   final double height;
 
@@ -19,12 +25,9 @@ class MobileChessMoveStrip extends StatefulWidget {
 class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
   final ScrollController _scrollController = ScrollController();
 
-  List<_MoveStripToken> _tokens = const [];
-
   @override
   void initState() {
     super.initState();
-    _tokens = _parsePgn(widget.pgnText);
     _scrollToLatestMove();
   }
 
@@ -32,12 +35,9 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
   void didUpdateWidget(covariant MobileChessMoveStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.pgnText == widget.pgnText) {
-      return;
+    if (oldWidget.entries.length < widget.entries.length) {
+      _scrollToLatestMove();
     }
-
-    _tokens = _parsePgn(widget.pgnText);
-    _scrollToLatestMove();
   }
 
   @override
@@ -60,59 +60,43 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
     });
   }
 
-  List<_MoveStripToken> _parsePgn(String pgnText) {
-    final trimmed = pgnText.trim();
+  List<_MoveStripToken> _buildTokens() {
+    final tokens = <_MoveStripToken>[];
+    ChessMoveListEntry? previousEntry;
 
-    if (trimmed.isEmpty || trimmed == '-') {
-      return const [];
-    }
+    for (final entry in widget.entries) {
+      final startsNewMoveNumber = previousEntry == null ||
+          previousEntry.fullMoveNumber != entry.fullMoveNumber;
 
-    final withoutTags = trimmed
-        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
-        .replaceAll(RegExp(r'\{[^}]*\}'), ' ')
-        .replaceAll(RegExp(r'\([^)]*\)'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-
-    if (withoutTags.isEmpty || withoutTags == '-') {
-      return const [];
-    }
-
-    final parts = withoutTags
-        .split(' ')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .toList();
-
-    var currentMoveIndex = -1;
-
-    for (var index = parts.length - 1; index >= 0; index--) {
-      if (!_isMoveNumber(parts[index]) && !_isGameResult(parts[index])) {
-        currentMoveIndex = index;
-        break;
+      if (startsNewMoveNumber) {
+        tokens.add(
+          _MoveStripToken(
+            text: entry.isWhiteMove
+                ? '${entry.fullMoveNumber}.'
+                : '${entry.fullMoveNumber}...',
+            isMoveNumber: true,
+          ),
+        );
       }
+
+      tokens.add(
+        _MoveStripToken(
+          text: entry.san,
+          ply: entry.ply,
+          isCurrentMove: widget.selectedPly == entry.ply,
+        ),
+      );
+
+      previousEntry = entry;
     }
 
-    return [
-      for (var index = 0; index < parts.length; index++)
-        _MoveStripToken(
-          text: parts[index],
-          isMoveNumber: _isMoveNumber(parts[index]),
-          isCurrentMove: index == currentMoveIndex,
-        ),
-    ];
-  }
-
-  bool _isMoveNumber(String token) {
-    return RegExp(r'^\d+\.(\.\.)?$').hasMatch(token);
-  }
-
-  bool _isGameResult(String token) {
-    return token == '1-0' || token == '0-1' || token == '1/2-1/2' || token == '*';
+    return tokens;
   }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = _buildTokens();
+
     return SizedBox(
       height: widget.height,
       child: DecoratedBox(
@@ -123,22 +107,27 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
             bottom: BorderSide(color: Colors.white.withAlpha(22), width: 1),
           ),
         ),
-        child: _tokens.isEmpty
+        child: tokens.isEmpty
             ? const _EmptyMoveStrip()
             : ListView.separated(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _tokens.length,
+                itemCount: tokens.length,
                 separatorBuilder: (context, index) => const SizedBox(width: 6),
                 itemBuilder: (context, index) {
-                  final token = _tokens[index];
+                  final token = tokens[index];
 
                   return Center(
                     child: _MoveStripChip(
                       token: token,
                       isAnalysisBranchActive: widget.isAnalysisBranchActive,
+                      onTap: token.ply == null
+                          ? null
+                          : () {
+                              widget.onMoveSelected(token.ply!);
+                            },
                     ),
                   );
                 },
@@ -174,10 +163,12 @@ class _MoveStripChip extends StatelessWidget {
   const _MoveStripChip({
     required this.token,
     required this.isAnalysisBranchActive,
+    required this.onTap,
   });
 
   final _MoveStripToken token;
   final bool isAnalysisBranchActive;
+  final VoidCallback? onTap;
 
   static const Color _accentColor = Color(0xFF5C9DFF);
   static const Color _branchColor = Color(0xFF9A9A9A);
@@ -200,23 +191,35 @@ class _MoveStripChip extends StatelessWidget {
 
     final currentColor = isAnalysisBranchActive ? _branchColor : _accentColor;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: token.isCurrentMove ? currentColor.withAlpha(30) : Colors.transparent,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: token.isCurrentMove ? currentColor : Colors.transparent,
-          width: 2,
-        ),
-      ),
-      child: Text(
-        token.text,
-        style: TextStyle(
-          color: token.isCurrentMove ? Colors.white : Colors.white.withAlpha(220),
-          fontSize: 19,
-          fontWeight: FontWeight.w800,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: token.isCurrentMove
+                ? currentColor.withAlpha(30)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: token.isCurrentMove ? currentColor : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Text(
+            token.text,
+            style: TextStyle(
+              color: token.isCurrentMove
+                  ? Colors.white
+                  : Colors.white.withAlpha(220),
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
       ),
     );
@@ -226,11 +229,13 @@ class _MoveStripChip extends StatelessWidget {
 class _MoveStripToken {
   const _MoveStripToken({
     required this.text,
-    required this.isMoveNumber,
-    required this.isCurrentMove,
+    this.ply,
+    this.isMoveNumber = false,
+    this.isCurrentMove = false,
   });
 
   final String text;
+  final int? ply;
   final bool isMoveNumber;
   final bool isCurrentMove;
 }

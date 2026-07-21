@@ -8,6 +8,7 @@ class MobileChessMoreSheet extends StatelessWidget {
     required this.fenText,
     required this.onTrainingRestart,
     required this.isAnalysisMode,
+    required this.canCopyPgn,
     required this.onPastePgn,
     required this.onPasteFen,
     required this.isPlayFromHereActive,
@@ -18,6 +19,7 @@ class MobileChessMoreSheet extends StatelessWidget {
   final String fenText;
   final VoidCallback onTrainingRestart;
   final bool isAnalysisMode;
+  final bool canCopyPgn;
   final Future<bool> Function(String text) onPastePgn;
   final Future<bool> Function(String text) onPasteFen;
   final bool isPlayFromHereActive;
@@ -156,7 +158,7 @@ class MobileChessMoreSheet extends StatelessWidget {
             _SheetAction(
               icon: Icons.copy,
               label: 'PGN KOPIEREN',
-              isEnabled: _hasPgn,
+              isEnabled: canCopyPgn && _hasPgn,
               onTap: () => _copyText(
                 context: context,
                 text: pgnText,

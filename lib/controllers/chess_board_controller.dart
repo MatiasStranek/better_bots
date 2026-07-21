@@ -109,6 +109,7 @@ class ChessBoardController extends ChangeNotifier {
 
   bool _analysisUsedDuringCurrentGame = false;
   bool _resultCountedForCurrentGame = false;
+  bool _isSoloMode = false;
 
   String? _playFromHereFen;
   bool _playFromHerePositionLoaded = false;
@@ -370,12 +371,14 @@ class ChessBoardController extends ChangeNotifier {
     return _analysisUsedDuringCurrentGame;
   }
 
+  bool get isSoloMode => _isSoloMode;
+
   bool get isPlayFromHereActive {
     return _playFromHereFen != null && _playFromHereFen!.trim().isNotEmpty;
   }
 
   bool get isPlayFromHerePositionLoaded {
-    return isPlayFromHereActive && _playFromHerePositionLoaded;
+    return _playFromHerePositionLoaded;
   }
 
   String? get playFromHereFen {
@@ -383,7 +386,12 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   String? get displayedPlayFromHereFen {
-    return isPlayFromHerePositionLoaded ? _playFromHereFen : null;
+    if (!isPlayFromHerePositionLoaded) {
+      return null;
+    }
+
+    final fen = _normalGameStartFen.trim();
+    return fen.isEmpty ? null : fen;
   }
 
   TrainingCounterSnapshot get trainingCounterSnapshot {
@@ -456,6 +464,19 @@ class ChessBoardController extends ChangeNotifier {
     return currentPgn.isEmpty ? '-' : currentPgn;
   }
 
+  /// PGN der Position, die gerade wirklich auf dem Brett angezeigt wird.
+  /// Im normalen Review-Modus endet sie am sichtbaren Halbzug.
+  String get displayedPgn {
+    final analysisPgn = _analysisSession?.pgn;
+
+    if (analysisPgn != null) {
+      return analysisPgn;
+    }
+
+    final currentPgn = _controllerDisplayedNormalGame(this).pgn();
+    return currentPgn.isEmpty ? '-' : currentPgn;
+  }
+
   bool get playerIsWhite => _playerSide == PlayerSide.white;
 
   bool get hasPremoves => !isAnalysisMode && !isNormalReviewMode && _premoves.isNotEmpty;
@@ -475,6 +496,10 @@ class ChessBoardController extends ChangeNotifier {
 
     if (isNormalReviewMode) {
       return false;
+    }
+
+    if (_isSoloMode) {
+      return true;
     }
 
     final whiteToMove = _game.turn == chess.Color.WHITE;
@@ -542,6 +567,10 @@ class ChessBoardController extends ChangeNotifier {
 
   void restartTrainingCounterGame() {
     _controllerRestartTrainingCounterGame(this);
+  }
+
+  void setSoloMode(bool enabled) {
+    _controllerSetSoloMode(this, enabled);
   }
 
   void toggleAnalysisMode() => _controllerToggleAnalysisMode(this);

@@ -54,6 +54,8 @@ class MobileChessSideMenu extends StatelessWidget {
     required this.onBotProfileDisabled,
     required this.onNewGame,
     required this.onRestart,
+    required this.isSoloMode,
+    required this.onSoloModeChanged,
     required this.onSkillLevelChanged,
     required this.onUciEloChanged,
     required this.onCpLossEloChanged,
@@ -117,6 +119,8 @@ class MobileChessSideMenu extends StatelessWidget {
 
   final ValueChanged<PlayerSide> onNewGame;
   final VoidCallback onRestart;
+  final bool isSoloMode;
+  final ValueChanged<bool> onSoloModeChanged;
 
   final ValueChanged<int> onSkillLevelChanged;
   final ValueChanged<int> onUciEloChanged;
@@ -816,6 +820,53 @@ class MobileChessSideMenu extends StatelessWidget {
     onRestart();
   }
 
+  Future<void> _confirmSoloModeChange(BuildContext context) async {
+    if (!isEnabled) {
+      return;
+    }
+
+    final enabling = !isSoloMode;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            enabling ? 'Solo-Modus aktivieren?' : 'Solo-Modus verlassen?',
+          ),
+          content: Text(
+            enabling
+                ? 'Das Brett wird zurückgesetzt. Im Solo-Modus ziehst du '
+                    'sowohl für Weiß als auch für Schwarz. Bot, Persönlichkeit '
+                    'und Spielstärke haben keinen Einfluss auf die Züge.'
+                : 'Das Brett wird zurückgesetzt. Danach gelten wieder deine '
+                    'zuletzt gewählten Bot-, Persönlichkeits- und '
+                    'Spielstärke-Einstellungen.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                enabling ? 'Solo aktivieren' : 'Solo verlassen',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    onClose();
+    onSoloModeChanged(enabling);
+  }
+
   @override
   Widget build(BuildContext context) {
     final personalityEnabled =
@@ -915,6 +966,17 @@ class MobileChessSideMenu extends StatelessWidget {
                           onTap: () => _showCpLossUciSwitchMoveDialog(context),
                           isEnabled: settingsControlsEnabled && cpLossEloEnabled,
                         ),
+                        _SideMenuButton(
+                          icon: Icons.person,
+                          label: 'Solo-Modus',
+                          value: isSoloMode
+                              ? 'Aktiv — du ziehst beide Seiten'
+                              : 'Inaktiv — Bot spielt die Gegenseite',
+                          onTap: () => _confirmSoloModeChange(context),
+                          isEnabled: isEnabled,
+                          isHighlighted: isSoloMode,
+                          highlightColor: const Color(0xFF55C878),
+                        ),
                       ],
                     ),
                   ),
@@ -1012,6 +1074,7 @@ class _SideMenuButton extends StatelessWidget {
     required this.value,
     required this.isEnabled,
     this.isHighlighted = false,
+    this.highlightColor,
     this.onTap,
   });
 
@@ -1020,6 +1083,7 @@ class _SideMenuButton extends StatelessWidget {
   final String value;
   final bool isEnabled;
   final bool isHighlighted;
+  final Color? highlightColor;
   final VoidCallback? onTap;
 
   static const Color _accentColor = Color(0xFF5C9DFF);
@@ -1028,7 +1092,7 @@ class _SideMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isEnabled
         ? isHighlighted
-              ? _accentColor
+              ? highlightColor ?? _accentColor
               : Colors.white
         : Colors.white.withAlpha(76);
 

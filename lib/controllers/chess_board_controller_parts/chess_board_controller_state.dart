@@ -114,6 +114,10 @@ String _controllerStatusText(ChessBoardController controller) {
       ? 'Weiß'
       : 'Schwarz';
 
+  if (controller._isSoloMode) {
+    return 'Solo-Modus — $sideToMove am Zug';
+  }
+
   if (controller.isPlayersTurn) {
     return '$sideToMove am Zug — du bist dran';
   }
@@ -130,6 +134,27 @@ String _controllerAnalysisDepthStatus(AnalysisSession analysisSession) {
   final currentDepth = _maxAnalysisDepth(analysisSession.topLines);
 
   return '${analysisSession.sideToMoveText} am Zug — Aktuelle Tiefe: $currentDepth';
+}
+
+void _controllerSetSoloMode(
+  ChessBoardController controller,
+  bool enabled,
+) {
+  if (controller.isAnalysisMode ||
+      controller._isBotThinking ||
+      controller._isSoloMode == enabled) {
+    return;
+  }
+
+  controller._searchGeneration++;
+  controller
+    .._isSoloMode = enabled
+    .._selectedSquare = null
+    .._isBotThinking = false
+    .._premoves.clear();
+
+  BetterBotsDatabase.instance.saveSoloModeEnabled(enabled);
+  controller.newGame(controller._playerSide);
 }
 
 void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
@@ -181,19 +206,19 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
     );
   } else {
     if (markedFen != null) {
-      controller
-        .._playFromHereFen = null
-        .._playFromHerePositionLoaded = false;
+      controller._playFromHereFen = null;
       BetterBotsDatabase.instance.clearPlayFromHereMarker();
     }
 
     controller
       .._analysisUsedDuringCurrentGame = false
+      .._playFromHerePositionLoaded = false
       .._openingLogicAllowed = true
       .._normalGameStartFen = _defaultStartFen
       .._normalGameMoves.clear()
       .._game.reset();
 
+    BetterBotsDatabase.instance.clearPlayFromHereSession();
     _controllerResolveRandomOpeningMove(controller);
   }
 

@@ -380,9 +380,7 @@ bool _controllerTogglePlayFromHere(ChessBoardController controller) {
       controller._resultCountedForCurrentGame = true;
     }
 
-    controller
-      .._playFromHereFen = null
-      .._playFromHerePositionLoaded = false;
+    controller._playFromHereFen = null;
 
     BetterBotsDatabase.instance.clearPlayFromHereMarker();
     _safeNotify(controller);
@@ -405,9 +403,7 @@ bool _controllerTogglePlayFromHere(ChessBoardController controller) {
     return false;
   }
 
-  controller
-    .._playFromHereFen = visibleFen
-    .._playFromHerePositionLoaded = false;
+  controller._playFromHereFen = visibleFen;
 
   BetterBotsDatabase.instance.savePlayFromHereMarker(visibleFen);
   _safeNotify(controller);

@@ -243,9 +243,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   }
 
   Future<void> _copyPgnToClipboard() async {
-    final pgn = _controller.pgn;
+    final pgn = _controller.displayedPgn.trim();
 
-    if (pgn == '-') {
+    if (pgn.isEmpty || pgn == '-') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Noch keine PGN vorhanden.'),
@@ -264,6 +264,33 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('PGN wurde kopiert.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _copyFenToClipboard() async {
+    final fen = _controller.fen.trim();
+
+    if (fen.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keine FEN vorhanden.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: fen));
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('FEN wurde kopiert.'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -345,81 +372,53 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     _controller.togglePlayFromHere();
   }
 
-  Future<void> _showLoadFenDialog() async {
-    if (_controller.isAnalysisMode) {
+  Future<void> _confirmSoloModeChange() async {
+    if (_controller.isAnalysisMode || _controller.isBotThinking) {
       return;
     }
 
-    final fenController = TextEditingController(text: _controller.fen);
-
-    try {
-      final fen = await showDialog<String>(
-        context: context,
-        barrierDismissible: true,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text(
-              'FEN laden',
-              style: _dialogTitleTextStyle,
-            ),
-            contentTextStyle: const TextStyle(color: Colors.black87),
-            content: SizedBox(
-              width: 520,
-              child: TextField(
-                controller: fenController,
-                autofocus: true,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'FEN',
-                  hintText:
-                      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: _dialogAccentBlue,
-                ),
-                child: const Text('Abbrechen'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop(fenController.text);
-                },
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: _dialogAccentBlue,
-                ),
-                icon: const Icon(Icons.check),
-                label: const Text('FEN bestätigen'),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (fen == null) {
-        return;
-      }
-
-      final loaded = await _controller.loadFenPosition(fen);
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            loaded ? 'FEN wurde geladen.' : 'FEN konnte nicht geladen werden.',
+    final enabling = !_controller.isSoloMode;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            enabling ? 'Solo-Modus aktivieren?' : 'Solo-Modus verlassen?',
+            style: _dialogTitleTextStyle,
           ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } finally {
-      fenController.dispose();
+          contentTextStyle: const TextStyle(color: Colors.black87),
+          content: Text(
+            enabling
+                ? 'Das Brett wird zurückgesetzt. Im Solo-Modus ziehst du '
+                    'sowohl für Weiß als auch für Schwarz. Bot, Persönlichkeit '
+                    'und Spielstärke haben keinen Einfluss auf die Züge.'
+                : 'Das Brett wird zurückgesetzt. Danach gelten wieder deine '
+                    'zuletzt gewählten Bot-, Persönlichkeits- und '
+                    'Spielstärke-Einstellungen.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: _dialogAccentBlue,
+              ),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: Icon(enabling ? Icons.person : Icons.smart_toy),
+              label: Text(
+                enabling ? 'Solo aktivieren' : 'Solo verlassen',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      _controller.setSoloMode(enabling);
     }
   }
 
@@ -733,16 +732,17 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                   runSpacing: 8,
                                   children: [
                                     OutlinedButton.icon(
-                                      onPressed: _copyPgnToClipboard,
+                                      onPressed: _controller
+                                              .isPlayFromHerePositionLoaded
+                                          ? null
+                                          : _copyPgnToClipboard,
                                       icon: const Icon(Icons.copy),
                                       label: const Text('PGN kopieren'),
                                     ),
                                     OutlinedButton.icon(
-                                      onPressed: _controller.isAnalysisMode
-                                          ? null
-                                          : _showLoadFenDialog,
-                                      icon: const Icon(Icons.input),
-                                      label: const Text('FEN laden'),
+                                      onPressed: _copyFenToClipboard,
+                                      icon: const Icon(Icons.copy_all),
+                                      label: const Text('FEN kopieren'),
                                     ),
                                     OutlinedButton.icon(
                                       onPressed: _controller.isAnalysisMode
@@ -764,6 +764,28 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                           : _pasteFenFromClipboard,
                                       icon: const Icon(Icons.content_paste_go),
                                       label: const Text('Paste FEN'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _controller.isAnalysisMode ||
+                                              _controller.isBotThinking
+                                          ? null
+                                          : _confirmSoloModeChange,
+                                      style: _controller.isSoloMode
+                                          ? OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  const Color(0xFF55C878),
+                                              side: const BorderSide(
+                                                color: Color(0xFF55C878),
+                                                width: 1.5,
+                                              ),
+                                            )
+                                          : null,
+                                      icon: const Icon(Icons.person),
+                                      label: Text(
+                                        _controller.isSoloMode
+                                            ? 'Solo-Modus aktiv'
+                                            : 'Solo-Modus',
+                                      ),
                                     ),
                                     OutlinedButton.icon(
                                       onPressed: _togglePlayFromHere,
@@ -805,8 +827,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
                                   counter: _controller.trainingCounterSnapshot,
                                   analysisUsedDuringCurrentGame:
                                       _controller.analysisUsedDuringCurrentGame,
-                                  trainedOnly:
-                                      _controller.isPlayFromHereActive,
+                                  trainedOnly: _controller
+                                      .isPlayFromHerePositionLoaded,
                                 ),
                               ],
                             ),
