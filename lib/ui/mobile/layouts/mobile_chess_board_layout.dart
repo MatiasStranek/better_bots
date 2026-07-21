@@ -548,6 +548,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                       widget.effectiveFritz19Personality,
                   personaCandidateCount: widget.personaCandidateCount,
                   activeBotProfile: widget.activeBotProfile,
+                  isSoloMode: widget.isSoloMode,
                   playFromHereFen: widget.displayedPlayFromHereFen,
                 ),
               ),

@@ -25,6 +25,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.effectiveFritz19Personality,
     required this.personaCandidateCount,
     required this.activeBotProfile,
+    required this.isSoloMode,
     this.playFromHereFen,
   });
 
@@ -43,6 +44,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final Fritz19Personality effectiveFritz19Personality;
   final int personaCandidateCount;
   final BotProfile? activeBotProfile;
+  final bool isSoloMode;
   final String? playFromHereFen;
 
   String get _strengthText {
@@ -143,11 +145,48 @@ class MobileChessGameInfoPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 7),
               ],
-              for (final row in rows) _GameInfoRow(data: row),
+              if (isSoloMode)
+                const _SoloModeInfo()
+              else
+                for (final row in rows) _GameInfoRow(data: row),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SoloModeInfo extends StatelessWidget {
+  const _SoloModeInfo();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Solo-Modus',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Color(0xFF55C878),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        SizedBox(height: 3),
+        Text(
+          'Du ziehst für Weiß und Schwarz.',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Color(0xFFE6E6E6),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -23,20 +23,35 @@ class MobileChessMoveStrip extends StatefulWidget {
 }
 
 class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
+  static const double _horizontalPadding = 12;
+  static const double _tokenSpacing = 6;
+  static const TextStyle _moveNumberStyle = TextStyle(
+    color: Color(0xFF9A9A9A),
+    fontSize: 15,
+    fontWeight: FontWeight.w800,
+  );
+  static const TextStyle _moveTextStyle = TextStyle(
+    fontSize: 19,
+    fontWeight: FontWeight.w800,
+  );
+
   final ScrollController _scrollController = ScrollController();
+  int _scrollRequestSerial = 0;
+  DateTime? _lastSelectionChangeAt;
 
   @override
   void initState() {
     super.initState();
-    _scrollToLatestMove();
+    _scheduleScrollToSelectedMove(animated: false);
   }
 
   @override
   void didUpdateWidget(covariant MobileChessMoveStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.entries.length < widget.entries.length) {
-      _scrollToLatestMove();
+    if (oldWidget.selectedPly != widget.selectedPly ||
+        oldWidget.entries.length != widget.entries.length) {
+      _scheduleScrollToSelectedMove();
     }
   }
 
@@ -46,18 +61,89 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
     super.dispose();
   }
 
-  void _scrollToLatestMove() {
+  void _scheduleScrollToSelectedMove({bool animated = true}) {
+    final requestSerial = ++_scrollRequestSerial;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
+      if (!mounted ||
+          requestSerial != _scrollRequestSerial ||
+          !_scrollController.hasClients) {
         return;
       }
 
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
+      _scrollToSelectedMove(animated: animated);
     });
+  }
+
+  void _scrollToSelectedMove({required bool animated}) {
+    final position = _scrollController.position;
+    final tokens = _buildTokens();
+
+    if (tokens.isEmpty || widget.selectedPly <= 0) {
+      _moveScrollPositionTo(position.minScrollExtent, animated: animated);
+      return;
+    }
+
+    final selectedIndex = tokens.indexWhere(
+      (token) => token.ply == widget.selectedPly,
+    );
+
+    if (selectedIndex < 0) {
+      return;
+    }
+
+    var leadingOffset = _horizontalPadding;
+    for (var index = 0; index < selectedIndex; index++) {
+      leadingOffset += _tokenWidth(tokens[index]) + _tokenSpacing;
+    }
+
+    final selectedWidth = _tokenWidth(tokens[selectedIndex]);
+    final centeredOffset = leadingOffset +
+        selectedWidth / 2 -
+        position.viewportDimension / 2;
+    final targetOffset = centeredOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+
+    final now = DateTime.now();
+    final isRapidNavigation = _lastSelectionChangeAt != null &&
+        now.difference(_lastSelectionChangeAt!) <
+            const Duration(milliseconds: 140);
+    _lastSelectionChangeAt = now;
+
+    _moveScrollPositionTo(
+      targetOffset.toDouble(),
+      animated: animated && !isRapidNavigation,
+    );
+  }
+
+  void _moveScrollPositionTo(double offset, {required bool animated}) {
+    if ((_scrollController.offset - offset).abs() < 1) {
+      return;
+    }
+
+    if (!animated) {
+      _scrollController.jumpTo(offset);
+      return;
+    }
+
+    _scrollController.animateTo(
+      offset,
+      duration: const Duration(milliseconds: 130),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  double _tokenWidth(_MoveStripToken token) {
+    final style = token.isMoveNumber ? _moveNumberStyle : _moveTextStyle;
+    final painter = TextPainter(
+      text: TextSpan(text: token.text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+
+    return painter.width + (token.isMoveNumber ? 4 : 20);
   }
 
   List<_MoveStripToken> _buildTokens() {
@@ -180,11 +266,7 @@ class _MoveStripChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Text(
           token.text,
-          style: const TextStyle(
-            color: Color(0xFF9A9A9A),
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
+          style: _MobileChessMoveStripState._moveNumberStyle,
         ),
       );
     }
@@ -212,12 +294,10 @@ class _MoveStripChip extends StatelessWidget {
           ),
           child: Text(
             token.text,
-            style: TextStyle(
+            style: _MobileChessMoveStripState._moveTextStyle.copyWith(
               color: token.isCurrentMove
                   ? Colors.white
                   : Colors.white.withAlpha(220),
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
             ),
           ),
         ),
