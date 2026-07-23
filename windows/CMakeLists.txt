@@ -87,6 +87,14 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# The Windows-only Maia bridge exposes the official ONNX Runtime DLL from the
+# runner subdirectory. Android never sees this dependency.
+if(MAIA3_ONNXRUNTIME_DLL_FILE)
+  install(FILES "${MAIA3_ONNXRUNTIME_DLL_FILE}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"
@@ -105,4 +113,36 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 # Install the AOT library on non-Debug builds only.
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
+  COMPONENT Runtime)
+
+# Bundle the Windows Stockfish executable next to the application.
+# The Dart engine resolves this file relative to Platform.resolvedExecutable,
+# so the app keeps working when launched from Explorer, a shortcut, or an
+# installer instead of relying on the process working directory.
+set(STOCKFISH_SOURCE_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/../engines/stockfish.exe")
+
+if(NOT EXISTS "${STOCKFISH_SOURCE_FILE}")
+  message(FATAL_ERROR
+    "Stockfish executable is missing: ${STOCKFISH_SOURCE_FILE}")
+endif()
+
+install(FILES "${STOCKFISH_SOURCE_FILE}"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/engines"
+  COMPONENT Runtime)
+
+
+# Bundle the Maia3-5M ONNX model for native Windows inference. The source model
+# is the same verified model that the Android build already uses. The
+# the Windows runner links the official Microsoft ONNX Runtime directly.
+set(MAIA3_MODEL_SOURCE_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/../android/app/src/main/assets/maia3/maia3-5m.onnx")
+
+if(NOT EXISTS "${MAIA3_MODEL_SOURCE_FILE}")
+  message(FATAL_ERROR
+    "Maia3 ONNX model is missing: ${MAIA3_MODEL_SOURCE_FILE}")
+endif()
+
+install(FILES "${MAIA3_MODEL_SOURCE_FILE}"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/engines/maia3"
   COMPONENT Runtime)

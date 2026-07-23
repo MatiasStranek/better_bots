@@ -48,10 +48,40 @@ class StockfishWindowsEngine implements ChessEngine {
       return;
     }
 
-    _process = await Process.start(
-      r'engines\stockfish.exe',
-      [],
-      runInShell: true,
+    final executablePath = _resolveStockfishExecutablePath();
+    final executableFile = File(executablePath);
+
+    if (!executableFile.existsSync()) {
+      throw FileSystemException(
+        'Die integrierte Stockfish-Engine wurde nicht gefunden. '
+        'Erwarteter Pfad: $executablePath',
+        executablePath,
+      );
+    }
+
+    _outputController.add('Stockfish startet: $executablePath');
+
+    try {
+      _process = await Process.start(
+        executablePath,
+        const <String>[],
+        workingDirectory: executableFile.parent.path,
+        runInShell: false,
+      );
+    } on ProcessException catch (error) {
+      throw ProcessException(
+        executablePath,
+        const <String>[],
+        'Stockfish konnte nicht gestartet werden: ${error.message}',
+        error.errorCode,
+      );
+    }
+
+    unawaited(
+      _process!.exitCode.then((exitCode) {
+        _outputController.add('Stockfish wurde mit Code $exitCode beendet.');
+        _process = null;
+      }),
     );
 
     _stdoutSubscription = _process!.stdout
@@ -78,6 +108,14 @@ class StockfishWindowsEngine implements ChessEngine {
     );
 
     await _waitUntilReady();
+  }
+
+
+  String _resolveStockfishExecutablePath() {
+    final applicationDirectory = File(Platform.resolvedExecutable).parent.path;
+
+    return '$applicationDirectory${Platform.pathSeparator}'
+        'engines${Platform.pathSeparator}stockfish.exe';
   }
 
   @override

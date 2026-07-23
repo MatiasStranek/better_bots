@@ -214,6 +214,7 @@ Future<String> _selectMoveWithActiveBotProfile({
     botMove = await botEngine.getBestMoveFromGame(
       startFen: controller._normalGameStartFen,
       moves: moveHistory,
+      fen: controller._game.fen,
       elo: profile.rating,
       temperature: profile.defaultTemperature,
       topP: profile.defaultTopP,

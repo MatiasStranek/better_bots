@@ -1,128 +1,146 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+import 'dart:math';
+
+import 'package:flutter/services.dart';
 
 import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
+import 'maia3_android_position_encoder.dart';
 import 'personality/persona_move_candidate.dart';
 
+/// Native Maia3-5M inference for Windows.
+///
+/// The historical class name is kept so existing controller type checks do not
+/// have to change. This implementation no longer starts the external Python
+/// UCI process. It loads the bundled ONNX model directly through ONNX Runtime.
 class Maia3WindowsUciEngine implements ChessEngine {
   Maia3WindowsUciEngine({
-    this.executablePath =
-        r'C:\dev\essentials\maia3\.venv\Scripts\maia3-uci.exe',
-    this.workingDirectory = r'C:\dev\essentials\maia3',
-    this.model = 'maia3-5m',
-    this.device = 'cpu',
-    this.useUciHistory = true,
+    this.modelRelativePath = const <String>[
+      'engines',
+      'maia3',
+      'maia3-5m.onnx',
+    ],
   });
 
-  final String executablePath;
-  final String workingDirectory;
-  final String model;
-  final String device;
-  final bool useUciHistory;
-
-  Process? _process;
+  final List<String> modelRelativePath;
 
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
+  final Maia3AndroidPositionEncoder _encoder =
+      const Maia3AndroidPositionEncoder();
+  final Random _random = Random();
+  static const MethodChannel _channel = MethodChannel(
+    'better_bots/maia3_windows_onnx',
+  );
 
-  StreamSubscription<String>? _stdoutSubscription;
-  StreamSubscription<String>? _stderrSubscription;
-
-  Completer<void>? _uciOkCompleter;
-  Completer<void>? _readyOkCompleter;
-  Completer<String>? _bestMoveCompleter;
-  Completer<List<PersonaMoveCandidate>>? _candidateCompleter;
-  Completer<List<EngineAnalysisLine>>? _analysisCompleter;
-  EngineAnalysisUpdate? _analysisUpdateCallback;
-
-  final Map<int, PersonaMoveCandidate> _latestCandidatesByMultiPv = {};
-  final Map<int, EngineAnalysisLine> _latestAnalysisLinesByMultiPv = {};
+  bool _isStarted = false;
+  Future<void>? _startFuture;
+  Future<void> _inferenceTail = Future<void>.value();
+  int _searchGeneration = 0;
 
   @override
   Stream<String> get output => _outputController.stream;
 
   @override
-  bool get isRunning => _process != null;
+  bool get isRunning => _isStarted;
 
   @override
   Future<void> start() async {
-    if (_process != null) {
+    if (_isStarted) {
       return;
     }
 
-    final args = <String>[
-      '--model',
-      model,
-      if (useUciHistory) '--use-uci-history',
-      '--device',
-      device,
-      '--no-use-amp',
-    ];
+    final pendingStart = _startFuture;
+    if (pendingStart != null) {
+      await pendingStart;
+      return;
+    }
 
-    _addOutput('Maia3 Windows startet: $executablePath ${args.join(' ')}');
+    final startFuture = _startInternal();
+    _startFuture = startFuture;
 
-    _process = await Process.start(
-      executablePath,
-      args,
-      workingDirectory: workingDirectory,
-      runInShell: true,
-    );
+    try {
+      await startFuture;
+    } finally {
+      if (identical(_startFuture, startFuture)) {
+        _startFuture = null;
+      }
+    }
+  }
 
-    _stdoutSubscription = _process!.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(_handleOutputLine);
-
-    _stderrSubscription = _process!.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
-      _addOutput('MAIA STDERR: $line');
-    });
-
-    _uciOkCompleter = Completer<void>();
-    _sendCommand('uci');
-
-    await _uciOkCompleter!.future.timeout(
-      const Duration(seconds: 15),
-      onTimeout: () {
-        throw Exception('Maia3 hat nicht mit uciok geantwortet.');
-      },
-    );
-
-    await _waitUntilReady(timeout: const Duration(seconds: 120));
-
-    _addOutput('Maia3 Windows bereit.');
+  Future<void> _startInternal() async {
+    final message = await _channel.invokeMethod<String>('initialize');
+    _isStarted = true;
+    _addOutput(message ?? 'Maia3 Windows ONNX bereit.');
   }
 
   @override
   Future<void> setSkillLevel(int level) async {
-    // Maia3 nutzt Rating-Conditioning über Elo statt Stockfish Skill-Level.
+    // Maia3 nutzt Elo-Conditioning statt eines Stockfish-Skill-Levels.
   }
 
   Future<String> getBestMoveFromGame({
     required String startFen,
     required List<String> moves,
+    required String fen,
     required int elo,
     double temperature = 1.0,
     double topP = 0.95,
   }) async {
     await _ensureStarted();
-    await _configureMaia(
-      elo: elo,
-      temperature: temperature,
-      topP: topP,
-      multiPv: 5,
+
+    final requestGeneration = ++_searchGeneration;
+    final safeElo = elo.clamp(0, 5000).toInt();
+
+    _addOutput(
+      'Maia3 Windows kodiert Position: Elo $safeElo, '
+      '${moves.length} Halbzüge History.',
     );
 
-    return _searchBestMove(
-      positionCommand: _positionCommandFromGame(
-        startFen: startFen,
-        moves: moves,
+    final encoded = _encoder.encode(
+      startFen: startFen,
+      moves: moves,
+      fen: fen,
+    );
+
+    final logits = await _runSerial<List<double>>(
+      () => _runPolicyInference(
+        tokens: encoded.tokens,
+        elo: safeElo,
       ),
     );
+
+    if (requestGeneration != _searchGeneration) {
+      _addOutput('Maia3 Windows: veraltetes Ergebnis verworfen.');
+      return '(none)';
+    }
+
+    final candidates = _buildLegalCandidates(
+      logits: logits,
+      legalMoveIndices: encoded.legalMoveIndices,
+      legalMoveUcis: encoded.legalMoveUcis,
+    );
+
+    final selected = _selectMove(
+      candidates: candidates,
+      temperature: temperature,
+      topP: topP,
+    );
+
+    final topDebug = (List<_MaiaPolicyCandidate>.of(candidates)
+          ..sort((a, b) => b.logit.compareTo(a.logit)))
+        .take(5)
+        .map((candidate) {
+          return '${candidate.uci}:${candidate.logit.toStringAsFixed(3)}';
+        })
+        .join(', ');
+
+    _addOutput(
+      'Maia3 Windows bestmove ${selected.uci} | '
+      'legal=${candidates.length}, top=$topDebug',
+    );
+
+    return selected.uci;
   }
 
   @override
@@ -131,11 +149,13 @@ class Maia3WindowsUciEngine implements ChessEngine {
     required bool useUciElo,
     required int uciElo,
     int moveTimeMs = 800,
-  }) async {
-    await _ensureStarted();
-    await _configureMaia(elo: uciElo, multiPv: 5);
-
-    return _searchBestMove(positionCommand: 'position startpos');
+  }) {
+    return getBestMoveFromGame(
+      startFen: 'startpos',
+      moves: const <String>[],
+      fen: 'startpos',
+      elo: uciElo,
+    );
   }
 
   @override
@@ -145,13 +165,176 @@ class Maia3WindowsUciEngine implements ChessEngine {
     required bool useUciElo,
     required int uciElo,
     int moveTimeMs = 800,
-  }) async {
-    await _ensureStarted();
-    await _configureMaia(elo: uciElo, multiPv: 5);
-
-    return _searchBestMove(
-      positionCommand: _positionCommandFromFen(fen),
+  }) {
+    return getBestMoveFromGame(
+      startFen: fen,
+      moves: const <String>[],
+      fen: fen,
+      elo: uciElo,
     );
+  }
+
+  Future<List<double>> _runPolicyInference({
+    required List<double> tokens,
+    required int elo,
+  }) async {
+    if (!_isStarted) {
+      throw StateError('Maia3 Windows ONNX ist nicht gestartet.');
+    }
+
+    if (tokens.length != 64 * 97) {
+      throw ArgumentError.value(
+        tokens.length,
+        'tokens.length',
+        'Maia3 erwartet genau ${64 * 97} Werte.',
+      );
+    }
+
+    final rawLogits = await _channel.invokeListMethod<Object?>(
+      'runInference',
+      <String, Object>{
+        'tokens': tokens,
+        'elo': elo,
+      },
+    );
+
+    if (rawLogits == null) {
+      throw StateError('Maia3 Windows hat keine logits_move-Ausgabe geliefert.');
+    }
+
+    final logits = rawLogits
+        .map((value) => (value as num).toDouble())
+        .toList(growable: false);
+
+    if (logits.length != 4352) {
+      throw StateError(
+        'Maia3 logits_move hat Länge ${logits.length}, erwartet 4352.',
+      );
+    }
+
+    return logits;
+  }
+
+  List<_MaiaPolicyCandidate> _buildLegalCandidates({
+    required List<double> logits,
+    required List<int> legalMoveIndices,
+    required List<String> legalMoveUcis,
+  }) {
+    if (legalMoveIndices.length != legalMoveUcis.length) {
+      throw StateError(
+        'Maia-Zugindizes und UCI-Züge haben unterschiedliche Längen.',
+      );
+    }
+
+    final candidates = <_MaiaPolicyCandidate>[];
+
+    for (var index = 0; index < legalMoveIndices.length; index++) {
+      final maiaIndex = legalMoveIndices[index];
+
+      if (maiaIndex < 0 || maiaIndex >= logits.length) {
+        continue;
+      }
+
+      final logit = logits[maiaIndex];
+      if (!logit.isFinite) {
+        continue;
+      }
+
+      candidates.add(
+        _MaiaPolicyCandidate(
+          uci: legalMoveUcis[index],
+          index: maiaIndex,
+          logit: logit,
+        ),
+      );
+    }
+
+    if (candidates.isEmpty) {
+      throw StateError('Maia3 hat keine legalen Kandidaten geliefert.');
+    }
+
+    return candidates;
+  }
+
+  _MaiaPolicyCandidate _selectMove({
+    required List<_MaiaPolicyCandidate> candidates,
+    required double temperature,
+    required double topP,
+  }) {
+    if (temperature <= 0.0001 || candidates.length == 1) {
+      return candidates.reduce(
+        (best, candidate) => candidate.logit > best.logit ? candidate : best,
+      );
+    }
+
+    final safeTemperature = temperature.clamp(0.05, 5.0).toDouble();
+    final maxScaled = candidates
+        .map((candidate) => candidate.logit / safeTemperature)
+        .reduce(max);
+
+    final scored = candidates
+        .map(
+          (candidate) => _WeightedMaiaCandidate(
+            candidate: candidate,
+            weight: exp(candidate.logit / safeTemperature - maxScaled),
+          ),
+        )
+        .toList(growable: false)
+      ..sort((a, b) => b.weight.compareTo(a.weight));
+
+    final totalWeight = scored.fold<double>(
+      0,
+      (sum, candidate) => sum + candidate.weight,
+    );
+    final safeTopP = topP.clamp(0.01, 1.0).toDouble();
+    final filtered = <_WeightedMaiaCandidate>[];
+    var cumulative = 0.0;
+
+    for (final candidate in scored) {
+      filtered.add(candidate);
+      cumulative += candidate.weight;
+
+      if (cumulative / totalWeight >= safeTopP) {
+        break;
+      }
+    }
+
+    final filteredTotal = filtered.fold<double>(
+      0,
+      (sum, candidate) => sum + candidate.weight,
+    );
+    var roll = _random.nextDouble() * filteredTotal;
+
+    for (final candidate in filtered) {
+      roll -= candidate.weight;
+      if (roll <= 0) {
+        return candidate.candidate;
+      }
+    }
+
+    return filtered.last.candidate;
+  }
+
+  Future<T> _runSerial<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+
+    _inferenceTail = _inferenceTail.then((_) async {
+      try {
+        completer.complete(await action());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+
+    return completer.future;
+  }
+
+  Future<void> _ensureStarted() async {
+    if (_isStarted) {
+      return;
+    }
+
+    await start();
   }
 
   @override
@@ -165,26 +348,8 @@ class Maia3WindowsUciEngine implements ChessEngine {
   }) async {
     await _ensureStarted();
 
-    final safeCandidateCount = candidateCount.clamp(1, 20).toInt();
-
-    await _configureMaia(elo: uciElo, multiPv: safeCandidateCount);
-
-    _bestMoveCompleter = null;
-    _candidateCompleter = Completer<List<PersonaMoveCandidate>>();
-    _analysisCompleter = null;
-    _analysisUpdateCallback = null;
-    _latestCandidatesByMultiPv.clear();
-    _latestAnalysisLinesByMultiPv.clear();
-
-    _sendCommand(_positionCommandFromFen(fen));
-    _sendCommand('go nodes 1');
-
-    return _candidateCompleter!.future.timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        _candidateCompleter = null;
-        throw Exception('Maia3 hat keine Kandidaten geliefert.');
-      },
+    throw UnsupportedError(
+      'Maia3-Windows-Kandidatenzüge sind für Botprofile nicht erforderlich.',
     );
   }
 
@@ -197,358 +362,28 @@ class Maia3WindowsUciEngine implements ChessEngine {
   }) async {
     await _ensureStarted();
 
-    final safeMultiPv = multiPv.clamp(1, 20).toInt();
-
-    await _configureMaia(elo: 1500, multiPv: safeMultiPv);
-
-    _bestMoveCompleter = null;
-    _candidateCompleter = null;
-    _analysisCompleter = Completer<List<EngineAnalysisLine>>();
-    _analysisUpdateCallback = onUpdate;
-    _latestCandidatesByMultiPv.clear();
-    _latestAnalysisLinesByMultiPv.clear();
-
-    _sendCommand(_positionCommandFromFen(fen));
-    _sendCommand('go nodes 1');
-
-    return _analysisCompleter!.future.timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        _analysisCompleter = null;
-        _analysisUpdateCallback = null;
-        throw Exception('Maia3 hat keine Analyse-Linien geliefert.');
-      },
+    throw UnsupportedError(
+      'Maia3-Windows-Analyse ist nicht als Stockfish-Analyse gedacht.',
     );
-  }
-
-  Future<void> _configureMaia({
-    required int elo,
-    double temperature = 1.0,
-    double topP = 0.95,
-    int multiPv = 5,
-  }) async {
-    final safeElo = elo.clamp(0, 5000).toInt();
-    final safeMultiPv = multiPv.clamp(1, 20).toInt();
-
-    _sendCommand('setoption name Elo value $safeElo');
-    _sendCommand('setoption name SelfElo value $safeElo');
-    _sendCommand('setoption name OppoElo value $safeElo');
-    _sendCommand('setoption name Temperature value ${temperature.toStringAsFixed(3)}');
-    _sendCommand('setoption name TopP value ${topP.toStringAsFixed(3)}');
-    _sendCommand('setoption name MultiPV value $safeMultiPv');
-
-    await _waitUntilReady(timeout: const Duration(seconds: 120));
-  }
-
-  Future<String> _searchBestMove({required String positionCommand}) {
-    _bestMoveCompleter = Completer<String>();
-    _candidateCompleter = null;
-    _analysisCompleter = null;
-    _analysisUpdateCallback = null;
-    _latestCandidatesByMultiPv.clear();
-    _latestAnalysisLinesByMultiPv.clear();
-
-    _sendCommand(positionCommand);
-    _sendCommand('go nodes 1');
-
-    return _bestMoveCompleter!.future.timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        _bestMoveCompleter = null;
-        throw Exception('Maia3 hat keinen bestmove geliefert.');
-      },
-    );
-  }
-
-  String _positionCommandFromGame({
-    required String startFen,
-    required List<String> moves,
-  }) {
-    final cleanMoves = moves
-        .map((move) => move.trim())
-        .where((move) => move.length >= 4)
-        .join(' ');
-
-    final isStartPosition = startFen.trim() ==
-        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-    final baseCommand = isStartPosition
-        ? 'position startpos'
-        : 'position fen ${startFen.trim()}';
-
-    if (cleanMoves.isEmpty) {
-      return baseCommand;
-    }
-
-    return '$baseCommand moves $cleanMoves';
-  }
-
-  String _positionCommandFromFen(String fen) {
-    final normalizedFen = fen.trim();
-
-    if (normalizedFen.isEmpty || normalizedFen == 'startpos') {
-      return 'position startpos';
-    }
-
-    return 'position fen $normalizedFen';
-  }
-
-  void _handleOutputLine(String line) {
-    _addOutput(line);
-
-    if (line == 'uciok') {
-      final completer = _uciOkCompleter;
-
-      if (completer != null && !completer.isCompleted) {
-        completer.complete();
-      }
-
-      return;
-    }
-
-    if (line == 'readyok') {
-      final completer = _readyOkCompleter;
-
-      if (completer != null && !completer.isCompleted) {
-        completer.complete();
-      }
-
-      return;
-    }
-
-    if (line.startsWith('info ')) {
-      _handleInfoLine(line);
-      return;
-    }
-
-    if (line.startsWith('bestmove ')) {
-      _handleBestMoveLine(line);
-    }
-  }
-
-  void _handleInfoLine(String line) {
-    final candidate = _candidateFromInfoLine(line);
-    final analysisLine = _analysisLineFromInfoLine(line);
-
-    if (candidate != null) {
-      _latestCandidatesByMultiPv[candidate.multiPv] = candidate;
-    }
-
-    if (analysisLine != null) {
-      _latestAnalysisLinesByMultiPv[analysisLine.rank] = analysisLine;
-
-      final callback = _analysisUpdateCallback;
-      if (callback != null) {
-        final lines = _latestAnalysisLinesByMultiPv.values.toList()
-          ..sort((a, b) => a.rank.compareTo(b.rank));
-
-        callback(List<EngineAnalysisLine>.unmodifiable(lines));
-      }
-    }
-  }
-
-  PersonaMoveCandidate? _candidateFromInfoLine(String line) {
-    final analysisLine = _analysisLineFromInfoLine(line);
-
-    if (analysisLine == null) {
-      return null;
-    }
-
-    return PersonaMoveCandidate(
-      uciMove: analysisLine.uciMove,
-      multiPv: analysisLine.rank,
-      scoreCp: analysisLine.scoreCp ?? 0,
-      depth: analysisLine.depth,
-      pv: analysisLine.pv,
-    );
-  }
-
-  EngineAnalysisLine? _analysisLineFromInfoLine(String line) {
-    final parts = line.split(RegExp(r'\s+'));
-
-    final pvIndex = parts.indexOf('pv');
-    if (pvIndex < 0 || pvIndex + 1 >= parts.length) {
-      return null;
-    }
-
-    final pv = parts.sublist(pvIndex + 1);
-    if (pv.isEmpty) {
-      return null;
-    }
-
-    var depth = 1;
-    final depthIndex = parts.indexOf('depth');
-    if (depthIndex >= 0 && depthIndex + 1 < parts.length) {
-      depth = int.tryParse(parts[depthIndex + 1]) ?? 1;
-    }
-
-    var multiPv = 1;
-    final multiPvIndex = parts.indexOf('multipv');
-    if (multiPvIndex >= 0 && multiPvIndex + 1 < parts.length) {
-      multiPv = int.tryParse(parts[multiPvIndex + 1]) ?? 1;
-    }
-
-    int? scoreCp;
-    int? mate;
-    final scoreIndex = parts.indexOf('score');
-    if (scoreIndex >= 0 && scoreIndex + 2 < parts.length) {
-      final scoreType = parts[scoreIndex + 1];
-      final scoreValue = int.tryParse(parts[scoreIndex + 2]);
-
-      if (scoreType == 'cp') {
-        scoreCp = scoreValue;
-      } else if (scoreType == 'mate') {
-        mate = scoreValue;
-      }
-    }
-
-    return EngineAnalysisLine(
-      rank: multiPv,
-      depth: depth,
-      scoreCp: scoreCp,
-      mate: mate,
-      uciMove: pv.first,
-      pv: pv,
-    );
-  }
-
-  void _handleBestMoveLine(String line) {
-    final parts = line.split(RegExp(r'\s+'));
-
-    if (parts.length < 2) {
-      return;
-    }
-
-    final bestMove = parts[1];
-
-    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
-      _bestMoveCompleter!.complete(bestMove);
-      _bestMoveCompleter = null;
-    }
-
-    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
-      final candidates = _latestCandidatesByMultiPv.values.toList()
-        ..sort((a, b) => a.multiPv.compareTo(b.multiPv));
-
-      if (candidates.isEmpty && bestMove != '(none)') {
-        candidates.add(
-          PersonaMoveCandidate(
-            uciMove: bestMove,
-            multiPv: 1,
-            scoreCp: 0,
-            depth: 1,
-            pv: [bestMove],
-          ),
-        );
-      }
-
-      _candidateCompleter!.complete(candidates);
-      _candidateCompleter = null;
-      _latestCandidatesByMultiPv.clear();
-    }
-
-    if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
-      final lines = _latestAnalysisLinesByMultiPv.values.toList()
-        ..sort((a, b) => a.rank.compareTo(b.rank));
-
-      if (lines.isEmpty && bestMove != '(none)') {
-        lines.add(
-          EngineAnalysisLine(
-            rank: 1,
-            depth: 1,
-            scoreCp: 0,
-            uciMove: bestMove,
-            pv: [bestMove],
-          ),
-        );
-      }
-
-      final result = List<EngineAnalysisLine>.unmodifiable(lines);
-      _analysisCompleter!.complete(result);
-      _analysisCompleter = null;
-      _analysisUpdateCallback = null;
-      _latestAnalysisLinesByMultiPv.clear();
-    }
-  }
-
-  Future<void> _ensureStarted() async {
-    if (_process == null) {
-      await start();
-    }
-  }
-
-  Future<void> _waitUntilReady({
-    Duration timeout = const Duration(seconds: 30),
-  }) async {
-    _readyOkCompleter = Completer<void>();
-    _sendCommand('isready');
-
-    await _readyOkCompleter!.future.timeout(
-      timeout,
-      onTimeout: () {
-        _readyOkCompleter = null;
-        throw Exception('Maia3 hat nicht mit readyok geantwortet.');
-      },
-    );
-  }
-
-  void _sendCommand(String command) {
-    _addOutput('> $command');
-    _process?.stdin.writeln(command);
-  }
-
-  void _addOutput(String line) {
-    if (!_outputController.isClosed) {
-      _outputController.add(line);
-    }
   }
 
   @override
   Future<void> cancelSearch() async {
-    _completePendingSearchesOnStop();
-
-    if (_process == null) {
-      return;
-    }
-
-    _sendCommand('stop');
+    _searchGeneration++;
+    _addOutput('Maia3 Windows: laufendes Ergebnis wird verworfen.');
   }
 
   @override
   Future<void> stop() async {
-    if (_process == null) {
+    _searchGeneration++;
+
+    if (!_isStarted) {
       return;
     }
 
-    _completePendingSearchesOnStop();
-    _sendCommand('quit');
-
-    await _stdoutSubscription?.cancel();
-    await _stderrSubscription?.cancel();
-
-    _process?.kill();
-    _process = null;
-  }
-
-  void _completePendingSearchesOnStop() {
-    if (_bestMoveCompleter != null && !_bestMoveCompleter!.isCompleted) {
-      _bestMoveCompleter!.complete('(none)');
-    }
-
-    if (_candidateCompleter != null && !_candidateCompleter!.isCompleted) {
-      _candidateCompleter!.complete(const []);
-    }
-
-    if (_analysisCompleter != null && !_analysisCompleter!.isCompleted) {
-      _analysisCompleter!.complete(const <EngineAnalysisLine>[]);
-    }
-
-    _bestMoveCompleter = null;
-    _candidateCompleter = null;
-    _analysisCompleter = null;
-    _analysisUpdateCallback = null;
-    _latestCandidatesByMultiPv.clear();
-    _latestAnalysisLinesByMultiPv.clear();
+    await _channel.invokeMethod<void>('dispose');
+    _isStarted = false;
+    _addOutput('Maia3 Windows ONNX gestoppt.');
   }
 
   Future<void> dispose() async {
@@ -558,4 +393,32 @@ class Maia3WindowsUciEngine implements ChessEngine {
       await _outputController.close();
     }
   }
+
+  void _addOutput(String line) {
+    if (!_outputController.isClosed) {
+      _outputController.add(line);
+    }
+  }
+}
+
+class _MaiaPolicyCandidate {
+  const _MaiaPolicyCandidate({
+    required this.uci,
+    required this.index,
+    required this.logit,
+  });
+
+  final String uci;
+  final int index;
+  final double logit;
+}
+
+class _WeightedMaiaCandidate {
+  const _WeightedMaiaCandidate({
+    required this.candidate,
+    required this.weight,
+  });
+
+  final _MaiaPolicyCandidate candidate;
+  final double weight;
 }
