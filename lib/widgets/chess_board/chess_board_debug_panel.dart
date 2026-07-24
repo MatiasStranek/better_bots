@@ -1,7 +1,12 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 
+import '../../data/better_bots_database.dart';
 import '../../models/engine_analysis_line.dart';
 import '../../models/player_side.dart';
+import '../../ui/mobile/widgets/mobile_chess_analysis_lines_bar.dart';
+import '../chess_result_stats_panel.dart';
 
 class ChessBoardDebugPanel extends StatelessWidget {
   const ChessBoardDebugPanel({
@@ -12,6 +17,9 @@ class ChessBoardDebugPanel extends StatelessWidget {
     required this.isAnalysisMode,
     required this.isAnalysisThinking,
     required this.analysisLines,
+    required this.trainingCounter,
+    required this.analysisUsedDuringCurrentGame,
+    required this.trainedOnly,
     super.key,
   });
 
@@ -22,6 +30,9 @@ class ChessBoardDebugPanel extends StatelessWidget {
   final bool isAnalysisMode;
   final bool isAnalysisThinking;
   final List<EngineAnalysisLine> analysisLines;
+  final TrainingCounterSnapshot trainingCounter;
+  final bool analysisUsedDuringCurrentGame;
+  final bool trainedOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +44,12 @@ class ChessBoardDebugPanel extends StatelessWidget {
         Text(
           'Du spielst: $playerSideText',
           style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        const SizedBox(height: 12),
+        ChessResultStatsTextView(
+          counter: trainingCounter,
+          analysisUsedDuringCurrentGame: analysisUsedDuringCurrentGame,
+          trainedOnly: trainedOnly,
         ),
         const SizedBox(height: 12),
         if (isAnalysisMode)
@@ -100,13 +117,29 @@ class _AnalysisLinesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleSuffix = isAnalysisThinking ? ' läuft...' : '';
+    final headerDepth = _resolveHeaderDepth();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Top-5 Analyse$titleSuffix',
-          style: Theme.of(context).textTheme.titleSmall,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Top-5 Analyse$titleSuffix',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            if (headerDepth != null) ...[
+              const SizedBox(width: 18),
+              Text(
+                'Tiefe $headerDepth',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         if (analysisLines.isEmpty)
@@ -116,92 +149,38 @@ class _AnalysisLinesView extends StatelessWidget {
                 : 'Noch keine Analyse-Linien vorhanden.',
           )
         else
-          ...analysisLines.map((line) => _AnalysisLineTile(line: line)),
+          _DesktopAnalysisLinesBar(analysisLines: analysisLines),
       ],
     );
   }
-}
 
-class _AnalysisLineTile extends StatelessWidget {
-  const _AnalysisLineTile({required this.line});
+  int? _resolveHeaderDepth() {
+    if (analysisLines.isEmpty) {
+      return null;
+    }
 
-  final EngineAnalysisLine line;
+    var maxDepth = analysisLines.first.depth;
+    for (final line in analysisLines.skip(1)) {
+      if (line.depth > maxDepth) {
+        maxDepth = line.depth;
+      }
+    }
 
-  static const Color _evaluationGreen = Color(0xFF55C878);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final baseStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w600,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(color: Colors.green.shade200, width: 3),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _MoveBadge(label: line.displayMove),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    style: baseStyle,
-                    children: [
-                      TextSpan(text: '#${line.rank}  '),
-                      TextSpan(
-                        text: line.formattedEvaluation,
-                        style: baseStyle?.copyWith(
-                          color: _evaluationGreen,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      TextSpan(text: '  Tiefe ${line.depth}'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return maxDepth;
   }
 }
 
-class _MoveBadge extends StatelessWidget {
-  const _MoveBadge({required this.label});
+class _DesktopAnalysisLinesBar extends StatelessWidget {
+  const _DesktopAnalysisLinesBar({required this.analysisLines});
 
-  final String label;
+  final List<EngineAnalysisLine> analysisLines;
 
   @override
   Widget build(BuildContext context) {
-    final text = label.trim().isEmpty ? '-' : label.trim();
-
-    return Container(
-      constraints: const BoxConstraints(minWidth: 42, minHeight: 30),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        border: Border.all(color: Colors.green.shade500, width: 1.4),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Text(
-        '[$text]',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.green.shade800,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
+    return SizedBox(
+      height: 66,
+      width: double.infinity,
+      child: MobileChessAnalysisLinesBar(analysisLines: analysisLines),
     );
   }
 }

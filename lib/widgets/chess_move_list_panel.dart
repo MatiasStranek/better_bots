@@ -89,7 +89,7 @@ class _ChessMoveListPanelState extends State<ChessMoveListPanel> {
                       child: ListView.builder(
                         controller: _scrollController,
                         primary: false,
-                        padding: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.only(right: 18),
                         itemCount: rows.length,
                         itemBuilder: (context, index) {
                           final row = rows[index];

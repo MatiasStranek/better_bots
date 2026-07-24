@@ -11,7 +11,6 @@ import 'chess_board/chess_board_debug_panel.dart';
 import 'chess_board/chess_board_grid.dart';
 import 'chess_board/chess_status_text.dart';
 import 'chess_move_list_panel.dart';
-import 'chess_result_stats_panel.dart';
 
 class ChessBoardWidget extends StatefulWidget {
   const ChessBoardWidget({super.key});
@@ -590,6 +589,10 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
           isAnalysisMode: _controller.isAnalysisMode,
           isAnalysisThinking: _controller.isAnalysisThinking,
           analysisLines: _controller.analysisLines,
+          trainingCounter: _controller.trainingCounterSnapshot,
+          analysisUsedDuringCurrentGame:
+              _controller.analysisUsedDuringCurrentGame,
+          trainedOnly: _controller.isPlayFromHerePositionLoaded,
         ),
         const SizedBox(height: 12),
         if (_controller.displayedPlayFromHereFen != null) ...[
@@ -690,13 +693,6 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        ChessResultStatsTextView(
-          counter: _controller.trainingCounterSnapshot,
-          analysisUsedDuringCurrentGame:
-              _controller.analysisUsedDuringCurrentGame,
-          trainedOnly: _controller.isPlayFromHerePositionLoaded,
-        ),
       ],
     );
   }
@@ -710,7 +706,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
         child: SingleChildScrollView(
           controller: _desktopDetailsScrollController,
           primary: false,
-          padding: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.only(right: 24),
           child: _buildDesktopDetailsPanel(),
         ),
       ),
@@ -867,9 +863,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
       // only when the complete three-column group would exceed the width.
       var boardSize = math.min(900.0, boardHeightLimit);
       var notationWidth =
-          (boardSize * 0.42).clamp(285.0, 380.0).toDouble();
+          (boardSize * 0.42).clamp(365.0, 460.0).toDouble();
       var detailsWidth =
-          (boardSize * 0.50).clamp(340.0, 450.0).toDouble();
+          (boardSize * 0.50).clamp(420.0, 530.0).toDouble();
 
       for (var iteration = 0; iteration < 3; iteration++) {
         final totalWidth =
@@ -881,9 +877,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
 
         boardSize = math.max(300.0, boardSize - (totalWidth - availableWidth));
         notationWidth =
-            (boardSize * 0.42).clamp(285.0, 380.0).toDouble();
+            (boardSize * 0.42).clamp(365.0, 460.0).toDouble();
         detailsWidth =
-            (boardSize * 0.50).clamp(340.0, 450.0).toDouble();
+            (boardSize * 0.50).clamp(420.0, 530.0).toDouble();
       }
 
       final rowTop = (availableHeight - boardSize) / 2;
@@ -943,8 +939,8 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
 
     if (availableWidth >= 1100 && availableHeight >= 560) {
       const gap = 14.0;
-      const notationWidth = 265.0;
-      const detailsWidth = 320.0;
+      const notationWidth = 345.0;
+      const detailsWidth = 400.0;
       const controlsGap = 16.0;
       const topControlsGap = 14.0;
       const estimatedControlsHeight = 58.0;
