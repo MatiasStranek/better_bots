@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/chess_board_controller.dart';
 
-class ChessMoveListPanel extends StatelessWidget {
+class ChessMoveListPanel extends StatefulWidget {
   const ChessMoveListPanel({
     super.key,
     required this.entries,
@@ -18,20 +18,34 @@ class ChessMoveListPanel extends StatelessWidget {
   final bool isAnalysisMode;
   final Future<void> Function(int ply) onMoveSelected;
 
+  @override
+  State<ChessMoveListPanel> createState() => _ChessMoveListPanelState();
+
   static const Color _panelBackground = Color(0xFF101722);
   static const Color _panelBorder = Color(0xFF2B3A4E);
   static const Color _accent = Color(0xFFAEDBFF);
   static const Color _selectedBackground = Color(0xFF285B8E);
 
+}
+
+class _ChessMoveListPanelState extends State<ChessMoveListPanel> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rows = _buildRows(entries);
+    final rows = _buildRows(widget.entries);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _panelBackground.withAlpha(235),
+        color: ChessMoveListPanel._panelBackground.withAlpha(235),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _panelBorder, width: 1.2),
+        border: Border.all(color: ChessMoveListPanel._panelBorder, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(90),
@@ -46,19 +60,19 @@ class ChessMoveListPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _HeaderBadge(
-              isReviewMode: isReviewMode,
-              isAnalysisMode: isAnalysisMode,
-              selectedPly: selectedPly,
-              totalPly: entries.length,
+              isReviewMode: widget.isReviewMode,
+              isAnalysisMode: widget.isAnalysisMode,
+              selectedPly: widget.selectedPly,
+              totalPly: widget.entries.length,
             ),
             const SizedBox(height: 10),
             _StartPositionTile(
-              isSelected: selectedPly == 0,
-              onTap: () => onMoveSelected(0),
+              isSelected: widget.selectedPly == 0,
+              onTap: () => widget.onMoveSelected(0),
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: entries.isEmpty
+              child: widget.entries.isEmpty
                   ? Center(
                       child: Text(
                         'Noch keine Züge',
@@ -69,17 +83,24 @@ class ChessMoveListPanel extends StatelessWidget {
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      itemCount: rows.length,
-                      itemBuilder: (context, index) {
-                        final row = rows[index];
+                  : Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        primary: false,
+                        padding: const EdgeInsets.only(right: 8),
+                        itemCount: rows.length,
+                        itemBuilder: (context, index) {
+                          final row = rows[index];
 
-                        return _MoveListRow(
-                          row: row,
-                          selectedPly: selectedPly,
-                          onMoveSelected: onMoveSelected,
-                        );
-                      },
+                          return _MoveListRow(
+                            row: row,
+                            selectedPly: widget.selectedPly,
+                            onMoveSelected: widget.onMoveSelected,
+                          );
+                        },
+                      ),
                     ),
             ),
           ],

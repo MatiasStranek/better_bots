@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,6 +23,7 @@ class ChessBoardWidget extends StatefulWidget {
 class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   late final ChessBoardController _controller;
   late final FocusNode _keyboardFocusNode;
+  late final ScrollController _desktopDetailsScrollController;
 
   final Set<String> _normalAnnotationMarkedSquares = <String>{};
   final Set<BoardArrowAnnotation> _normalAnnotationArrows =
@@ -37,6 +40,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     super.initState();
 
     _keyboardFocusNode = FocusNode(debugLabel: 'ChessBoardAnalysisShortcuts');
+    _desktopDetailsScrollController = ScrollController();
     _controller = ChessBoardController(
       onPromotionChoiceRequested: _showPromotionChoiceDialog,
     )..start();
@@ -46,6 +50,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
 
   @override
   void dispose() {
+    _desktopDetailsScrollController.dispose();
     _keyboardFocusNode.dispose();
     _controller.removeListener(_handleControllerChanged);
     _controller.dispose();
@@ -545,6 +550,513 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     return KeyEventResult.ignored;
   }
 
+
+  Widget _buildDesktopBoard(double boardSize) {
+    return SizedBox.square(
+      dimension: boardSize,
+      child: ChessBoardGrid(
+        playerIsWhite: _controller.playerIsWhite,
+        fen: _controller.fen,
+        isAnalysisMode: _controller.isAnalysisMode,
+        isAnalysisBranchActive: _controller.isAnalysisBranchActive,
+        highlights: _controller.highlights,
+        pieceAt: _controller.pieceAt,
+        canHumanMovePiece: _controller.canHumanMovePiece,
+        canMoveTo: _controller.canMoveTo,
+        legalTargetsFromSquare: _controller.legalTargetsFromSquare,
+        onSquareTap: _controller.onSquareTap,
+        onMove: _controller.tryHumanMove,
+        onPieceDragStarted: _controller.selectSquare,
+        onPieceDragEnded: _controller.clearSelectedSquare,
+        annotationModeEnabled: true,
+        annotationMarkedSquares: _activeAnnotationMarkedSquares,
+        annotationArrows: _activeAnnotationArrows,
+        onClearAnnotations: _clearBoardAnnotations,
+        onToggleAnnotationSquare: _toggleAnnotationSquare,
+        onToggleAnnotationArrow: _toggleAnnotationArrow,
+      ),
+    );
+  }
+
+  Widget _buildDesktopDetailsPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ChessBoardDebugPanel(
+          playerSide: _controller.playerSide,
+          fen: _controller.fen,
+          pgn: _controller.pgn,
+          engineOutput: _controller.engineOutput,
+          isAnalysisMode: _controller.isAnalysisMode,
+          isAnalysisThinking: _controller.isAnalysisThinking,
+          analysisLines: _controller.analysisLines,
+        ),
+        const SizedBox(height: 12),
+        if (_controller.displayedPlayFromHereFen != null) ...[
+          Text(
+            'FEN-ID: ${_controller.displayedPlayFromHereFen}',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFFFA726),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _controller.isPlayFromHerePositionLoaded
+                  ? null
+                  : _copyPgnToClipboard,
+              icon: const Icon(Icons.copy),
+              label: const Text('PGN kopieren'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _copyFenToClipboard,
+              icon: const Icon(Icons.copy_all),
+              label: const Text('FEN kopieren'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _controller.isAnalysisMode
+                  ? null
+                  : _controller.restartTrainingCounterGame,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Neustart Zähler'),
+            ),
+            OutlinedButton.icon(
+              onPressed:
+                  _controller.isAnalysisMode ? null : _pastePgnFromClipboard,
+              icon: const Icon(Icons.content_paste),
+              label: const Text('Paste PGN'),
+            ),
+            OutlinedButton.icon(
+              onPressed:
+                  _controller.isAnalysisMode ? null : _pasteFenFromClipboard,
+              icon: const Icon(Icons.content_paste_go),
+              label: const Text('Paste FEN'),
+            ),
+            OutlinedButton.icon(
+              onPressed:
+                  _controller.isAnalysisMode || _controller.isBotThinking
+                      ? null
+                      : _confirmSoloModeChange,
+              style: _controller.isSoloMode
+                  ? OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF55C878),
+                      side: const BorderSide(
+                        color: Color(0xFF55C878),
+                        width: 1.5,
+                      ),
+                    )
+                  : null,
+              icon: const Icon(Icons.person),
+              label: Text(
+                _controller.isSoloMode ? 'Solo-Modus aktiv' : 'Solo-Modus',
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _togglePlayFromHere,
+              style: _controller.isPlayFromHereActive
+                  ? OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF55C878),
+                      side: const BorderSide(
+                        color: Color(0xFF55C878),
+                        width: 1.5,
+                      ),
+                    )
+                  : null,
+              icon: const Icon(Icons.person_pin_circle_outlined),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Play From Here'),
+                  if (_controller.isPlayFromHereActive) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF55C878),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ChessResultStatsTextView(
+          counter: _controller.trainingCounterSnapshot,
+          analysisUsedDuringCurrentGame:
+              _controller.analysisUsedDuringCurrentGame,
+          trainedOnly: _controller.isPlayFromHerePositionLoaded,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScrollableDesktopDetailsPanel(double height) {
+    return SizedBox(
+      height: height,
+      child: Scrollbar(
+        controller: _desktopDetailsScrollController,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _desktopDetailsScrollController,
+          primary: false,
+          padding: const EdgeInsets.only(right: 10),
+          child: _buildDesktopDetailsPanel(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopMoveList(double height) {
+    return SizedBox(
+      height: height,
+      child: ChessMoveListPanel(
+        entries: _controller.mainLineMoveEntries,
+        selectedPly: _controller.currentMainLinePly,
+        isReviewMode: _controller.isNormalReviewMode,
+        isAnalysisMode: _controller.isAnalysisMode,
+        onMoveSelected: _controller.jumpToMainLinePly,
+      ),
+    );
+  }
+
+  Widget _buildDesktopControls({
+    required bool showPrimaryControls,
+    required bool showSecondaryControls,
+  }) {
+    return ChessBoardControls(
+      skillLevel: _controller.skillLevel,
+      uciElo: _controller.uciElo,
+      cpLossElo: _controller.cpLossElo,
+      cpLossUciSwitchFullMoveNumber:
+          _controller.cpLossUciSwitchFullMoveNumber,
+      strengthMode: _controller.strengthMode,
+      botOpeningMove: _controller.botOpeningMove,
+      effectiveBotOpeningMove: _controller.effectiveBotOpeningMove,
+      selectedOpeningMoves: _controller.selectedOpeningMoves,
+      botPersonalitySource: _controller.botPersonalitySource,
+      effectiveBotPersonalitySource:
+          _controller.effectiveBotPersonalitySource,
+      botPersonality: _controller.botPersonality,
+      effectiveBotPersonality: _controller.effectiveBotPersonality,
+      fritz19Personality: _controller.fritz19Personality,
+      effectiveFritz19Personality: _controller.effectiveFritz19Personality,
+      selectedChessiversePersonalities:
+          _controller.selectedChessiversePersonalities,
+      selectedFritz19Personalities: _controller.selectedFritz19Personalities,
+      personaCandidateCount: _controller.personaCandidateCount,
+      draftSkillLevel: _controller.draftSkillLevel,
+      draftUciElo: _controller.draftUciElo,
+      draftCpLossElo: _controller.draftCpLossElo,
+      draftCpLossUciSwitchFullMoveNumber:
+          _controller.draftCpLossUciSwitchFullMoveNumber,
+      draftStrengthMode: _controller.draftStrengthMode,
+      draftBotOpeningMove: _controller.draftBotOpeningMove,
+      draftEffectiveBotOpeningMove:
+          _controller.draftEffectiveBotOpeningMove,
+      draftSelectedOpeningMoves: _controller.draftSelectedOpeningMoves,
+      draftBotPersonalitySource: _controller.draftBotPersonalitySource,
+      draftEffectiveBotPersonalitySource:
+          _controller.draftEffectiveBotPersonalitySource,
+      draftBotPersonality: _controller.draftBotPersonality,
+      draftEffectiveBotPersonality: _controller.draftEffectiveBotPersonality,
+      draftFritz19Personality: _controller.draftFritz19Personality,
+      draftEffectiveFritz19Personality:
+          _controller.draftEffectiveFritz19Personality,
+      draftSelectedChessiversePersonalities:
+          _controller.draftSelectedChessiversePersonalities,
+      draftSelectedFritz19Personalities:
+          _controller.draftSelectedFritz19Personalities,
+      draftPersonaCandidateCount: _controller.draftPersonaCandidateCount,
+      activeBotProfile: _controller.activeBotProfile,
+      draftBotProfile: _controller.draftBotProfile,
+      normalSettingsLockedByBotProfile:
+          _controller.normalSettingsLockedByBotProfile,
+      onBotProfileSelected: _controller.selectBotProfile,
+      onBotProfileDisabled: _controller.disableBotProfile,
+      isBotThinking: _controller.isBotThinking,
+      isAnalysisMode: _controller.isAnalysisMode,
+      canToggleAnalysisMode: _controller.canToggleAnalysisMode,
+      canNavigateAnalysisBack: _controller.isAnalysisMode
+          ? _controller.canNavigateAnalysisBack
+          : _controller.canNavigateMainLineBack,
+      canNavigateAnalysisForward: _controller.isAnalysisMode
+          ? _controller.canNavigateAnalysisForward
+          : _controller.canNavigateMainLineForward,
+      onNewGame: _controller.newGame,
+      onRestart: _controller.restartGame,
+      onToggleAnalysisMode: _controller.toggleAnalysisMode,
+      onAnalysisBack: _handleBoardBackButton,
+      onAnalysisForward: _handleBoardForwardButton,
+      onAnalysisBackToStart: _handleBoardBackToStartButton,
+      onAnalysisForwardToEnd: _handleBoardForwardToEndButton,
+      onSkillLevelChanged: _controller.setSkillLevel,
+      onUciEloChanged: _controller.setUciElo,
+      onCpLossEloChanged: _controller.setCpLossElo,
+      onCpLossUciSwitchFullMoveNumberChanged:
+          _controller.setCpLossUciSwitchFullMoveNumber,
+      onStrengthModeChanged: _controller.setStrengthMode,
+      onBotOpeningMoveChanged: _controller.setBotOpeningMove,
+      onOpeningMoveSelectionToggled:
+          _controller.toggleOpeningMoveSelection,
+      onOpeningMoveSelectionCleared:
+          _controller.clearOpeningMoveSelection,
+      onBotPersonalityChanged: _controller.setBotPersonality,
+      onFritz19PersonalityChanged: _controller.setFritz19Personality,
+      onChessiversePersonalitySelectionToggled:
+          _controller.toggleChessiversePersonalitySelection,
+      onFritz19PersonalitySelectionToggled:
+          _controller.toggleFritz19PersonalitySelection,
+      onPersonalitySelectionCleared: _controller.clearPersonalitySelection,
+      onAllPersonalitiesRandomChanged:
+          _controller.setAllPersonalitiesRandom,
+      onPersonaCandidateCountChanged: _controller.setPersonaCandidateCount,
+      showPrimaryControls: showPrimaryControls,
+      showSecondaryControls: showSecondaryControls,
+    );
+  }
+
+  Widget _buildDesktopTopOverlay() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ChessStatusText(text: _controller.statusText),
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: _buildDesktopControls(
+            showPrimaryControls: false,
+            showSecondaryControls: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResponsiveDesktopGameLayout(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final availableWidth = constraints.maxWidth;
+    final availableHeight = constraints.maxHeight;
+
+    if (availableWidth >= 1450 && availableHeight >= 760) {
+      const gap = 16.0;
+      const controlsGap = 18.0;
+      const topControlsGap = 14.0;
+      const estimatedControlsHeight = 62.0;
+      const topOverlayClearance = 116.0;
+
+      final bottomClearance = controlsGap + estimatedControlsHeight;
+      final symmetricVerticalClearance =
+          math.max(topOverlayClearance, bottomClearance);
+      final boardHeightLimit =
+          availableHeight - (symmetricVerticalClearance * 2);
+
+      // Start with the largest height-driven board and iteratively reduce it
+      // only when the complete three-column group would exceed the width.
+      var boardSize = math.min(900.0, boardHeightLimit);
+      var notationWidth =
+          (boardSize * 0.42).clamp(285.0, 380.0).toDouble();
+      var detailsWidth =
+          (boardSize * 0.50).clamp(340.0, 450.0).toDouble();
+
+      for (var iteration = 0; iteration < 3; iteration++) {
+        final totalWidth =
+            notationWidth + gap + boardSize + gap + detailsWidth;
+
+        if (totalWidth <= availableWidth) {
+          break;
+        }
+
+        boardSize = math.max(300.0, boardSize - (totalWidth - availableWidth));
+        notationWidth =
+            (boardSize * 0.42).clamp(285.0, 380.0).toDouble();
+        detailsWidth =
+            (boardSize * 0.50).clamp(340.0, 450.0).toDouble();
+      }
+
+      final rowTop = (availableHeight - boardSize) / 2;
+      final controlsTop = rowTop + boardSize + controlsGap;
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: availableHeight - rowTop + topControlsGap,
+            child: _buildDesktopTopOverlay(),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: rowTop,
+            height: boardSize,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: notationWidth,
+                  child: _buildDesktopMoveList(boardSize),
+                ),
+                const SizedBox(width: gap),
+                _buildDesktopBoard(boardSize),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: detailsWidth,
+                  child: _buildScrollableDesktopDetailsPanel(boardSize),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: controlsTop,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.min(availableWidth - 24.0, 1250.0),
+                ),
+                child: _buildDesktopControls(
+                  showPrimaryControls: true,
+                  showSecondaryControls: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (availableWidth >= 1100 && availableHeight >= 560) {
+      const gap = 14.0;
+      const notationWidth = 265.0;
+      const detailsWidth = 320.0;
+      const controlsGap = 16.0;
+      const topControlsGap = 14.0;
+      const estimatedControlsHeight = 58.0;
+      const topOverlayClearance = 112.0;
+
+      final boardWidthLimit =
+          availableWidth - notationWidth - detailsWidth - (gap * 2);
+      final bottomClearance = controlsGap + estimatedControlsHeight;
+      final symmetricVerticalClearance =
+          math.max(topOverlayClearance, bottomClearance);
+      final boardHeightLimit =
+          availableHeight - (symmetricVerticalClearance * 2);
+      final boardSize = math.max(
+        220.0,
+        math.min(
+          700.0,
+          math.min(boardWidthLimit, boardHeightLimit),
+        ),
+      );
+
+      final rowTop = (availableHeight - boardSize) / 2;
+      final controlsTop = rowTop + boardSize + controlsGap;
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: availableHeight - rowTop + topControlsGap,
+            child: _buildDesktopTopOverlay(),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: rowTop,
+            height: boardSize,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: notationWidth,
+                  child: _buildDesktopMoveList(boardSize),
+                ),
+                const SizedBox(width: gap),
+                _buildDesktopBoard(boardSize),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: detailsWidth,
+                  child: _buildScrollableDesktopDetailsPanel(boardSize),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: controlsTop,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.min(availableWidth - 24.0, 1050.0),
+                ),
+                child: _buildDesktopControls(
+                  showPrimaryControls: true,
+                  showSecondaryControls: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final boardSize = math.min(
+      640.0,
+      math.min(
+        availableWidth,
+        math.max(220.0, availableHeight * 0.48),
+      ),
+    );
+    final moveListHeight = math.max(
+      280.0,
+      math.min(420.0, availableHeight * 0.35),
+    );
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildDesktopBoard(boardSize),
+          const SizedBox(height: 16),
+          _buildDesktopControls(
+            showPrimaryControls: true,
+            showSecondaryControls: false,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: math.min(availableWidth, 520.0),
+            child: _buildDesktopDetailsPanel(),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: math.min(availableWidth, 520.0),
+            child: _buildDesktopMoveList(moveListHeight),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -563,292 +1075,52 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ChessStatusText(text: _controller.statusText),
-                    const SizedBox(height: 12),
-                    ChessBoardControls(
-                      skillLevel: _controller.skillLevel,
-                      uciElo: _controller.uciElo,
-                      cpLossElo: _controller.cpLossElo,
-                      cpLossUciSwitchFullMoveNumber:
-                          _controller.cpLossUciSwitchFullMoveNumber,
-                      strengthMode: _controller.strengthMode,
-                      botOpeningMove: _controller.botOpeningMove,
-                      effectiveBotOpeningMove:
-                          _controller.effectiveBotOpeningMove,
-                      selectedOpeningMoves:
-                          _controller.selectedOpeningMoves,
-                      botPersonalitySource: _controller.botPersonalitySource,
-                      effectiveBotPersonalitySource:
-                          _controller.effectiveBotPersonalitySource,
-                      botPersonality: _controller.botPersonality,
-                      effectiveBotPersonality:
-                          _controller.effectiveBotPersonality,
-                      fritz19Personality: _controller.fritz19Personality,
-                      effectiveFritz19Personality:
-                          _controller.effectiveFritz19Personality,
-                      selectedChessiversePersonalities:
-                          _controller.selectedChessiversePersonalities,
-                      selectedFritz19Personalities:
-                          _controller.selectedFritz19Personalities,
-                      personaCandidateCount: _controller.personaCandidateCount,
-                      draftSkillLevel: _controller.draftSkillLevel,
-                      draftUciElo: _controller.draftUciElo,
-                      draftCpLossElo: _controller.draftCpLossElo,
-                      draftCpLossUciSwitchFullMoveNumber:
-                          _controller.draftCpLossUciSwitchFullMoveNumber,
-                      draftStrengthMode: _controller.draftStrengthMode,
-                      draftBotOpeningMove: _controller.draftBotOpeningMove,
-                      draftEffectiveBotOpeningMove:
-                          _controller.draftEffectiveBotOpeningMove,
-                      draftSelectedOpeningMoves:
-                          _controller.draftSelectedOpeningMoves,
-                      draftBotPersonalitySource:
-                          _controller.draftBotPersonalitySource,
-                      draftEffectiveBotPersonalitySource:
-                          _controller.draftEffectiveBotPersonalitySource,
-                      draftBotPersonality: _controller.draftBotPersonality,
-                      draftEffectiveBotPersonality:
-                          _controller.draftEffectiveBotPersonality,
-                      draftFritz19Personality:
-                          _controller.draftFritz19Personality,
-                      draftEffectiveFritz19Personality:
-                          _controller.draftEffectiveFritz19Personality,
-                      draftSelectedChessiversePersonalities:
-                          _controller.draftSelectedChessiversePersonalities,
-                      draftSelectedFritz19Personalities:
-                          _controller.draftSelectedFritz19Personalities,
-                      draftPersonaCandidateCount:
-                          _controller.draftPersonaCandidateCount,
-                      activeBotProfile: _controller.activeBotProfile,
-                      draftBotProfile: _controller.draftBotProfile,
-                      normalSettingsLockedByBotProfile:
-                          _controller.normalSettingsLockedByBotProfile,
-                      onBotProfileSelected: _controller.selectBotProfile,
-                      onBotProfileDisabled: _controller.disableBotProfile,
-                      isBotThinking: _controller.isBotThinking,
-                      isAnalysisMode: _controller.isAnalysisMode,
-                      canToggleAnalysisMode: _controller.canToggleAnalysisMode,
-                      canNavigateAnalysisBack: _controller.isAnalysisMode
-                          ? _controller.canNavigateAnalysisBack
-                          : _controller.canNavigateMainLineBack,
-                      canNavigateAnalysisForward: _controller.isAnalysisMode
-                          ? _controller.canNavigateAnalysisForward
-                          : _controller.canNavigateMainLineForward,
-                      onNewGame: _controller.newGame,
-                      onRestart: _controller.restartGame,
-                      onToggleAnalysisMode: _controller.toggleAnalysisMode,
-                      onAnalysisBack: _handleBoardBackButton,
-                      onAnalysisForward: _handleBoardForwardButton,
-                      onAnalysisBackToStart: _handleBoardBackToStartButton,
-                      onAnalysisForwardToEnd: _handleBoardForwardToEndButton,
-                      onSkillLevelChanged: _controller.setSkillLevel,
-                      onUciEloChanged: _controller.setUciElo,
-                      onCpLossEloChanged: _controller.setCpLossElo,
-                      onCpLossUciSwitchFullMoveNumberChanged:
-                          _controller.setCpLossUciSwitchFullMoveNumber,
-                      onStrengthModeChanged: _controller.setStrengthMode,
-                      onBotOpeningMoveChanged: _controller.setBotOpeningMove,
-                      onOpeningMoveSelectionToggled:
-                          _controller.toggleOpeningMoveSelection,
-                      onOpeningMoveSelectionCleared:
-                          _controller.clearOpeningMoveSelection,
-                      onBotPersonalityChanged: _controller.setBotPersonality,
-                      onFritz19PersonalityChanged:
-                          _controller.setFritz19Personality,
-                      onChessiversePersonalitySelectionToggled:
-                          _controller.toggleChessiversePersonalitySelection,
-                      onFritz19PersonalitySelectionToggled:
-                          _controller.toggleFritz19PersonalitySelection,
-                      onPersonalitySelectionCleared:
-                          _controller.clearPersonalitySelection,
-                      onAllPersonalitiesRandomChanged:
-                          _controller.setAllPersonalitiesRandom,
-                      onPersonaCandidateCountChanged:
-                          _controller.setPersonaCandidateCount,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ChessBoardGrid(
-                          playerIsWhite: _controller.playerIsWhite,
-                          fen: _controller.fen,
-                          isAnalysisMode: _controller.isAnalysisMode,
-                          isAnalysisBranchActive:
-                              _controller.isAnalysisBranchActive,
-                          highlights: _controller.highlights,
-                          pieceAt: _controller.pieceAt,
-                          canHumanMovePiece: _controller.canHumanMovePiece,
-                          canMoveTo: _controller.canMoveTo,
-                          legalTargetsFromSquare:
-                              _controller.legalTargetsFromSquare,
-                          onSquareTap: _controller.onSquareTap,
-                          onMove: _controller.tryHumanMove,
-                          onPieceDragStarted: _controller.selectSquare,
-                          onPieceDragEnded: _controller.clearSelectedSquare,
-                          annotationModeEnabled: true,
-                          annotationMarkedSquares:
-                              _activeAnnotationMarkedSquares,
-                          annotationArrows: _activeAnnotationArrows,
-                          onClearAnnotations: _clearBoardAnnotations,
-                          onToggleAnnotationSquare: _toggleAnnotationSquare,
-                          onToggleAnnotationArrow: _toggleAnnotationArrow,
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 760),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ChessBoardDebugPanel(
-                                  playerSide: _controller.playerSide,
-                                  fen: _controller.fen,
-                                  pgn: _controller.pgn,
-                                  engineOutput: _controller.engineOutput,
-                                  isAnalysisMode: _controller.isAnalysisMode,
-                                  isAnalysisThinking:
-                                      _controller.isAnalysisThinking,
-                                  analysisLines: _controller.analysisLines,
-                                ),
-                                const SizedBox(height: 12),
-                                if (_controller.displayedPlayFromHereFen != null) ...[
-                                  Text(
-                                    'FEN-ID: ${_controller.displayedPlayFromHereFen}',
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFFFFA726),
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                ],
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: _controller
-                                              .isPlayFromHerePositionLoaded
-                                          ? null
-                                          : _copyPgnToClipboard,
-                                      icon: const Icon(Icons.copy),
-                                      label: const Text('PGN kopieren'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _copyFenToClipboard,
-                                      icon: const Icon(Icons.copy_all),
-                                      label: const Text('FEN kopieren'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _controller.isAnalysisMode
-                                          ? null
-                                          : _controller.restartTrainingCounterGame,
-                                      icon: const Icon(Icons.restart_alt),
-                                      label: const Text('Neustart Zähler'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _controller.isAnalysisMode
-                                          ? null
-                                          : _pastePgnFromClipboard,
-                                      icon: const Icon(Icons.content_paste),
-                                      label: const Text('Paste PGN'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _controller.isAnalysisMode
-                                          ? null
-                                          : _pasteFenFromClipboard,
-                                      icon: const Icon(Icons.content_paste_go),
-                                      label: const Text('Paste FEN'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _controller.isAnalysisMode ||
-                                              _controller.isBotThinking
-                                          ? null
-                                          : _confirmSoloModeChange,
-                                      style: _controller.isSoloMode
-                                          ? OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  const Color(0xFF55C878),
-                                              side: const BorderSide(
-                                                color: Color(0xFF55C878),
-                                                width: 1.5,
-                                              ),
-                                            )
-                                          : null,
-                                      icon: const Icon(Icons.person),
-                                      label: Text(
-                                        _controller.isSoloMode
-                                            ? 'Solo-Modus aktiv'
-                                            : 'Solo-Modus',
-                                      ),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: _togglePlayFromHere,
-                                      style: _controller.isPlayFromHereActive
-                                          ? OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  const Color(0xFF55C878),
-                                              side: const BorderSide(
-                                                color: Color(0xFF55C878),
-                                                width: 1.5,
-                                              ),
-                                            )
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.person_pin_circle_outlined,
-                                      ),
-                                      label: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text('Play From Here'),
-                                          if (_controller.isPlayFromHereActive) ...[
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              width: 9,
-                                              height: 9,
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFF55C878),
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ChessResultStatsTextView(
-                                  counter: _controller.trainingCounterSnapshot,
-                                  analysisUsedDuringCurrentGame:
-                                      _controller.analysisUsedDuringCurrentGame,
-                                  trainedOnly: _controller
-                                      .isPlayFromHerePositionLoaded,
-                                ),
-                              ],
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final useOverlayLayout = constraints.maxWidth >= 1100 &&
+                        constraints.maxHeight >= 560;
+
+                    if (!useOverlayLayout) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: ChessStatusText(
+                              text: _controller.statusText,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        SizedBox(
-                          width: 300,
-                          height: 640,
-                          child: ChessMoveListPanel(
-                            entries: _controller.mainLineMoveEntries,
-                            selectedPly: _controller.currentMainLinePly,
-                            isReviewMode: _controller.isNormalReviewMode,
-                            isAnalysisMode: _controller.isAnalysisMode,
-                            onMoveSelected: _controller.jumpToMainLinePly,
+                          const SizedBox(height: 10),
+                          Center(
+                            child: ConstrainedBox(
+                              constraints:
+                                  const BoxConstraints(maxWidth: 1200),
+                              child: _buildDesktopControls(
+                                showPrimaryControls: false,
+                                showSecondaryControls: true,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, gameConstraints) {
+                                return _buildResponsiveDesktopGameLayout(
+                                  context,
+                                  gameConstraints,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return _buildResponsiveDesktopGameLayout(
+                      context,
+                      constraints,
+                    );
+                  },
                 );
               },
             ),

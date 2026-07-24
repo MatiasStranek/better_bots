@@ -35,12 +35,6 @@ class ChessBoardDebugPanel extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 12),
-        Text('FEN:', style: Theme.of(context).textTheme.titleSmall),
-        SelectableText(fen),
-        const SizedBox(height: 12),
-        Text('PGN:', style: Theme.of(context).textTheme.titleSmall),
-        SelectableText(pgn),
-        const SizedBox(height: 12),
         if (isAnalysisMode)
           _AnalysisLinesView(
             isAnalysisThinking: isAnalysisThinking,
@@ -51,9 +45,45 @@ class ChessBoardDebugPanel extends StatelessWidget {
             'Letzte Engine-Ausgabe:',
             style: Theme.of(context).textTheme.titleSmall,
           ),
+          const SizedBox(height: 4),
           SelectableText(engineOutput),
         ],
+        const SizedBox(height: 16),
+        _LabeledSelectableBlock(
+          label: 'FEN:',
+          value: fen,
+        ),
+        const SizedBox(height: 12),
+        _LabeledSelectableBlock(
+          label: 'PGN:',
+          value: pgn,
+        ),
       ],
+    );
+  }
+}
+
+class _LabeledSelectableBlock extends StatelessWidget {
+  const _LabeledSelectableBlock({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          SelectableText(value),
+        ],
+      ),
     );
   }
 }
@@ -97,9 +127,14 @@ class _AnalysisLineTile extends StatelessWidget {
 
   final EngineAnalysisLine line;
 
+  static const Color _evaluationGreen = Color(0xFF55C878);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final baseStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -111,31 +146,29 @@ class _AnalysisLineTile extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.only(left: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  _MoveBadge(label: line.displayMove),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '#${line.rank}  ${line.formattedEvaluation}  Tiefe ${line.depth}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+              _MoveBadge(label: line.displayMove),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: baseStyle,
+                    children: [
+                      TextSpan(text: '#${line.rank}  '),
+                      TextSpan(
+                        text: line.formattedEvaluation,
+                        style: baseStyle?.copyWith(
+                          color: _evaluationGreen,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              if (line.pv.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 5),
-                  child: SelectableText(
-                    'PV: ${line.pvText}',
-                    style: theme.textTheme.bodySmall,
+                      TextSpan(text: '  Tiefe ${line.depth}'),
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),

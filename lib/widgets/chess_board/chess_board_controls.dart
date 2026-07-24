@@ -84,6 +84,8 @@ class ChessBoardControls extends StatelessWidget {
     required this.onPersonalitySelectionCleared,
     required this.onAllPersonalitiesRandomChanged,
     required this.onPersonaCandidateCountChanged,
+    this.showPrimaryControls = true,
+    this.showSecondaryControls = true,
     super.key,
   });
 
@@ -156,6 +158,8 @@ class ChessBoardControls extends StatelessWidget {
   final VoidCallback onPersonalitySelectionCleared;
   final VoidCallback onAllPersonalitiesRandomChanged;
   final ValueChanged<int> onPersonaCandidateCountChanged;
+  final bool showPrimaryControls;
+  final bool showSecondaryControls;
   final ValueChanged<BotProfile> onBotProfileSelected;
   final VoidCallback onBotProfileDisabled;
 
@@ -1215,10 +1219,12 @@ class ChessBoardControls extends StatelessWidget {
     final personalityButtonColor =
         effectiveBotPersonality.isAbstract ? Colors.orange : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    final sections = <Widget>[];
+
+    if (showPrimaryControls) {
+      sections.add(
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 8,
           children: [
@@ -1257,8 +1263,16 @@ class ChessBoardControls extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+      );
+    }
+
+    if (showSecondaryControls) {
+      if (sections.isNotEmpty) {
+        sections.add(const SizedBox(height: 16));
+      }
+      sections.add(
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           runSpacing: 8,
           children: [
@@ -1301,7 +1315,12 @@ class ChessBoardControls extends StatelessWidget {
             ),
           ],
         ),
-      ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections,
     );
   }
 }
