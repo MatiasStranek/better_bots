@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,10 +21,12 @@ class ChessBoardWidget extends StatefulWidget {
   State<ChessBoardWidget> createState() => _ChessBoardWidgetState();
 }
 
-class _ChessBoardWidgetState extends State<ChessBoardWidget> {
+class _ChessBoardWidgetState extends State<ChessBoardWidget>
+    with WidgetsBindingObserver {
   late final ChessBoardController _controller;
   late final FocusNode _keyboardFocusNode;
   late final ScrollController _desktopDetailsScrollController;
+  Timer? _keyboardFocusRestoreTimer;
 
   final Set<String> _normalAnnotationMarkedSquares = <String>{};
   final Set<BoardArrowAnnotation> _normalAnnotationArrows =
@@ -38,6 +42,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
     _keyboardFocusNode = FocusNode(debugLabel: 'ChessBoardAnalysisShortcuts');
     _desktopDetailsScrollController = ScrollController();
     _controller = ChessBoardController(
@@ -45,10 +50,76 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget> {
     )..start();
     _lastKnownAnalysisMode = _controller.isAnalysisMode;
     _controller.addListener(_handleControllerChanged);
+    _scheduleKeyboardFocusRestore();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      _scheduleKeyboardFocusRestore();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _keyboardFocusRestoreTimer?.cancel();
+    }
+  }
+
+  @override
+  void didChangeViewFocus(ViewFocusEvent event) {
+    super.didChangeViewFocus(event);
+
+    if (!mounted || event.viewId != View.of(context).viewId) {
+      return;
+    }
+
+    if (event.state == ViewFocusState.focused) {
+      _scheduleKeyboardFocusRestore();
+    } else {
+      _keyboardFocusRestoreTimer?.cancel();
+    }
+  }
+
+  void _scheduleKeyboardFocusRestore() {
+    _keyboardFocusRestoreTimer?.cancel();
+    _keyboardFocusRestoreTimer = Timer(
+      const Duration(milliseconds: 120),
+      () {
+        if (!mounted) {
+          return;
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_canRestoreKeyboardFocus()) {
+            return;
+          }
+
+          _keyboardFocusNode.requestFocus();
+        });
+      },
+    );
+  }
+
+  bool _canRestoreKeyboardFocus() {
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+
+    if (lifecycleState != null &&
+        lifecycleState != AppLifecycleState.resumed) {
+      return false;
+    }
+
+    if (ModalRoute.of(context)?.isCurrent != true || _isTextInputFocused()) {
+      return false;
+    }
+
+    return _keyboardFocusNode.canRequestFocus;
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _keyboardFocusRestoreTimer?.cancel();
     _desktopDetailsScrollController.dispose();
     _keyboardFocusNode.dispose();
     _controller.removeListener(_handleControllerChanged);
