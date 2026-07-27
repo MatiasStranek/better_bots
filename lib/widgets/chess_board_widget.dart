@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -660,6 +661,25 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
           isAnalysisMode: _controller.isAnalysisMode,
           isAnalysisThinking: _controller.isAnalysisThinking,
           analysisLines: _controller.analysisLines,
+          showAnalysisRepeatControls:
+              !kIsWeb && defaultTargetPlatform == TargetPlatform.windows,
+          completedAnalysisRunCount: _controller.completedAnalysisRunCount,
+          analysisTargetDepth: _controller.analysisTargetDepth,
+          isAnalysisRepeatActive: _controller.isAnalysisRepeatActive,
+          analysisRepeatCurrentDepth: _controller.analysisRepeatCurrentDepth,
+          analysisRepeatRemaining: _controller.analysisRepeatRemaining,
+          analysisRepeatRequestCount: _controller.analysisRepeatRequestCount,
+          canStartAnalysisRepeat: _controller.canStartAnalysisRepeat,
+          onStartAnalysisRepeat: _controller.startAnalysisRepeat,
+          onCancelAnalysisRepeat: _controller.cancelAnalysisRepeat,
+          onSetAnalysisRepeatCount:
+              _controller.setAnalysisRepeatRequestCount,
+          onIncrementAnalysisRepeatCount:
+              _controller.incrementAnalysisRepeatRequestCount,
+          onDecrementAnalysisRepeatCount:
+              _controller.decrementAnalysisRepeatRequestCount,
+          onAnalysisRepeatCountEditingComplete:
+              _scheduleKeyboardFocusRestore,
           trainingCounter: _controller.trainingCounterSnapshot,
           analysisUsedDuringCurrentGame:
               _controller.analysisUsedDuringCurrentGame,

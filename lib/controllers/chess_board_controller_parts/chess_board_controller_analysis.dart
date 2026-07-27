@@ -286,6 +286,87 @@ String _analysisPieceTypeKey(chess.Piece piece) {
   return typeText;
 }
 
+void _controllerSetAnalysisRepeatRequestCount(
+  ChessBoardController controller,
+  int value,
+) {
+  if (controller._analysisSession == null || controller._analysisRepeatActive) {
+    return;
+  }
+
+  final normalized = value.clamp(1, 1000).toInt();
+
+  if (normalized == controller._analysisRepeatRequestCount) {
+    return;
+  }
+
+  controller._analysisRepeatRequestCount = normalized;
+  _safeNotify(controller);
+}
+
+void _controllerStartAnalysisRepeat(ChessBoardController controller) {
+  final session = controller._analysisSession;
+
+  if (session == null ||
+      controller._analysisRepeatActive ||
+      session.isAnalyzing ||
+      !session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+    return;
+  }
+
+  final requestedRuns =
+      controller._analysisRepeatRequestCount.clamp(1, 1000).toInt();
+
+  controller._analysisGeneration++;
+  controller
+    .._analysisRepeatActive = true
+    .._analysisRepeatRunsPending = requestedRuns
+    .._analysisRepeatRemaining = requestedRuns
+    .._analysisRepeatCurrentDepth = 0;
+
+  session
+    ..isAnalyzing = true
+    ..statusText = 'NeuAnalyse 1/$requestedRuns startet bei Tiefe 0.';
+
+  _safeNotify(controller);
+
+  if (controller._analysisSearchInFlight) {
+    controller._analysisSearchQueued = true;
+    unawaited(controller._analysisEngine.cancelSearch());
+    return;
+  }
+
+  unawaited(_runQueuedAnalysis(controller));
+}
+
+void _controllerCancelAnalysisRepeatState(ChessBoardController controller) {
+  controller
+    .._analysisRepeatActive = false
+    .._analysisRepeatRunsPending = 0
+    .._analysisRepeatRemaining = 0
+    .._analysisRepeatCurrentDepth = 0;
+}
+
+void _controllerCancelAnalysisRepeat(ChessBoardController controller) {
+  final session = controller._analysisSession;
+
+  if (session == null || !controller._analysisRepeatActive) {
+    return;
+  }
+
+  controller._analysisGeneration++;
+  controller._analysisSearchQueued = false;
+  _controllerCancelAnalysisRepeatState(controller);
+
+  session
+    ..isAnalyzing = false
+    ..statusText = 'NeuAnalyse abgebrochen. '
+        'x${session.completedAnalysisCountForCurrentFen} gespeichert.';
+
+  _safeNotify(controller);
+  unawaited(controller._analysisEngine.cancelSearch());
+}
+
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
     if (!controller.canStartAnalysisMode) {
@@ -310,7 +391,13 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
 
   controller._searchGeneration++;
   controller._analysisGeneration++;
-  controller._isBotThinking = false;
+  controller
+    .._analysisRepeatRequestCount = 1
+    .._analysisRepeatActive = false
+    .._analysisRepeatRunsPending = 0
+    .._analysisRepeatRemaining = 0
+    .._analysisRepeatCurrentDepth = 0
+    .._isBotThinking = false;
   controller._selectedSquare = null;
   controller._premoves.clear();
 
@@ -346,9 +433,9 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
 
 void _controllerStopAnalysisMode(ChessBoardController controller) {
   controller._analysisGeneration++;
+  _controllerCancelAnalysisRepeatState(controller);
   controller._analysisSession = null;
   controller._analysisSearchQueued = false;
-  controller._analysisSearchInFlight = false;
   controller._selectedSquare = null;
   controller._premoves.clear();
 
@@ -599,13 +686,23 @@ void _requestAnalysisForCurrentPosition(ChessBoardController controller) {
     return;
   }
 
+  _controllerCancelAnalysisRepeatState(controller);
   controller._analysisGeneration++;
 
-  if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+  final hasCachedResult = session.hasCompletedLinesForCurrentFen(
+    targetDepth: _analysisDepth,
+  );
+
+  if (hasCachedResult) {
+    controller._analysisSearchQueued = false;
     session
       ..isAnalyzing = false
       ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
     _safeNotify(controller);
+
+    if (controller._analysisSearchInFlight) {
+      unawaited(controller._analysisEngine.cancelSearch());
+    }
     return;
   }
 
@@ -634,7 +731,11 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
         return;
       }
 
-      if (session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+      final isRepeatRun = controller._analysisRepeatActive &&
+          controller._analysisRepeatRunsPending > 0;
+
+      if (!isRepeatRun &&
+          session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
         session
           ..isAnalyzing = false
           ..statusText = 'Gespeicherte Tiefe-20-Analyse geladen.';
@@ -647,7 +748,40 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
       final fen = session.fen;
       final effectiveMultiPv = _effectiveAnalysisMultiPvForFen(fen);
 
+      if (isRepeatRun) {
+        final totalRuns = controller._analysisRepeatRequestCount;
+        final completedInBatch =
+            totalRuns - controller._analysisRepeatRunsPending;
+
+        controller
+          .._analysisRepeatRemaining = controller._analysisRepeatRunsPending
+          .._analysisRepeatCurrentDepth = 0;
+        session
+          ..isAnalyzing = true
+          ..statusText =
+              'NeuAnalyse ${completedInBatch + 1}/$totalRuns läuft ab Tiefe 0.';
+        _safeNotify(controller);
+      }
+
       try {
+        if (isRepeatRun &&
+            controller._analysisEngine is FreshAnalysisEngine) {
+          await (controller._analysisEngine as FreshAnalysisEngine)
+              .resetAnalysisState();
+
+          final currentSession = controller._analysisSession;
+          if (currentSession == null ||
+              !identical(currentSession, session) ||
+              currentSession.fen != fen ||
+              generation != controller._analysisGeneration ||
+              controller._isDisposed) {
+            if (!controller._analysisSearchQueued) {
+              return;
+            }
+            continue;
+          }
+        }
+
         final lines = await controller._analysisEngine.analyzePositionFromFen(
           fen: fen,
           multiPv: effectiveMultiPv,
@@ -663,17 +797,26 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
               return;
             }
 
-            currentSession.updateLiveTopLinesForFen(
-              fen: fen,
-              lines: _analysisLinesWithDisplayMoves(fen, liveLines),
-              targetDepth: _analysisDepth,
+            final displayLiveLines = _analysisLinesWithDisplayMoves(
+              fen,
+              liveLines,
             );
+            final maxDepth = _maxAnalysisDepth(displayLiveLines)
+                .clamp(0, _analysisDepth)
+                .toInt();
 
-            final maxDepth = _maxAnalysisDepth(currentSession.topLines);
-            currentSession.statusText = currentSession
-                    .hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)
-                ? 'Tiefe $_analysisDepth erreicht und gespeichert.'
-                : 'Analyse läuft: aktuelle Tiefe $maxDepth/$_analysisDepth.';
+            if (isRepeatRun) {
+              controller._analysisRepeatCurrentDepth = maxDepth;
+              currentSession.statusText =
+                  'NeuAnalyse läuft: Tiefe $maxDepth/$_analysisDepth.';
+            } else {
+              currentSession.updateLiveTopLinesForFen(
+                fen: fen,
+                lines: displayLiveLines,
+              );
+              currentSession.statusText =
+                  'Analyse läuft: aktuelle Tiefe $maxDepth/$_analysisDepth.';
+            }
 
             _safeNotify(controller);
           },
@@ -693,26 +836,51 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
         }
 
         final displayLines = _analysisLinesWithDisplayMoves(fen, lines);
-
-        session.updateCompletedTopLinesForFen(
+        final runWasSaved = session.addCompletedAnalysisRunForFen(
           fen: fen,
           lines: displayLines,
           targetDepth: _analysisDepth,
         );
 
-        final hasCompletedLines = session.hasCompletedLinesForCurrentFen(
-          targetDepth: _analysisDepth,
-        );
+        if (isRepeatRun) {
+          if (!runWasSaved) {
+            throw StateError(
+              'NeuAnalyse erreichte keine vollständige Tiefe-20-Ausgabe.',
+            );
+          }
 
-        session
-          ..statusText = displayLines.isEmpty
-              ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
-              : hasCompletedLines
-                  ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
-                  : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe ${_maxAnalysisDepth(displayLines)}.'
-          ..isAnalyzing = false;
+          controller._analysisRepeatRunsPending -= 1;
+          controller._analysisRepeatRemaining =
+              controller._analysisRepeatRunsPending;
+          controller._analysisRepeatCurrentDepth = _analysisDepth;
 
-        _safeNotify(controller);
+          if (controller._analysisRepeatRunsPending > 0) {
+            session.statusText =
+                'NeuAnalyse gespeichert. Noch '
+                '${controller._analysisRepeatRunsPending}.';
+            _safeNotify(controller);
+            continue;
+          }
+
+          _controllerCancelAnalysisRepeatState(controller);
+          session
+            ..isAnalyzing = false
+            ..statusText =
+                'NeuAnalysen abgeschlossen. '
+                'x${session.completedAnalysisCountForCurrentFen} gespeichert.';
+          _safeNotify(controller);
+        } else {
+          session
+            ..statusText = displayLines.isEmpty
+                ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
+                : runWasSaved
+                    ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
+                    : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe '
+                        '${_maxAnalysisDepth(displayLines)}.'
+            ..isAnalyzing = false;
+
+          _safeNotify(controller);
+        }
       } catch (e) {
         final currentSession = controller._analysisSession;
 
@@ -727,11 +895,22 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
           continue;
         }
 
+        if (isRepeatRun) {
+          _controllerCancelAnalysisRepeatState(controller);
+        }
+
         session
           ..isAnalyzing = false
-          ..statusText = 'Analysefehler: $e';
+          ..statusText = isRepeatRun
+              ? 'NeuAnalysefehler: $e'
+              : 'Analysefehler: $e';
 
         _safeNotify(controller);
+      }
+
+      if (controller._analysisRepeatActive &&
+          controller._analysisRepeatRunsPending > 0) {
+        continue;
       }
 
       if (!controller._analysisSearchQueued) {
@@ -760,7 +939,9 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
     controller._analysisSearchInFlight = false;
 
     final session = controller._analysisSession;
-    if (session != null && !controller._analysisSearchQueued) {
+    if (session != null &&
+        !controller._analysisSearchQueued &&
+        !controller._analysisRepeatActive) {
       session.isAnalyzing = false;
       _safeNotify(controller);
     }

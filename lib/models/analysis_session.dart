@@ -43,10 +43,11 @@ class AnalysisSession {
   final List<BoardMove> _branchMoves = [];
   int? _branchStartPly;
 
-  /// Fertige Tiefe-20-Analysen pro Analyse-FEN.
-  /// Diese Map lebt nur innerhalb der AnalysisSession und wird beim Verlassen
-  /// des Analysemodus zusammen mit der Session verworfen.
-  final Map<String, List<EngineAnalysisLine>> _completedTopLinesByFen = {};
+  /// Zusammengefasste Tiefe-20-Analysen pro Analyse-FEN.
+  /// Es werden keine kompletten historischen Läufe gespeichert. Pro Zug bleiben
+  /// nur laufende Summe, Trefferzahl und die zuletzt benötigten Anzeigedaten
+  /// erhalten. Die Map lebt nur innerhalb der AnalysisSession.
+  final Map<String, _PositionAnalysisAggregate> _analysisAggregatesByFen = {};
 
   int currentPly = 0;
 
@@ -266,24 +267,33 @@ class AnalysisSession {
     return true;
   }
 
-  bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
-    final cachedLines = _completedTopLinesByFen[fen];
+  int get completedAnalysisCountForCurrentFen {
+    return _analysisAggregatesByFen[fen]?.completedRuns ?? 0;
+  }
 
-    if (cachedLines == null || cachedLines.isEmpty) {
+  bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
+    final aggregate = _analysisAggregatesByFen[fen];
+
+    if (aggregate == null || aggregate.completedRuns <= 0) {
       return false;
     }
 
-    return _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth);
+    final cachedLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+    return cachedLines.isNotEmpty &&
+        _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth);
   }
 
   bool restoreCompletedLinesForCurrentFen({int targetDepth = 20}) {
-    final cachedLines = _completedTopLinesByFen[fen];
+    final aggregate = _analysisAggregatesByFen[fen];
 
-    if (cachedLines != null &&
-        cachedLines.isNotEmpty &&
-        _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth)) {
-      topLines = cachedLines;
-      return true;
+    if (aggregate != null && aggregate.completedRuns > 0) {
+      final cachedLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+
+      if (cachedLines.isNotEmpty &&
+          _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth)) {
+        topLines = cachedLines;
+        return true;
+      }
     }
 
     topLines = const [];
@@ -293,37 +303,41 @@ class AnalysisSession {
   void updateLiveTopLinesForFen({
     required String fen,
     required List<EngineAnalysisLine> lines,
-    int targetDepth = 20,
   }) {
     if (fen != this.fen) {
       return;
     }
 
     final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
-
     topLines = List.unmodifiable(sortedLines.take(5));
-
-    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
-      _completedTopLinesByFen[fen] = topLines;
-    }
   }
 
-  void updateCompletedTopLinesForFen({
+  bool addCompletedAnalysisRunForFen({
     required String fen,
     required List<EngineAnalysisLine> lines,
     int targetDepth = 20,
   }) {
     if (fen != this.fen) {
-      return;
+      return false;
     }
 
-    final sortedLines = _formatLinesForFen(fen: fen, lines: lines);
+    final sortedLines = _formatLinesForFen(fen: fen, lines: lines)
+        .where((line) => line.isValidMove)
+        .take(5)
+        .toList(growable: false);
 
-    topLines = List.unmodifiable(sortedLines.take(5));
-
-    if (_linesReachedTargetDepth(topLines, targetDepth: targetDepth)) {
-      _completedTopLinesByFen[fen] = topLines;
+    if (!_linesReachedTargetDepth(sortedLines, targetDepth: targetDepth)) {
+      return false;
     }
+
+    final aggregate = _analysisAggregatesByFen.putIfAbsent(
+      fen,
+      _PositionAnalysisAggregate.new,
+    );
+
+    aggregate.addRun(sortedLines);
+    topLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+    return true;
   }
 
   void clearTopLines() {
@@ -664,3 +678,167 @@ class AnalysisSession {
     }
   }
 }
+
+const double _analysisMateBaseScore = 100000.0;
+const double _analysisMateStepScore = 100.0;
+const double _analysisMateDisplayThreshold = 90000.0;
+
+class _PositionAnalysisAggregate {
+  int completedRuns = 0;
+
+  final Map<String, _MoveAnalysisAggregate> _movesByUci = {};
+
+  void addRun(List<EngineAnalysisLine> lines) {
+    final seenMoves = <String>{};
+
+    for (final line in lines) {
+      final uciMove = line.uciMove.trim();
+
+      if (!line.isValidMove || !seenMoves.add(uciMove)) {
+        continue;
+      }
+
+      final moveAggregate = _movesByUci.putIfAbsent(
+        uciMove,
+        () => _MoveAnalysisAggregate(uciMove: uciMove),
+      );
+
+      moveAggregate.addSample(line);
+    }
+
+    completedRuns += 1;
+  }
+
+  List<EngineAnalysisLine> rankedTopLines({required int targetDepth}) {
+    final rankedMoves = _movesByUci.values.toList(growable: false)
+      ..sort((left, right) {
+        final scoreOrder = right.averageNormalizedScore.compareTo(
+          left.averageNormalizedScore,
+        );
+
+        if (scoreOrder != 0) {
+          return scoreOrder;
+        }
+
+        return left.uciMove.compareTo(right.uciMove);
+      });
+
+    return List<EngineAnalysisLine>.unmodifiable([
+      for (var index = 0; index < rankedMoves.length && index < 5; index++)
+        rankedMoves[index].toEngineAnalysisLine(
+          rank: index + 1,
+          targetDepth: targetDepth,
+        ),
+    ]);
+  }
+}
+
+class _MoveAnalysisAggregate {
+  _MoveAnalysisAggregate({required this.uciMove});
+
+  final String uciMove;
+
+  double _normalizedScoreSum = 0;
+  int _sampleCount = 0;
+  int _mateSampleCount = 0;
+  int? _mateSign;
+  int _absoluteMateDistanceSum = 0;
+  String? _shortMove;
+  List<String> _latestPv = const [];
+
+  double get averageNormalizedScore {
+    if (_sampleCount <= 0) {
+      return 0;
+    }
+
+    return _normalizedScoreSum / _sampleCount;
+  }
+
+  void addSample(EngineAnalysisLine line) {
+    _normalizedScoreSum += _normalizedScore(line);
+    _sampleCount += 1;
+    _shortMove = line.shortMove;
+    _latestPv = List<String>.unmodifiable(line.pv);
+
+    final mate = line.mate;
+    if (mate != null) {
+      _mateSampleCount += 1;
+      _absoluteMateDistanceSum += mate.abs();
+      final sign = mate == 0 ? 1 : mate.sign;
+      _mateSign = _mateSign == null || _mateSign == sign ? sign : 0;
+    }
+  }
+
+  EngineAnalysisLine toEngineAnalysisLine({
+    required int rank,
+    required int targetDepth,
+  }) {
+    final allSamplesAreCompatibleMateScores = _sampleCount > 0 &&
+        _mateSampleCount == _sampleCount &&
+        _mateSign != null &&
+        _mateSign != 0;
+
+    if (allSamplesAreCompatibleMateScores) {
+      final averageDistance =
+          (_absoluteMateDistanceSum / _mateSampleCount)
+              .round()
+              .clamp(0, 999)
+              .toInt();
+
+      return EngineAnalysisLine(
+        rank: rank,
+        depth: targetDepth,
+        scoreCp: null,
+        mate: _mateSign! * averageDistance,
+        uciMove: uciMove,
+        shortMove: _shortMove,
+        pv: _latestPv,
+      );
+    }
+
+    final averageScore = averageNormalizedScore;
+
+    if (averageScore.abs() >= _analysisMateDisplayThreshold) {
+      final approximateDistance =
+          ((_analysisMateBaseScore - averageScore.abs()) /
+                  _analysisMateStepScore)
+              .round()
+              .clamp(0, 999)
+              .toInt();
+      final mateSign = averageScore < 0 ? -1 : 1;
+
+      return EngineAnalysisLine(
+        rank: rank,
+        depth: targetDepth,
+        scoreCp: null,
+        mate: mateSign * approximateDistance,
+        uciMove: uciMove,
+        shortMove: _shortMove,
+        pv: _latestPv,
+      );
+    }
+
+    return EngineAnalysisLine(
+      rank: rank,
+      depth: targetDepth,
+      scoreCp: averageScore.round(),
+      mate: null,
+      uciMove: uciMove,
+      shortMove: _shortMove,
+      pv: _latestPv,
+    );
+  }
+
+  double _normalizedScore(EngineAnalysisLine line) {
+    final mate = line.mate;
+
+    if (mate == null) {
+      return (line.scoreCp ?? 0).toDouble();
+    }
+
+    final sign = mate == 0 ? 1 : mate.sign;
+    final distancePenalty = mate.abs() * _analysisMateStepScore;
+    return sign * (_analysisMateBaseScore - distancePenalty);
+  }
+}
+

@@ -125,6 +125,12 @@ class ChessBoardController extends ChangeNotifier {
   bool _analysisSearchInFlight = false;
   bool _analysisSearchQueued = false;
 
+  int _analysisRepeatRequestCount = 1;
+  int _analysisRepeatRunsPending = 0;
+  int _analysisRepeatRemaining = 0;
+  int _analysisRepeatCurrentDepth = 0;
+  bool _analysisRepeatActive = false;
+
   /// Start-FEN der aktuell laufenden Originalpartie.
   /// Diese FEN wird zusammen mit [_normalGameMoves] benutzt, damit der
   /// Analysemodus nicht nur die aktuelle Stellung sieht, sondern die komplette
@@ -433,6 +439,27 @@ class ChessBoardController extends ChangeNotifier {
     return _analysisSession?.topLines ?? const [];
   }
 
+  int get completedAnalysisRunCount {
+    return _analysisSession?.completedAnalysisCountForCurrentFen ?? 0;
+  }
+
+  int get analysisTargetDepth => _analysisDepth;
+
+  int get analysisRepeatRequestCount => _analysisRepeatRequestCount;
+
+  bool get isAnalysisRepeatActive => _analysisRepeatActive;
+
+  int get analysisRepeatRemaining => _analysisRepeatRemaining;
+
+  int get analysisRepeatCurrentDepth => _analysisRepeatCurrentDepth;
+
+  bool get canStartAnalysisRepeat {
+    return isAnalysisMode &&
+        !_analysisRepeatActive &&
+        !isAnalysisThinking &&
+        completedAnalysisRunCount > 0;
+  }
+
   bool get isNormalReviewMode => _controllerIsNormalReviewMode(this);
 
   int get currentMainLinePly => _controllerCurrentMainLinePly(this);
@@ -574,6 +601,28 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void toggleAnalysisMode() => _controllerToggleAnalysisMode(this);
+
+  void incrementAnalysisRepeatRequestCount() {
+    _controllerSetAnalysisRepeatRequestCount(
+      this,
+      _analysisRepeatRequestCount + 1,
+    );
+  }
+
+  void decrementAnalysisRepeatRequestCount() {
+    _controllerSetAnalysisRepeatRequestCount(
+      this,
+      _analysisRepeatRequestCount - 1,
+    );
+  }
+
+  void setAnalysisRepeatRequestCount(int value) {
+    _controllerSetAnalysisRepeatRequestCount(this, value);
+  }
+
+  void startAnalysisRepeat() => _controllerStartAnalysisRepeat(this);
+
+  void cancelAnalysisRepeat() => _controllerCancelAnalysisRepeat(this);
 
   Future<void> stepAnalysisBack() => _controllerStepAnalysisBack(this);
 

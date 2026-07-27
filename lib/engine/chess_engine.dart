@@ -49,3 +49,9 @@ abstract class ChessEngine {
 
   Future<void> stop();
 }
+
+/// Optionale Fähigkeit für Engines, die vor einer NeuAnalyse ihren internen
+/// Suchcache leeren können. Die Windows-Stockfish-Engine unterstützt dies.
+abstract interface class FreshAnalysisEngine {
+  Future<void> resetAnalysisState();
+}

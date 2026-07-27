@@ -6,7 +6,7 @@ import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
 import 'personality/persona_move_candidate.dart';
 
-class StockfishWindowsEngine implements ChessEngine {
+class StockfishWindowsEngine implements ChessEngine, FreshAnalysisEngine {
   Process? _process;
 
   final StreamController<String> _outputController =
@@ -665,6 +665,16 @@ class StockfishWindowsEngine implements ChessEngine {
     _lastEmittedAnalysisDepth = 0;
     _latestCandidatesByMultiPv.clear();
     _latestAnalysisLinesByMultiPv.clear();
+  }
+
+  @override
+  Future<void> resetAnalysisState() async {
+    if (_process == null) {
+      await start();
+    }
+
+    _sendCommand('setoption name Clear Hash');
+    await _waitUntilReady();
   }
 
   @override
