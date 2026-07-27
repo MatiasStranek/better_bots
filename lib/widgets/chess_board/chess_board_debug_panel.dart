@@ -217,25 +217,28 @@ class _AnalysisLinesView extends StatelessWidget {
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
               ),
-              if (showAnalysisRepeatControls &&
-                  completedAnalysisRunCount > 0) ...[
-                const SizedBox(width: 12),
-                Text(
-                  'x$completedAnalysisRunCount',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                ),
-                const SizedBox(width: 8),
-                if (isAnalysisRepeatActive) ...[
+              if (showAnalysisRepeatControls) ...[
+                if (completedAnalysisRunCount > 0 ||
+                    !isAnalysisThinking ||
+                    isAnalysisRepeatActive) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    'x$completedAnalysisRunCount',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                  ),
+                ],
+                if (isAnalysisThinking) ...[
+                  const SizedBox(width: 8),
                   _SquareDepthProgress(
                     depth: analysisRepeatCurrentDepth,
                     targetDepth: analysisTargetDepth,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Noch $analysisRepeatRemaining',
+                    'Noch ${isAnalysisRepeatActive ? analysisRepeatRemaining : 1}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w800,
                           fontFeatures: const [FontFeature.tabularFigures()],
@@ -244,6 +247,7 @@ class _AnalysisLinesView extends StatelessWidget {
                   const SizedBox(width: 8),
                   _CancelReanalysisButton(onPressed: onCancelAnalysisRepeat),
                 ] else ...[
+                  const SizedBox(width: 8),
                   _ReanalysisButton(
                     enabled: canStartAnalysisRepeat,
                     onPressed: onStartAnalysisRepeat,
@@ -264,14 +268,7 @@ class _AnalysisLinesView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        if (analysisLines.isEmpty)
-          SelectableText(
-            isAnalysisThinking
-                ? 'Engine analysiert bis Tiefe $analysisTargetDepth. Live-Linien erscheinen ab Tiefe 1 und werden nur nach abgeschlossenen Tiefen aktualisiert.'
-                : 'Noch keine Analyse-Linien vorhanden.',
-          )
-        else
-          _DesktopAnalysisLinesBar(analysisLines: analysisLines),
+        _DesktopAnalysisLinesBar(analysisLines: analysisLines),
       ],
     );
   }

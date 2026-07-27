@@ -456,8 +456,7 @@ class ChessBoardController extends ChangeNotifier {
   bool get canStartAnalysisRepeat {
     return isAnalysisMode &&
         !_analysisRepeatActive &&
-        !isAnalysisThinking &&
-        completedAnalysisRunCount > 0;
+        !isAnalysisThinking;
   }
 
   bool get isNormalReviewMode => _controllerIsNormalReviewMode(this);

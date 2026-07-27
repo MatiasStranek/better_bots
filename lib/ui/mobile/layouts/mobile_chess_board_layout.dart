@@ -85,6 +85,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onBotProfileSelected,
     required this.onBotProfileDisabled,
     required this.isAnalysisMode,
+    required this.isAnalysisThinking,
     required this.isAnalysisBranchActive,
     required this.analysisUsedDuringCurrentGame,
     required this.analysisLines,
@@ -211,6 +212,7 @@ class MobileChessBoardLayout extends StatefulWidget {
   final bool normalSettingsLockedByBotProfile;
 
   final bool isAnalysisMode;
+  final bool isAnalysisThinking;
   final bool isAnalysisBranchActive;
   final bool analysisUsedDuringCurrentGame;
   final List<EngineAnalysisLine> analysisLines;
@@ -575,6 +577,7 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   isSoloMode: widget.isSoloMode,
                   playFromHereFen: widget.displayedPlayFromHereFen,
                   isAnalysisMode: widget.isAnalysisMode,
+                  isAnalysisThinking: widget.isAnalysisThinking,
                   completedAnalysisRunCount:
                       widget.completedAnalysisRunCount,
                   analysisTargetDepth: widget.analysisTargetDepth,

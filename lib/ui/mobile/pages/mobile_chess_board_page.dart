@@ -54,23 +54,20 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     }
 
     final completedRuns = _controller.completedAnalysisRunCount;
-    if (completedRuns <= 0) {
-      return rawStatus;
-    }
 
-    if (rawStatus.startsWith('Analyse aktiv. Tiefe ') ||
-        rawStatus == 'Gespeicherte Tiefe-20-Analyse geladen.') {
+    // Sobald mindestens eine vollständige Tiefe-20-Welle gespeichert ist,
+    // zeigt Android immer den stabilen, tatsächlich gespeicherten Stand.
+    // Lauf-, Abschluss- und Abbruchmeldungen werden bereits unten durch
+    // Fortschritt, "Noch X" und Stop-Button dargestellt und sollen die
+    // Statuszeile daher nicht mehr ersetzen.
+    if (completedRuns > 0) {
       return 'Tiefe ${_controller.analysisTargetDepth} gespeichert. '
           'x$completedRuns';
     }
 
-    if (rawStatus.startsWith('Analyse aktiv.')) {
-      final withoutPrefix = rawStatus
-          .substring('Analyse aktiv.'.length)
-          .trimLeft();
-      return withoutPrefix.isEmpty
-          ? 'x$completedRuns'
-          : '$withoutPrefix x$completedRuns';
+    if (!_controller.isAnalysisThinking &&
+        rawStatus.startsWith('Analyse abgebrochen.')) {
+      return 'Analyse abgebrochen. x0';
     }
 
     return rawStatus;
@@ -293,6 +290,9 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
             _handleSystemBackWhileInAnalysisMode();
           },
           child: Scaffold(
+            // Keep the board and surrounding controls fixed when the numeric
+            // editor opens. Only the dedicated dialog moves above the keyboard.
+            resizeToAvoidBottomInset: false,
             backgroundColor: const Color(0xFF111111),
             body: SafeArea(
               child: MobileChessBoardLayout(
@@ -376,6 +376,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 controlsEnabled: !_controller.isBotThinking,
 
                 isAnalysisMode: _controller.isAnalysisMode,
+                isAnalysisThinking: _controller.isAnalysisThinking,
                 isAnalysisBranchActive: _controller.isAnalysisBranchActive,
                 analysisUsedDuringCurrentGame:
                     _controller.analysisUsedDuringCurrentGame,

@@ -309,8 +309,7 @@ void _controllerStartAnalysisRepeat(ChessBoardController controller) {
 
   if (session == null ||
       controller._analysisRepeatActive ||
-      session.isAnalyzing ||
-      !session.hasCompletedLinesForCurrentFen(targetDepth: _analysisDepth)) {
+      session.isAnalyzing) {
     return;
   }
 
@@ -350,18 +349,33 @@ void _controllerCancelAnalysisRepeatState(ChessBoardController controller) {
 void _controllerCancelAnalysisRepeat(ChessBoardController controller) {
   final session = controller._analysisSession;
 
-  if (session == null || !controller._analysisRepeatActive) {
+  // The same Stop button is used for the first analysis wave and for later
+  // automatic repeat waves. Completed depth-20 results stay in the session;
+  // only the currently running, incomplete wave is discarded.
+  if (session == null || !session.isAnalyzing) {
     return;
   }
+
+  final wasRepeatRun = controller._analysisRepeatActive;
+  final completedRuns = session.completedAnalysisCountForCurrentFen;
 
   controller._analysisGeneration++;
   controller._analysisSearchQueued = false;
   _controllerCancelAnalysisRepeatState(controller);
 
+  if (completedRuns > 0) {
+    session.restoreCompletedLinesForCurrentFen(targetDepth: _analysisDepth);
+  } else {
+    session.clearTopLines();
+  }
+
   session
     ..isAnalyzing = false
-    ..statusText = 'NeuAnalyse abgebrochen. '
-        'x${session.completedAnalysisCountForCurrentFen} gespeichert.';
+    ..statusText = wasRepeatRun
+        ? 'NeuAnalyse abgebrochen. x$completedRuns gespeichert.'
+        : completedRuns > 0
+            ? 'Analyse abgebrochen. x$completedRuns gespeichert.'
+            : 'Analyse abgebrochen.';
 
   _safeNotify(controller);
   unawaited(controller._analysisEngine.cancelSearch());
@@ -706,6 +720,7 @@ void _requestAnalysisForCurrentPosition(ChessBoardController controller) {
     return;
   }
 
+  controller._analysisRepeatCurrentDepth = 0;
   session
     ..isAnalyzing = true
     ..statusText = 'Analyse läuft für ${session.sideToMoveText} am Zug...';
@@ -761,9 +776,16 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
           ..statusText =
               'NeuAnalyse ${completedInBatch + 1}/$totalRuns läuft ab Tiefe 0.';
         _safeNotify(controller);
+      } else {
+        // Reuse the depth field for the initial/non-repeat wave too, so both
+        // Windows and Android can display and stop that very first analysis.
+        controller._analysisRepeatCurrentDepth = 0;
       }
 
       try {
+        final shouldPublishLiveLines =
+            !isRepeatRun || session.completedAnalysisCountForCurrentFen == 0;
+
         if (isRepeatRun &&
             controller._analysisEngine is FreshAnalysisEngine) {
           await (controller._analysisEngine as FreshAnalysisEngine)
@@ -805,15 +827,19 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
                 .clamp(0, _analysisDepth)
                 .toInt();
 
-            if (isRepeatRun) {
-              controller._analysisRepeatCurrentDepth = maxDepth;
-              currentSession.statusText =
-                  'NeuAnalyse läuft: Tiefe $maxDepth/$_analysisDepth.';
-            } else {
+            controller._analysisRepeatCurrentDepth = maxDepth;
+
+            if (shouldPublishLiveLines) {
               currentSession.updateLiveTopLinesForFen(
                 fen: fen,
                 lines: displayLiveLines,
               );
+            }
+
+            if (isRepeatRun) {
+              currentSession.statusText =
+                  'NeuAnalyse läuft: Tiefe $maxDepth/$_analysisDepth.';
+            } else {
               currentSession.statusText =
                   'Analyse läuft: aktuelle Tiefe $maxDepth/$_analysisDepth.';
             }
@@ -870,6 +896,11 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
                 'x${session.completedAnalysisCountForCurrentFen} gespeichert.';
           _safeNotify(controller);
         } else {
+          controller._analysisRepeatCurrentDepth = runWasSaved
+              ? _analysisDepth
+              : _maxAnalysisDepth(displayLines)
+                  .clamp(0, _analysisDepth)
+                  .toInt();
           session
             ..statusText = displayLines.isEmpty
                 ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
@@ -897,6 +928,8 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
 
         if (isRepeatRun) {
           _controllerCancelAnalysisRepeatState(controller);
+        } else {
+          controller._analysisRepeatCurrentDepth = 0;
         }
 
         session

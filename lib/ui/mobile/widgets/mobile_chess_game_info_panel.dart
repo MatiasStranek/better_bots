@@ -31,6 +31,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     required this.activeBotProfile,
     required this.isSoloMode,
     required this.isAnalysisMode,
+    required this.isAnalysisThinking,
     required this.completedAnalysisRunCount,
     required this.analysisTargetDepth,
     required this.isAnalysisRepeatActive,
@@ -63,6 +64,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   final BotProfile? activeBotProfile;
   final bool isSoloMode;
   final bool isAnalysisMode;
+  final bool isAnalysisThinking;
   final int completedAnalysisRunCount;
   final int analysisTargetDepth;
   final bool isAnalysisRepeatActive;
@@ -126,6 +128,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isAnalysisMode) {
       return _MobileAnalysisRepeatPanel(
+        isAnalysisThinking: isAnalysisThinking,
         completedAnalysisRunCount: completedAnalysisRunCount,
         analysisTargetDepth: analysisTargetDepth,
         isAnalysisRepeatActive: isAnalysisRepeatActive,
@@ -207,6 +210,7 @@ class MobileChessGameInfoPanel extends StatelessWidget {
 
 class _MobileAnalysisRepeatPanel extends StatelessWidget {
   const _MobileAnalysisRepeatPanel({
+    required this.isAnalysisThinking,
     required this.completedAnalysisRunCount,
     required this.analysisTargetDepth,
     required this.isAnalysisRepeatActive,
@@ -221,6 +225,7 @@ class _MobileAnalysisRepeatPanel extends StatelessWidget {
     required this.onDecrementAnalysisRepeatCount,
   });
 
+  final bool isAnalysisThinking;
   final int completedAnalysisRunCount;
   final int analysisTargetDepth;
   final bool isAnalysisRepeatActive;
@@ -243,29 +248,36 @@ class _MobileAnalysisRepeatPanel extends StatelessWidget {
           color: const Color(0xFF111111).withAlpha(205),
           border: Border.all(color: Colors.white.withAlpha(24), width: 1),
         ),
-        child: completedAnalysisRunCount <= 0
-            ? const SizedBox.expand()
+        child: isAnalysisThinking
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: _MobileRepeatProgressControls(
+                    depth: analysisRepeatCurrentDepth,
+                    targetDepth: analysisTargetDepth,
+                    remaining:
+                        isAnalysisRepeatActive ? analysisRepeatRemaining : 1,
+                    onCancel: onCancelAnalysisRepeat,
+                  ),
+                ),
+              )
             : Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 8,
                   ),
-                  child: isAnalysisRepeatActive
-                      ? _MobileRepeatProgressControls(
-                          depth: analysisRepeatCurrentDepth,
-                          targetDepth: analysisTargetDepth,
-                          remaining: analysisRepeatRemaining,
-                          onCancel: onCancelAnalysisRepeat,
-                        )
-                      : _MobileRepeatIdleControls(
-                          value: analysisRepeatRequestCount,
-                          enabled: canStartAnalysisRepeat,
-                          onStart: onStartAnalysisRepeat,
-                          onChanged: onSetAnalysisRepeatCount,
-                          onIncrement: onIncrementAnalysisRepeatCount,
-                          onDecrement: onDecrementAnalysisRepeatCount,
-                        ),
+                  child: _MobileRepeatIdleControls(
+                    value: analysisRepeatRequestCount,
+                    enabled: canStartAnalysisRepeat,
+                    onStart: onStartAnalysisRepeat,
+                    onChanged: onSetAnalysisRepeatCount,
+                    onIncrement: onIncrementAnalysisRepeatCount,
+                    onDecrement: onDecrementAnalysisRepeatCount,
+                  ),
                 ),
               ),
       ),
@@ -437,65 +449,26 @@ class _MobileRepeatCountSelector extends StatefulWidget {
 class _MobileRepeatCountSelectorState
     extends State<_MobileRepeatCountSelector> {
   late final TextEditingController _textController;
-  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _textController = TextEditingController(text: '${widget.value}');
-    _focusNode = FocusNode(debugLabel: 'MobileAnalysisRepeatCountInput')
-      ..addListener(_handleFocusChanged);
   }
 
   @override
   void didUpdateWidget(covariant _MobileRepeatCountSelector oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!_focusNode.hasFocus && widget.value != oldWidget.value) {
-      _writeCanonicalValue();
+    if (widget.value != oldWidget.value) {
+      _writeValue(widget.value);
     }
   }
 
   @override
   void dispose() {
-    _focusNode
-      ..removeListener(_handleFocusChanged)
-      ..dispose();
     _textController.dispose();
     super.dispose();
-  }
-
-  void _handleFocusChanged() {
-    if (_focusNode.hasFocus) {
-      _textController.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _textController.text.length,
-      );
-      return;
-    }
-
-    _commitValue();
-  }
-
-  void _handleTextChanged(String rawValue) {
-    final parsedValue = int.tryParse(rawValue);
-    if (parsedValue == null || parsedValue < 1 || parsedValue > 1000) {
-      return;
-    }
-
-    widget.onChanged(parsedValue);
-  }
-
-  void _commitValue() {
-    final parsedValue = int.tryParse(_textController.text);
-    final normalizedValue =
-        (parsedValue ?? widget.value).clamp(1, 1000).toInt();
-    widget.onChanged(normalizedValue);
-    _writeValue(normalizedValue);
-  }
-
-  void _writeCanonicalValue() {
-    _writeValue(widget.value);
   }
 
   void _writeValue(int value) {
@@ -532,7 +505,26 @@ class _MobileRepeatCountSelectorState
     final normalizedValue = value.clamp(1, 1000).toInt();
     widget.onChanged(normalizedValue);
     _writeValue(normalizedValue);
-    _focusNode.unfocus();
+  }
+
+  Future<void> _openNumberEditor() async {
+    if (!widget.enabled) {
+      return;
+    }
+
+    final selectedValue = await showDialog<int>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => _MobileRepeatCountEditorDialog(
+        initialValue: widget.value,
+      ),
+    );
+
+    if (!mounted || selectedValue == null) {
+      return;
+    }
+
+    _applyValue(selectedValue);
   }
 
   @override
@@ -554,15 +546,9 @@ class _MobileRepeatCountSelectorState
               Expanded(
                 child: TextField(
                   controller: _textController,
-                  focusNode: _focusNode,
                   enabled: widget.enabled,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                    const _MobileAnalysisRepeatRangeFormatter(),
-                  ],
+                  readOnly: true,
+                  showCursor: false,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   decoration: const InputDecoration(
@@ -577,9 +563,7 @@ class _MobileRepeatCountSelectorState
                     fontWeight: FontWeight.w900,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                  onChanged: _handleTextChanged,
-                  onSubmitted: (_) => _focusNode.unfocus(),
-                  onTapOutside: (_) => _focusNode.unfocus(),
+                  onTap: _openNumberEditor,
                 ),
               ),
               SizedBox(
@@ -640,6 +624,189 @@ class _MobileRepeatCountSelectorState
                   enabled: widget.enabled && widget.value != 1,
                   onPressed: () => _applyValue(1),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileRepeatCountEditorDialog extends StatefulWidget {
+  const _MobileRepeatCountEditorDialog({required this.initialValue});
+
+  final int initialValue;
+
+  @override
+  State<_MobileRepeatCountEditorDialog> createState() =>
+      _MobileRepeatCountEditorDialogState();
+}
+
+class _MobileRepeatCountEditorDialogState
+    extends State<_MobileRepeatCountEditorDialog> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  bool _hasValidValue = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialText = '${widget.initialValue}';
+    _controller = TextEditingController(text: initialText)
+      ..selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: initialText.length,
+      );
+    _focusNode = FocusNode(debugLabel: 'MobileAnalysisRepeatCountDialog');
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int? get _parsedValue {
+    final value = int.tryParse(_controller.text);
+    if (value == null || value < 1 || value > 1000) {
+      return null;
+    }
+    return value;
+  }
+
+  void _handleChanged(String value) {
+    final isValid = _parsedValue != null;
+    if (_hasValidValue != isValid) {
+      setState(() {
+        _hasValidValue = isValid;
+      });
+    }
+  }
+
+  void _submit() {
+    final value = _parsedValue;
+    if (value != null) {
+      Navigator.of(context).pop(value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 38, vertical: 24),
+      backgroundColor: const Color(0xFF151A1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.white.withAlpha(42), width: 1.2),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 310),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Anzahl NeuAnalysen',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 64,
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                    const _MobileAnalysisRepeatRangeFormatter(),
+                  ],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 27,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black.withAlpha(90),
+                    hintText: '1–1000',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: const BorderSide(
+                        color: Colors.white38,
+                        width: 1.2,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF55C878),
+                        width: 1.6,
+                      ),
+                    ),
+                  ),
+                  onChanged: _handleChanged,
+                  onSubmitted: (_) => _submit(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white38),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Abbrechen'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _hasValidValue ? _submit : null,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: const Color(0xFF2FA45B),
+                        disabledBackgroundColor: Colors.white12,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Übernehmen',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
