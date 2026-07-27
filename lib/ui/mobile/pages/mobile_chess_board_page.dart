@@ -46,6 +46,36 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
     return _controller.playerSide == PlayerSide.white ? 'Weiß' : 'Schwarz';
   }
 
+  String get _mobileStatusText {
+    final rawStatus = _controller.statusText.trim();
+
+    if (!_controller.isAnalysisMode) {
+      return rawStatus;
+    }
+
+    final completedRuns = _controller.completedAnalysisRunCount;
+    if (completedRuns <= 0) {
+      return rawStatus;
+    }
+
+    if (rawStatus.startsWith('Analyse aktiv. Tiefe ') ||
+        rawStatus == 'Gespeicherte Tiefe-20-Analyse geladen.') {
+      return 'Tiefe ${_controller.analysisTargetDepth} gespeichert. '
+          'x$completedRuns';
+    }
+
+    if (rawStatus.startsWith('Analyse aktiv.')) {
+      final withoutPrefix = rawStatus
+          .substring('Analyse aktiv.'.length)
+          .trimLeft();
+      return withoutPrefix.isEmpty
+          ? 'x$completedRuns'
+          : '$withoutPrefix x$completedRuns';
+    }
+
+    return rawStatus;
+  }
+
   String get _analysisAnnotationPositionKey => _controller.fen.trim();
 
   Set<String> get _activeAnnotationMarkedSquares {
@@ -266,7 +296,7 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
             backgroundColor: const Color(0xFF111111),
             body: SafeArea(
               child: MobileChessBoardLayout(
-                statusText: _controller.statusText,
+                statusText: _mobileStatusText,
                 playerSideText: _playerSideText,
                 pgnText: _controller.pgn,
                 fenText: _controller.fen,
@@ -350,6 +380,24 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 analysisUsedDuringCurrentGame:
                     _controller.analysisUsedDuringCurrentGame,
                 analysisLines: _controller.analysisLines,
+                completedAnalysisRunCount:
+                    _controller.completedAnalysisRunCount,
+                analysisTargetDepth: _controller.analysisTargetDepth,
+                isAnalysisRepeatActive: _controller.isAnalysisRepeatActive,
+                analysisRepeatCurrentDepth:
+                    _controller.analysisRepeatCurrentDepth,
+                analysisRepeatRemaining: _controller.analysisRepeatRemaining,
+                analysisRepeatRequestCount:
+                    _controller.analysisRepeatRequestCount,
+                canStartAnalysisRepeat: _controller.canStartAnalysisRepeat,
+                onStartAnalysisRepeat: _controller.startAnalysisRepeat,
+                onCancelAnalysisRepeat: _controller.cancelAnalysisRepeat,
+                onSetAnalysisRepeatCount:
+                    _controller.setAnalysisRepeatRequestCount,
+                onIncrementAnalysisRepeatCount:
+                    _controller.incrementAnalysisRepeatRequestCount,
+                onDecrementAnalysisRepeatCount:
+                    _controller.decrementAnalysisRepeatRequestCount,
                 trainingCounter: _controller.trainingCounterSnapshot,
                 isPlayFromHereActive: _controller.isPlayFromHereActive,
                 displayedPlayFromHereFen:

@@ -7,7 +7,7 @@ import '../models/engine_analysis_line.dart';
 import 'chess_engine.dart';
 import 'personality/persona_move_candidate.dart';
 
-class StockfishPluginEngine implements ChessEngine {
+class StockfishPluginEngine implements ChessEngine, FreshAnalysisEngine {
   StockfishPluginEngine();
 
   final StreamController<String> _outputController =
@@ -281,6 +281,20 @@ class StockfishPluginEngine implements ChessEngine {
       requestedMultiPv: safeMultiPv,
       onUpdate: onUpdate,
     );
+  }
+
+  @override
+  Future<void> resetAnalysisState() async {
+    await _ensureStarted();
+
+    _latestCandidatesByMultiPv.clear();
+    _latestAnalysisLinesByMultiPv.clear();
+    _lastEmittedAnalysisDepth = 0;
+
+    _sendCommand('setoption name Clear Hash');
+    await _waitForReadyOk();
+
+    _addOutput('Android Analyse-Hash für NeuAnalyse geleert.');
   }
 
   @override

@@ -88,6 +88,18 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.isAnalysisBranchActive,
     required this.analysisUsedDuringCurrentGame,
     required this.analysisLines,
+    required this.completedAnalysisRunCount,
+    required this.analysisTargetDepth,
+    required this.isAnalysisRepeatActive,
+    required this.analysisRepeatCurrentDepth,
+    required this.analysisRepeatRemaining,
+    required this.analysisRepeatRequestCount,
+    required this.canStartAnalysisRepeat,
+    required this.onStartAnalysisRepeat,
+    required this.onCancelAnalysisRepeat,
+    required this.onSetAnalysisRepeatCount,
+    required this.onIncrementAnalysisRepeatCount,
+    required this.onDecrementAnalysisRepeatCount,
     required this.trainingCounter,
     required this.isPlayFromHereActive,
     required this.displayedPlayFromHereFen,
@@ -202,6 +214,18 @@ class MobileChessBoardLayout extends StatefulWidget {
   final bool isAnalysisBranchActive;
   final bool analysisUsedDuringCurrentGame;
   final List<EngineAnalysisLine> analysisLines;
+  final int completedAnalysisRunCount;
+  final int analysisTargetDepth;
+  final bool isAnalysisRepeatActive;
+  final int analysisRepeatCurrentDepth;
+  final int analysisRepeatRemaining;
+  final int analysisRepeatRequestCount;
+  final bool canStartAnalysisRepeat;
+  final VoidCallback onStartAnalysisRepeat;
+  final VoidCallback onCancelAnalysisRepeat;
+  final ValueChanged<int> onSetAnalysisRepeatCount;
+  final VoidCallback onIncrementAnalysisRepeatCount;
+  final VoidCallback onDecrementAnalysisRepeatCount;
   final TrainingCounterSnapshot trainingCounter;
   final bool isPlayFromHereActive;
   final String? displayedPlayFromHereFen;
@@ -550,6 +574,24 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                   activeBotProfile: widget.activeBotProfile,
                   isSoloMode: widget.isSoloMode,
                   playFromHereFen: widget.displayedPlayFromHereFen,
+                  isAnalysisMode: widget.isAnalysisMode,
+                  completedAnalysisRunCount:
+                      widget.completedAnalysisRunCount,
+                  analysisTargetDepth: widget.analysisTargetDepth,
+                  isAnalysisRepeatActive: widget.isAnalysisRepeatActive,
+                  analysisRepeatCurrentDepth:
+                      widget.analysisRepeatCurrentDepth,
+                  analysisRepeatRemaining: widget.analysisRepeatRemaining,
+                  analysisRepeatRequestCount:
+                      widget.analysisRepeatRequestCount,
+                  canStartAnalysisRepeat: widget.canStartAnalysisRepeat,
+                  onStartAnalysisRepeat: widget.onStartAnalysisRepeat,
+                  onCancelAnalysisRepeat: widget.onCancelAnalysisRepeat,
+                  onSetAnalysisRepeatCount: widget.onSetAnalysisRepeatCount,
+                  onIncrementAnalysisRepeatCount:
+                      widget.onIncrementAnalysisRepeatCount,
+                  onDecrementAnalysisRepeatCount:
+                      widget.onDecrementAnalysisRepeatCount,
                 ),
               ),
             Positioned(
