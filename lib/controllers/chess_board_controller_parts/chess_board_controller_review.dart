@@ -275,6 +275,105 @@ bool _applyBoardMoveToChessGame(chess.Chess game, BoardMove move) {
 List<ChessMoveListEntry> _controllerMainLineMoveEntries(
   ChessBoardController controller,
 ) {
+  _ensureNormalGamePresentationCachesCurrent(controller);
+  return controller._mainLineMoveEntriesSnapshot;
+}
+
+void _markNormalGameHistoryChanged(ChessBoardController controller) {
+  controller._normalGameHistoryRevision++;
+}
+
+void _ensureNormalGamePresentationCachesCurrent(
+  ChessBoardController controller,
+) {
+  final revision = controller._normalGameHistoryRevision;
+  final startFen = controller._normalGameStartFen;
+  final moveCount = controller._normalGameMoves.length;
+
+  final moveEntriesAreCurrent =
+      controller._mainLineMoveEntriesCacheRevision == revision &&
+      controller._mainLineMoveEntriesCacheStartFen == startFen &&
+      controller._mainLineMoveEntriesCacheSourcePlyCount == moveCount;
+
+  if (!moveEntriesAreCurrent) {
+    _rebuildMainLineMoveEntriesCache(controller);
+  }
+
+  final pgnIsCurrent =
+      controller._normalGamePgnCacheRevision == revision &&
+      controller._normalGamePgnCacheStartFen == startFen &&
+      controller._normalGamePgnCachePlyCount == moveCount;
+
+  if (!pgnIsCurrent) {
+    _refreshNormalGamePgnCache(controller);
+  }
+}
+
+void _clearNormalGamePresentationCaches(ChessBoardController controller) {
+  controller._mainLineMoveEntriesCache.clear();
+  _publishMainLineMoveEntriesSnapshot(controller);
+  controller._mainLineMoveEntriesCacheStartFen =
+      controller._normalGameStartFen;
+  controller._mainLineMoveEntriesCacheSourcePlyCount =
+      controller._normalGameMoves.length;
+  controller._mainLineMoveEntriesCacheRevision =
+      controller._normalGameHistoryRevision;
+  _refreshNormalGamePgnCache(controller);
+}
+
+void _appendMainLineMoveEntryForCurrentGame(
+  ChessBoardController controller,
+  BoardMove move,
+) {
+  final currentRevision = controller._normalGameHistoryRevision;
+  final expectedPreviousRevision = currentRevision - 1;
+  final expectedPreviousMoveCount = controller._normalGameMoves.length - 1;
+  final cacheWasCurrentBeforeMove =
+      controller._mainLineMoveEntriesCacheRevision ==
+          expectedPreviousRevision &&
+      controller._mainLineMoveEntriesCacheStartFen ==
+          controller._normalGameStartFen &&
+      controller._mainLineMoveEntriesCacheSourcePlyCount ==
+          expectedPreviousMoveCount &&
+      controller._mainLineMoveEntriesCache.length ==
+          expectedPreviousMoveCount;
+
+  if (!cacheWasCurrentBeforeMove) {
+    _rebuildMainLineMoveEntriesCache(controller);
+    return;
+  }
+
+  final currentFenParts = controller._game.fen
+      .trim()
+      .split(RegExp(r'\s+'));
+  final isWhiteMove = controller._game.turn == chess.Color.BLACK;
+  final currentFullMoveNumber = currentFenParts.length >= 6
+      ? int.tryParse(currentFenParts[5]) ?? 1
+      : 1;
+  final fullMoveNumber = isWhiteMove
+      ? currentFullMoveNumber
+      : (currentFullMoveNumber > 1 ? currentFullMoveNumber - 1 : 1);
+  final san = _lastSanFromGameHistory(controller._game) ??
+      _lastSanFromPgn(controller._normalGamePgnCache) ??
+      _boardMoveDisplayText(move);
+
+  controller._mainLineMoveEntriesCache.add(
+    ChessMoveListEntry(
+      ply: controller._normalGameMoves.length,
+      fullMoveNumber: fullMoveNumber,
+      isWhiteMove: isWhiteMove,
+      san: san,
+    ),
+  );
+  _publishMainLineMoveEntriesSnapshot(controller);
+  controller._mainLineMoveEntriesCacheStartFen =
+      controller._normalGameStartFen;
+  controller._mainLineMoveEntriesCacheSourcePlyCount =
+      controller._normalGameMoves.length;
+  controller._mainLineMoveEntriesCacheRevision = currentRevision;
+}
+
+void _rebuildMainLineMoveEntriesCache(ChessBoardController controller) {
   final game = chess.Chess();
   var loaded = false;
 
@@ -284,41 +383,87 @@ List<ChessMoveListEntry> _controllerMainLineMoveEntries(
     loaded = false;
   }
 
-  if (!loaded) {
-    return const [];
-  }
+  final entries = controller._mainLineMoveEntriesCache;
+  entries.clear();
 
-  final entries = <ChessMoveListEntry>[];
+  if (loaded) {
+    for (var index = 0; index < controller._normalGameMoves.length; index++) {
+      final move = controller._normalGameMoves[index];
+      final beforeFen = game.fen;
+      final beforeParts = beforeFen.trim().split(RegExp(r'\s+'));
+      final isWhiteMove = beforeParts.length >= 2
+          ? beforeParts[1] == 'w'
+          : index.isEven;
+      final fullMoveNumber = beforeParts.length >= 6
+          ? int.tryParse(beforeParts[5]) ?? ((index ~/ 2) + 1)
+          : ((index ~/ 2) + 1);
+      final moved = _applyBoardMoveToChessGame(game, move);
 
-  for (var index = 0; index < controller._normalGameMoves.length; index++) {
-    final move = controller._normalGameMoves[index];
-    final beforeFen = game.fen;
-    final beforeParts = beforeFen.trim().split(RegExp(r'\s+'));
-    final isWhiteMove = beforeParts.length >= 2
-        ? beforeParts[1] == 'w'
-        : index.isEven;
-    final fullMoveNumber = beforeParts.length >= 6
-        ? int.tryParse(beforeParts[5]) ?? ((index ~/ 2) + 1)
-        : ((index ~/ 2) + 1);
-    final moved = _applyBoardMoveToChessGame(game, move);
+      if (!moved) {
+        break;
+      }
 
-    if (!moved) {
-      break;
+      final san = _lastSanFromGameHistory(game) ??
+          _lastSanFromPgn(game.pgn()) ??
+          _boardMoveDisplayText(move);
+
+      entries.add(
+        ChessMoveListEntry(
+          ply: index + 1,
+          fullMoveNumber: fullMoveNumber,
+          isWhiteMove: isWhiteMove,
+          san: san,
+        ),
+      );
     }
-
-    final san = _lastSanFromPgn(game.pgn()) ?? _boardMoveDisplayText(move);
-
-    entries.add(
-      ChessMoveListEntry(
-        ply: index + 1,
-        fullMoveNumber: fullMoveNumber,
-        isWhiteMove: isWhiteMove,
-        san: san,
-      ),
-    );
   }
 
-  return entries;
+  controller._mainLineMoveEntriesCacheStartFen =
+      controller._normalGameStartFen;
+  controller._mainLineMoveEntriesCacheSourcePlyCount =
+      controller._normalGameMoves.length;
+  controller._mainLineMoveEntriesCacheRevision =
+      controller._normalGameHistoryRevision;
+  _publishMainLineMoveEntriesSnapshot(controller);
+}
+
+void _publishMainLineMoveEntriesSnapshot(ChessBoardController controller) {
+  controller._mainLineMoveEntriesSnapshot =
+      List<ChessMoveListEntry>.unmodifiable(
+        controller._mainLineMoveEntriesCache,
+      );
+}
+
+void _refreshNormalGamePgnCache(ChessBoardController controller) {
+  final currentPgn = controller._game.pgn();
+  controller._normalGamePgnCache = currentPgn.isEmpty ? '-' : currentPgn;
+  controller._normalGamePgnCachePlyCount = controller._normalGameMoves.length;
+  controller._normalGamePgnCacheStartFen = controller._normalGameStartFen;
+  controller._normalGamePgnCacheRevision =
+      controller._normalGameHistoryRevision;
+}
+
+String? _lastSanFromGameHistory(chess.Chess game) {
+  if (game.history.isEmpty) {
+    return null;
+  }
+
+  final san = game.history.last.toString().trim();
+
+  if (san.isEmpty || san.length > 12) {
+    return null;
+  }
+
+  final lower = san.toLowerCase();
+
+  if (lower.contains('move') ||
+      lower.contains('instance') ||
+      san.contains('{') ||
+      san.contains('}')) {
+    return null;
+  }
+
+  return san;
 }
 
 String? _lastSanFromPgn(String pgn) {

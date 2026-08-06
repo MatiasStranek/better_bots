@@ -4,6 +4,7 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../data/better_bots_database.dart';
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_profile.dart';
 import '../../../models/bot_personality.dart';
@@ -91,8 +92,8 @@ class MobileChessGameInfoPanel extends StatelessWidget {
   }
 
   String get _openingText {
-    if (botOpeningMove == BotOpeningMove.random) {
-      return 'Zufällig: ${effectiveBotOpeningMove.label}';
+    if (botOpeningMove.isRandomMode) {
+      return '${botOpeningMove.label}: ${effectiveBotOpeningMove.label}';
     }
 
     return botOpeningMove.label;
@@ -145,28 +146,67 @@ class MobileChessGameInfoPanel extends StatelessWidget {
     }
 
     final activeBotProfile = this.activeBotProfile;
+    final trainingSummary = BetterBotsDatabase.instance.maiaTrainingSummary();
+    const totalLabelColor = Color(0xFFFFA726);
     final rows = activeBotProfile == null
         ? <_GameInfoRowData>[
+            _GameInfoRowData(
+              label: 'Gesamt Trainiert',
+              value: '${trainingSummary.allTraining.total}',
+              labelColor: totalLabelColor,
+            ),
             _GameInfoRowData(label: 'Spielstärke', value: _strengthText),
             _GameInfoRowData(label: 'Eröffnung', value: _openingText),
             _GameInfoRowData(label: 'Persönlichkeit', value: _personalityText),
-            _GameInfoRowData(label: 'Kandidaten', value: '$personaCandidateCount'),
+            _GameInfoRowData(
+              label: 'Kandidaten',
+              value: '$personaCandidateCount',
+            ),
             _GameInfoRowData(
               label: 'UCI_ELO Switch',
               value: 'Zug $cpLossUciSwitchFullMoveNumber',
             ),
           ]
-        : <_GameInfoRowData>[
-            _GameInfoRowData(
-              label: 'Bot',
-              value: activeBotProfile.displayName,
-            ),
-            if (effectiveBotOpeningMove.isRealOpening)
+        : () {
+            final profileProgress =
+                trainingSummary.forProfile(activeBotProfile);
+
+            return <_GameInfoRowData>[
+              _GameInfoRowData(
+                label: 'Gesamt Trainiert',
+                value: '${trainingSummary.allTraining.total}',
+                labelColor: totalLabelColor,
+              ),
+              _GameInfoRowData(
+                label: 'Gesamt Trainiert Maia',
+                value: '${trainingSummary.maiaTraining.total}',
+                labelColor: totalLabelColor,
+              ),
+              _GameInfoRowData(
+                label: 'Bot',
+                value: activeBotProfile.displayName,
+              ),
               _GameInfoRowData(
                 label: 'Eröffnung',
                 value: effectiveBotOpeningMove.label,
               ),
-          ];
+              _GameInfoRowData(
+                label: 'Gesamt Trainiert Maia ${activeBotProfile.rating}',
+                value: '${profileProgress.totalTrained}',
+                labelColor: totalLabelColor,
+              ),
+              _GameInfoRowData(
+                label: 'Gesamt Trainiert Weiß',
+                value: '${profileProgress.trainedWhite}',
+                labelColor: totalLabelColor,
+              ),
+              _GameInfoRowData(
+                label: 'Gesamt Trainiert Schwarz',
+                value: '${profileProgress.trainedBlack}',
+                labelColor: totalLabelColor,
+              ),
+            ];
+          }();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -1104,8 +1144,8 @@ class _GameInfoRow extends StatelessWidget {
           children: [
             TextSpan(
               text: '${data.label}: ',
-              style: const TextStyle(
-                color: _accentColor,
+              style: TextStyle(
+                color: data.labelColor ?? _accentColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
               ),
@@ -1126,8 +1166,13 @@ class _GameInfoRow extends StatelessWidget {
 }
 
 class _GameInfoRowData {
-  const _GameInfoRowData({required this.label, required this.value});
+  const _GameInfoRowData({
+    required this.label,
+    required this.value,
+    this.labelColor,
+  });
 
   final String label;
   final String value;
+  final Color? labelColor;
 }

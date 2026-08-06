@@ -532,6 +532,19 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 height: _resultStatsHeight,
                 child: MobileChessResultStatsPanel(
                   counter: widget.trainingCounter,
+                  trainedCounterOverride: widget.activeBotProfile == null &&
+                          !widget.isSoloMode &&
+                          (widget.displayedPlayFromHereFen?.trim().isEmpty ??
+                              true)
+                      ? BetterBotsDatabase.instance
+                          .totalTrainingCounterSnapshot()
+                      : null,
+                  trainedTitle: widget.activeBotProfile == null &&
+                          !widget.isSoloMode &&
+                          (widget.displayedPlayFromHereFen?.trim().isEmpty ??
+                              true)
+                      ? 'Gesamt Trainiert'
+                      : 'Trainiert',
                   trainedOnly:
                       widget.displayedPlayFromHereFen?.trim().isNotEmpty ??
                           false,

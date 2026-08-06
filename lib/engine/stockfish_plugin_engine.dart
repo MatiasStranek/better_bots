@@ -955,12 +955,18 @@ class StockfishPluginEngine implements ChessEngine, FreshAnalysisEngine {
   }
 
   void _addOutput(String line) {
-    debugPrint(line);
+    if (!_isHighFrequencyInfoOutput(line)) {
+      debugPrint(line);
+    }
 
     if (_outputController.isClosed) {
       return;
     }
 
     _outputController.add(line);
+  }
+
+  bool _isHighFrequencyInfoOutput(String line) {
+    return line.trim().startsWith('ANDROID STOCKFISH << info ');
   }
 }

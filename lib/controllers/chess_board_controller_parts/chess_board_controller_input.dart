@@ -292,6 +292,14 @@ Future<bool> _controllerLoadPgnGame(
     ..clear()
     ..addAll(moves);
 
+  _markNormalGameHistoryChanged(controller);
+  _rebuildMainLineMoveEntriesCache(controller);
+  _refreshNormalGamePgnCache(controller);
+
+  // PGN-Laden ist eine echte Strukturänderung der Partie. Hier wird der
+  // kleine Maia-Puffer genau einmal aufgebaut; während des anschließenden
+  // Spiels wächst er danach nur noch um eine Stellung pro Halbzug.
+  _rebuildMaiaPositionHistory(controller);
   _controllerClearNormalReview(controller);
 
   final lastMove = moves.isEmpty ? null : moves.last;
@@ -409,4 +417,3 @@ bool _controllerTogglePlayFromHere(ChessBoardController controller) {
   _safeNotify(controller);
   return true;
 }
-

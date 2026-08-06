@@ -84,6 +84,7 @@ class Maia3WindowsUciEngine implements ChessEngine {
     required List<String> moves,
     required String fen,
     required int elo,
+    List<String>? historyFens,
     double temperature = 1.0,
     double topP = 0.95,
   }) async {
@@ -92,15 +93,20 @@ class Maia3WindowsUciEngine implements ChessEngine {
     final requestGeneration = ++_searchGeneration;
     final safeElo = elo.clamp(0, 5000).toInt();
 
+    final historyDescription = historyFens == null
+        ? '${moves.length} Halbzüge Replay'
+        : '${historyFens.length} FENs aus Maia-Cache';
+
     _addOutput(
       'Maia3 Windows kodiert Position: Elo $safeElo, '
-      '${moves.length} Halbzüge History.',
+      '$historyDescription.',
     );
 
     final encoded = _encoder.encode(
       startFen: startFen,
       moves: moves,
       fen: fen,
+      historyFens: historyFens,
     );
 
     final logits = await _runSerial<List<double>>(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/maia_training_progress.dart';
+import '../../../widgets/maia_completion_fill.dart';
+
 /// Einheitliche Akzentfarbe für alle Picker-Sheets (gleiche Farbe wie im
 /// bisherigen Seitenmenü / den Dialogen).
 const Color kPickerAccentColor = Color(0xFF5C9DFF);
@@ -27,7 +30,12 @@ class MobilePickerSheet extends StatelessWidget {
     this.currentTabIndex = 0,
     this.onTabChanged,
     this.showSingleTab = false,
+    this.tabCompletions,
   }) : assert(tabLabels.length == tabContents.length),
+       assert(
+         tabCompletions == null ||
+             tabCompletions.length == tabLabels.length,
+       ),
        assert(tabLabels.length > 0);
 
   final String title;
@@ -36,6 +44,7 @@ class MobilePickerSheet extends StatelessWidget {
   final int currentTabIndex;
   final ValueChanged<int>? onTabChanged;
   final bool showSingleTab;
+  final List<MaiaSideCompletion>? tabCompletions;
 
   bool get _hasTabs => tabLabels.length > 1 || showSingleTab;
 
@@ -67,6 +76,7 @@ class MobilePickerSheet extends StatelessWidget {
                     labels: tabLabels,
                     currentIndex: safeIndex,
                     onChanged: onTabChanged,
+                    completions: tabCompletions,
                   ),
                 ),
               ],
@@ -193,11 +203,13 @@ class _PickerTabBar extends StatelessWidget {
     required this.labels,
     required this.currentIndex,
     required this.onChanged,
+    required this.completions,
   });
 
   final List<String> labels;
   final int currentIndex;
   final ValueChanged<int>? onChanged;
+  final List<MaiaSideCompletion>? completions;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +223,7 @@ class _PickerTabBar extends StatelessWidget {
                 label: labels[i],
                 isSelected: i == currentIndex,
                 onTap: onChanged == null ? null : () => onChanged!(i),
+                completion: completions?[i] ?? const MaiaSideCompletion.none(),
               ),
             ),
           ),
@@ -224,42 +237,49 @@ class _PickerTabButton extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    required this.completion,
   });
 
   final String label;
   final bool isSelected;
   final VoidCallback? onTap;
+  final MaiaSideCompletion completion;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? kPickerAccentColor.withAlpha(40)
-                : Colors.white.withAlpha(10),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+    return MaiaCompletionFill(
+      completion: completion,
+      borderRadius: BorderRadius.circular(12),
+      opacity: 0.42,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
               color: isSelected
-                  ? kPickerAccentColor.withAlpha(170)
-                  : Colors.white.withAlpha(30),
-              width: isSelected ? 1.4 : 1,
+                  ? kPickerAccentColor.withAlpha(40)
+                  : Colors.white.withAlpha(10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? kPickerAccentColor.withAlpha(170)
+                    : Colors.white.withAlpha(30),
+                width: isSelected ? 1.4 : 1,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: isSelected ? kPickerAccentColor : Colors.white70,
-              fontWeight: FontWeight.w800,
-              fontSize: 13.5,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSelected ? kPickerAccentColor : Colors.white70,
+                fontWeight: FontWeight.w800,
+                fontSize: 13.5,
+              ),
             ),
           ),
         ),
@@ -279,44 +299,57 @@ class MobilePickerChip extends StatelessWidget {
     required this.isSelected,
     required this.onPressed,
     this.dense = false,
+    this.completion = const MaiaSideCompletion.none(),
   });
 
   final String label;
   final bool isSelected;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool dense;
+  final MaiaSideCompletion completion;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Container(
-          height: dense ? 36 : 42,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? kPickerAccentColor.withAlpha(28)
-                : Colors.white.withAlpha(12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+    final enabled = onPressed != null;
+
+    return MaiaCompletionFill(
+      completion: completion,
+      borderRadius: BorderRadius.circular(12),
+      opacity: 0.48,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            height: dense ? 36 : 42,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
               color: isSelected
-                  ? kPickerAccentColor.withAlpha(190)
-                  : Colors.white.withAlpha(35),
-              width: isSelected ? 1.5 : 1,
+                  ? kPickerAccentColor.withAlpha(28)
+                  : Colors.white.withAlpha(12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? kPickerAccentColor.withAlpha(190)
+                    : Colors.white.withAlpha(35),
+                width: isSelected ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: isSelected ? kPickerAccentColor : Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: dense ? 13.5 : 14.5,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: !enabled
+                    ? Colors.white38
+                    : isSelected
+                        ? kPickerAccentColor
+                        : Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: dense ? 13.5 : 14.5,
+              ),
             ),
           ),
         ),

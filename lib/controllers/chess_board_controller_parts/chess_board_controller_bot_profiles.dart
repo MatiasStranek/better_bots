@@ -24,6 +24,11 @@ void _controllerSelectBotProfile(
     .._hasPendingBotProfileChange = false
     .._pendingBotSettings = null;
 
+  if (controller.isRandomUnwonTrainingActive) {
+    _controllerRestartRandomUnwonTraining(controller);
+    return;
+  }
+
   _controllerRefreshTrainingCounterSnapshot(controller);
   _controllerPersistCurrentState(controller);
   _safeNotify(controller);
@@ -47,6 +52,11 @@ void _controllerDisableBotProfile(ChessBoardController controller) {
     .._activeBotProfile = null
     .._pendingBotProfile = null
     .._hasPendingBotProfileChange = false;
+
+  if (controller.isRandomUnwonTrainingActive) {
+    _controllerFinishRandomUnwonTraining(controller);
+    return;
+  }
 
   _controllerRefreshTrainingCounterSnapshot(controller);
   _controllerPersistCurrentState(controller);

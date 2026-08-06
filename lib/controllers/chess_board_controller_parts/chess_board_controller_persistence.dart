@@ -255,13 +255,18 @@ String _persistedEffectiveOpeningMoveName({
   }
 
   if (pendingSettings != null) {
+    if (botOpeningMove == BotOpeningMove.randomUnwon) {
+      return controller.effectiveBotOpeningMove.name;
+    }
+
     return botOpeningMove.name;
   }
 
-  if (controller._botOpeningMove == BotOpeningMove.random) {
-    // Eine globale Zufallseröffnung bleibt als Zufallsauswahl gespeichert.
+  if (controller._botOpeningMove == BotOpeningMove.random ||
+      controller._botOpeningMove == BotOpeningMove.randomAll) {
+    // Eine globale Zufallsauswahl bleibt als Modus gespeichert.
     // Das gezogene Ergebnis ist nur effektiv für die laufende Partie.
-    return BotOpeningMove.random.name;
+    return controller._botOpeningMove.name;
   }
 
   return controller.effectiveBotOpeningMove.name;
@@ -391,7 +396,7 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
   }
 
   if (controller._isSoloMode) {
-    controller.newGame(controller._playerSide);
+    _controllerStartNextTrainingGame(controller);
     return;
   }
 
@@ -407,7 +412,7 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
       fen: currentPlayFromHereFen,
       playerSide: controller._playerSide,
     );
-    controller.newGame(controller._playerSide);
+    _controllerStartNextTrainingGame(controller);
     return;
   }
 
@@ -427,6 +432,15 @@ void _controllerRestartTrainingCounterGame(ChessBoardController controller) {
     personaCandidateCount: controller._personaCandidateCount,
     activeBotProfile: controller._activeBotProfile,
   );
+
+  _controllerStartNextTrainingGame(controller);
+}
+
+void _controllerStartNextTrainingGame(ChessBoardController controller) {
+  if (controller.isRandomUnwonTrainingActive) {
+    controller.restartGame();
+    return;
+  }
 
   controller.newGame(controller._playerSide);
 }
@@ -465,6 +479,8 @@ void _restoreNormalGameFromState(
 
   controller._normalGameStartFen = startFen;
   controller._normalGameMoves.clear();
+  _markNormalGameHistoryChanged(controller);
+  _resetMaiaPositionHistory(controller, startFen);
 
   var loaded = false;
 
@@ -487,6 +503,7 @@ void _restoreNormalGameFromState(
       }
 
       controller._normalGameMoves.add(move);
+      _appendMaiaPositionHistoryFen(controller, controller._game.fen);
     }
 
     if (!replayFailed) {
@@ -496,6 +513,8 @@ void _restoreNormalGameFromState(
       controller
         .._lastFrom = state.lastFrom.isEmpty ? lastMove?.from : state.lastFrom
         .._lastTo = state.lastTo.isEmpty ? lastMove?.to : state.lastTo;
+      _rebuildMainLineMoveEntriesCache(controller);
+      _refreshNormalGamePgnCache(controller);
       return;
     }
   }
@@ -521,6 +540,10 @@ void _restoreNormalGameFromState(
     .._normalGameMoves.clear()
     .._lastFrom = null
     .._lastTo = null;
+
+  _rebuildMainLineMoveEntriesCache(controller);
+  _refreshNormalGamePgnCache(controller);
+  _resetMaiaPositionHistory(controller, controller._game.fen);
 }
 
 bool _applyBoardMove(chess.Chess game, BoardMove move) {
@@ -626,7 +649,7 @@ void _controllerNormalizePersistedOpeningSelection(
     return;
   }
 
-  if (controller._botOpeningMove != BotOpeningMove.random) {
+  if (!controller._botOpeningMove.isRandomMode) {
     controller._resolvedRandomOpeningMove = null;
   }
 }
@@ -787,6 +810,8 @@ BotOpeningMove _openingMoveFromName(String name) {
 BotOpeningMove? _openingMoveFromNameOrNull(String name) {
   if (name.isEmpty ||
       name == BotOpeningMove.random.name ||
+      name == BotOpeningMove.randomAll.name ||
+      name == BotOpeningMove.randomUnwon.name ||
       name.startsWith(_persistedOpeningSelectionPrefix)) {
     return null;
   }
@@ -851,5 +876,3 @@ int _normalizedCpLossSwitchFullMoveNumber(int fullMoveNumber) {
 
   return 11;
 }
-
-

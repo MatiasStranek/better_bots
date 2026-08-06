@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/better_bots_database.dart';
 import '../../../models/bot_opening_move.dart';
 import '../../../models/bot_profile.dart';
 import '../../../models/bot_personality.dart';
 import '../../../models/bot_personality_source.dart';
 import '../../../models/engine_strength_mode.dart';
 import '../../../models/fritz19_personality.dart';
+import '../../../models/maia_training_progress.dart';
 import '../../../models/player_side.dart';
+import '../../../widgets/maia_completion_fill.dart';
 import 'mobile_picker_sheet.dart';
 
 class MobileChessSideMenu extends StatelessWidget {
@@ -159,8 +162,8 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   String get _openingButtonText {
-    if (botOpeningMove == BotOpeningMove.random) {
-      return 'Zufällig: ${effectiveBotOpeningMove.label}';
+    if (botOpeningMove.isRandomMode) {
+      return '${botOpeningMove.label}: ${effectiveBotOpeningMove.label}';
     }
 
     return botOpeningMove.label;
@@ -249,6 +252,8 @@ class MobileChessSideMenu extends StatelessWidget {
     required bool Function(T value) isSelected,
     required ValueChanged<T> onSelected,
     bool dense = false,
+    MaiaSideCompletion Function(T value)? completionBuilder,
+    bool Function(T value)? isEnabled,
   }) {
     return MobilePickerChipGrid(
       children: [
@@ -257,7 +262,11 @@ class MobileChessSideMenu extends StatelessWidget {
             label: labelBuilder(value),
             isSelected: isSelected(value),
             dense: dense,
-            onPressed: () => onSelected(value),
+            completion: completionBuilder?.call(value) ??
+                const MaiaSideCompletion.none(),
+            onPressed: isEnabled?.call(value) == false
+                ? null
+                : () => onSelected(value),
           ),
       ],
     );
@@ -352,7 +361,67 @@ class MobileChessSideMenu extends StatelessWidget {
     );
   }
 
+  MaiaSideCompletion _completionForOpeningSelection(
+    MaiaProfileTrainingProgress? progress,
+    BotOpeningMove openingMode,
+    List<BotOpeningMove> selectedMoves,
+  ) {
+    if (progress == null) {
+      return const MaiaSideCompletion.none();
+    }
+
+    if (openingMode == BotOpeningMove.random && selectedMoves.length >= 2) {
+      return progress.completionForAll(selectedMoves);
+    }
+
+    return switch (openingMode) {
+      BotOpeningMove.random => progress.openingsCompletion,
+      BotOpeningMove.randomAll || BotOpeningMove.randomUnwon =>
+        progress.allIdsCompletion,
+      _ => progress.completionFor(openingMode),
+    };
+  }
+
+  Future<bool> _confirmRandomUnwonSelection(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Zufällig Ungewonnen starten?'),
+              content: const Text(
+                'Die nächste noch ungewonnene Kombination bestimmt automatisch '
+                'Eröffnung und Spielfarbe. Das Brett wird sofort neu gestartet. '
+                'Neue Partie Weiß/Schwarz bleibt bis zum Ende dieser Auswahl '
+                'gesperrt.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abbrechen'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Starten'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+  }
+
   Future<void> _showOpeningDialog(BuildContext context) async {
+    final targetProfile = draftBotProfile;
+    final loadedProfile = draftBotProfile?.id == activeBotProfile?.id
+        ? activeBotProfile
+        : null;
+    final summary = BetterBotsDatabase.instance.maiaTrainingSummary();
+    final progress = loadedProfile == null
+        ? null
+        : summary.forProfile(loadedProfile);
+    final targetProgress = targetProfile == null
+        ? null
+        : summary.forProfile(targetProfile);
     final localSelectedOpeningMoves = List<BotOpeningMove>.from(
       draftSelectedOpeningMoves,
     );
@@ -413,6 +482,9 @@ class MobileChessSideMenu extends StatelessWidget {
                   labelBuilder: (move) => move.label,
                   dense: true,
                   isSelected: isOpeningSelected,
+                  completionBuilder: (openingMove) =>
+                      progress?.completionFor(openingMove) ??
+                      const MaiaSideCompletion.none(),
                   onSelected: (openingMove) {
                     setSheetState(() {
                       if (localSelectedOpeningMoves.isEmpty &&
@@ -446,8 +518,10 @@ class MobileChessSideMenu extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: MobilePickerChip(
-                    label: 'Ohne Eröffnung',
+                    label: BotOpeningMove.none.label,
                     isSelected: isOpeningSelected(BotOpeningMove.none),
+                    completion: progress?.completionFor(BotOpeningMove.none) ??
+                        const MaiaSideCompletion.none(),
                     onPressed: () {
                       setSheetState(() {
                         selectOtherOpening(BotOpeningMove.none);
@@ -460,8 +534,10 @@ class MobileChessSideMenu extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: MobilePickerChip(
-                    label: 'Zufällig',
+                    label: BotOpeningMove.random.label,
                     isSelected: isOpeningSelected(BotOpeningMove.random),
+                    completion: progress?.openingsCompletion ??
+                        const MaiaSideCompletion.none(),
                     onPressed: () {
                       setSheetState(() {
                         selectOtherOpening(BotOpeningMove.random);
@@ -470,12 +546,61 @@ class MobileChessSideMenu extends StatelessWidget {
                     },
                   ),
                 ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: MobilePickerChip(
+                    label: BotOpeningMove.randomAll.label,
+                    isSelected: isOpeningSelected(BotOpeningMove.randomAll),
+                    completion: progress?.allIdsCompletion ??
+                        const MaiaSideCompletion.none(),
+                    onPressed: () {
+                      setSheetState(() {
+                        selectOtherOpening(BotOpeningMove.randomAll);
+                      });
+                      onBotOpeningMoveChanged(BotOpeningMove.randomAll);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: MobilePickerChip(
+                    label: BotOpeningMove.randomUnwon.label,
+                    isSelected: isOpeningSelected(BotOpeningMove.randomUnwon),
+                    completion: progress?.allIdsCompletion ??
+                        const MaiaSideCompletion.none(),
+                    onPressed: targetProfile == null ||
+                            (targetProgress?.allIdsCompletion.both ?? false)
+                        ? null
+                        : () async {
+                            final confirmed =
+                                await _confirmRandomUnwonSelection(context);
+                            if (!confirmed || !context.mounted) {
+                              return;
+                            }
+
+                            onBotOpeningMoveChanged(
+                              BotOpeningMove.randomUnwon,
+                            );
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                          },
+                  ),
+                ),
               ],
             );
 
             return MobilePickerSheet(
               title: 'Eröffnung auswählen',
               tabLabels: const ['Eröffnungen', 'Sonstiges'],
+              tabCompletions: [
+                progress?.openingsCompletion ??
+                    const MaiaSideCompletion.none(),
+                progress?.allIdsCompletion ??
+                    const MaiaSideCompletion.none(),
+              ],
               currentTabIndex: tabIndex,
               onTabChanged: (index) => setSheetState(() => tabIndex = index),
               tabContents: [openingsTab, otherTab],
@@ -758,6 +883,8 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   Future<void> _showBotsDialog(BuildContext context) async {
+    final summary = BetterBotsDatabase.instance.maiaTrainingSummary();
+
     await showMobilePickerSheet(
       context: context,
       builder: (sheetContext) {
@@ -787,6 +914,9 @@ class MobileChessSideMenu extends StatelessWidget {
                       label: profile.displayName,
                       isSelected: normalSettingsLockedByBotProfile &&
                           draftBotProfile?.id == profile.id,
+                      completion: summary
+                          .forProfile(profile)
+                          .allIdsCompletion,
                       onPressed: () {
                         onBotProfileSelected(profile);
                         Navigator.of(sheetContext).pop();
@@ -821,7 +951,7 @@ class MobileChessSideMenu extends StatelessWidget {
   }
 
   Future<void> _confirmSoloModeChange(BuildContext context) async {
-    if (!isEnabled) {
+    if (!isEnabled || botOpeningMove == BotOpeningMove.randomUnwon) {
       return;
     }
 
@@ -876,7 +1006,21 @@ class MobileChessSideMenu extends StatelessWidget {
         selectedFritz19Personalities.isNotEmpty;
     final cpLossEloEnabled = strengthMode == EngineStrengthMode.cpLossElo;
     final candidatesEnabled = personalityEnabled || cpLossEloEnabled;
-    final settingsControlsEnabled = isEnabled && !normalSettingsLockedByBotProfile;
+    final settingsControlsEnabled =
+        isEnabled && !normalSettingsLockedByBotProfile;
+    final maiaSummary = BetterBotsDatabase.instance.maiaTrainingSummary();
+    final activeProgress = activeBotProfile != null &&
+            draftBotProfile?.id == activeBotProfile?.id
+        ? maiaSummary.forProfile(activeBotProfile!)
+        : null;
+    final openingCompletion = _completionForOpeningSelection(
+      activeProgress,
+      botOpeningMove,
+      selectedOpeningMoves,
+    );
+    final botCompletion = activeProgress?.allIdsCompletion ??
+        const MaiaSideCompletion.none();
+    final randomUnwonActive = botOpeningMove == BotOpeningMove.randomUnwon;
 
     return SizedBox(
       width: width,
@@ -937,6 +1081,7 @@ class MobileChessSideMenu extends StatelessWidget {
                           value: _openingButtonText,
                           onTap: () => _showOpeningDialog(context),
                           isEnabled: isEnabled,
+                          completion: openingCompletion,
                         ),
                         _SideMenuButton(
                           icon: Icons.psychology,
@@ -958,6 +1103,7 @@ class MobileChessSideMenu extends StatelessWidget {
                           value: _botsButtonText,
                           onTap: () => _showBotsDialog(context),
                           isEnabled: isEnabled,
+                          completion: botCompletion,
                         ),
                         _SideMenuButton(
                           icon: Icons.swap_horiz,
@@ -973,7 +1119,7 @@ class MobileChessSideMenu extends StatelessWidget {
                               ? 'Aktiv — du ziehst beide Seiten'
                               : 'Inaktiv — Bot spielt die Gegenseite',
                           onTap: () => _confirmSoloModeChange(context),
-                          isEnabled: isEnabled,
+                          isEnabled: isEnabled && !randomUnwonActive,
                           isHighlighted: isSoloMode,
                           highlightColor: const Color(0xFF55C878),
                         ),
@@ -988,14 +1134,14 @@ class MobileChessSideMenu extends StatelessWidget {
                   label: 'Neue Partie Weiß',
                   value: 'Du spielst Weiß',
                   onTap: () => _startNewGame(PlayerSide.white),
-                  isEnabled: isEnabled,
+                  isEnabled: isEnabled && !randomUnwonActive,
                 ),
                 _SideMenuButton(
                   icon: Icons.circle_outlined,
                   label: 'Neue Partie Schwarz',
                   value: 'Du spielst Schwarz',
                   onTap: () => _startNewGame(PlayerSide.black),
-                  isEnabled: isEnabled,
+                  isEnabled: isEnabled && !randomUnwonActive,
                 ),
                 _SideMenuButton(
                   icon: Icons.refresh,
@@ -1076,6 +1222,7 @@ class _SideMenuButton extends StatelessWidget {
     this.isHighlighted = false,
     this.highlightColor,
     this.onTap,
+    this.completion = const MaiaSideCompletion.none(),
   });
 
   final IconData icon;
@@ -1085,6 +1232,7 @@ class _SideMenuButton extends StatelessWidget {
   final bool isHighlighted;
   final Color? highlightColor;
   final VoidCallback? onTap;
+  final MaiaSideCompletion completion;
 
   static const Color _accentColor = Color(0xFF5C9DFF);
 
@@ -1092,55 +1240,60 @@ class _SideMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isEnabled
         ? isHighlighted
-              ? highlightColor ?? _accentColor
-              : Colors.white
+            ? highlightColor ?? _accentColor
+            : Colors.white
         : Colors.white.withAlpha(76);
 
     final valueColor = isEnabled
         ? Colors.white.withAlpha(170)
         : Colors.white.withAlpha(76);
 
-    return InkWell(
-      onTap: isEnabled ? onTap : null,
+    return MaiaCompletionFill(
+      completion: completion,
       borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 46,
-              child: Icon(icon, size: 30, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: valueColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+      opacity: 0.34,
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 46,
+                child: Icon(icon, size: 30, color: color),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: valueColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

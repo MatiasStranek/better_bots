@@ -27,7 +27,15 @@ class Maia3AndroidPositionEncoder {
     required String startFen,
     required List<String> moves,
     required String fen,
+    List<String>? historyFens,
   }) {
+    if (historyFens != null && historyFens.isNotEmpty) {
+      return _encodeFromFenHistory(
+        historyFens: historyFens,
+        fen: fen,
+      );
+    }
+
     final game = chess.Chess();
     final normalizedStartFen = _normalizeFen(startFen);
 
@@ -72,6 +80,83 @@ class Maia3AndroidPositionEncoder {
       }
     }
 
+    return _buildEncodedPosition(
+      game: game,
+      boardHistory: boardHistory,
+    );
+  }
+
+  Maia3AndroidEncodedPosition _encodeFromFenHistory({
+    required List<String> historyFens,
+    required String fen,
+  }) {
+    final boardHistory = <List<double>>[];
+    final recentFens = historyFens.length <= historyLength
+        ? historyFens
+        : historyFens.sublist(historyFens.length - historyLength);
+
+    String? lastValidFen;
+
+    for (final historyFen in recentFens) {
+      final historicalGame = chess.Chess();
+      var loaded = false;
+
+      try {
+        loaded = historicalGame.load(_normalizeFen(historyFen));
+      } catch (_) {
+        loaded = false;
+      }
+
+      if (!loaded) {
+        continue;
+      }
+
+      boardHistory.add(_tokenizeBoard(historicalGame));
+      lastValidFen = historicalGame.fen;
+    }
+
+    final currentPositionGame = chess.Chess();
+    var currentLoaded = false;
+
+    try {
+      currentLoaded = currentPositionGame.load(_normalizeFen(fen));
+    } catch (_) {
+      currentLoaded = false;
+    }
+
+    if (!currentLoaded && lastValidFen != null) {
+      try {
+        currentLoaded = currentPositionGame.load(lastValidFen);
+      } catch (_) {
+        currentLoaded = false;
+      }
+    }
+
+    if (!currentLoaded) {
+      currentPositionGame.reset();
+    }
+
+    if (boardHistory.isEmpty ||
+        lastValidFen == null ||
+        _fenPositionKey(lastValidFen) !=
+            _fenPositionKey(currentPositionGame.fen)) {
+      boardHistory.add(_tokenizeBoard(currentPositionGame));
+    }
+
+    return _buildEncodedPosition(
+      game: currentPositionGame,
+      boardHistory: boardHistory,
+    );
+  }
+
+  Maia3AndroidEncodedPosition _buildEncodedPosition({
+    required chess.Chess game,
+    required List<List<double>> boardHistory,
+  }) {
+    if (boardHistory.isEmpty) {
+      boardHistory.add(_tokenizeBoard(game));
+    }
+
     final legalMoves = _legalMoveUcis(game);
     final blackToMove = game.turn == chess.Color.BLACK;
 
@@ -111,6 +196,17 @@ class Maia3AndroidPositionEncoder {
     }
 
     return trimmed;
+  }
+
+  String _fenPositionKey(String fen) {
+    final normalized = _normalizeFen(fen).replaceAll(RegExp(r'\s+'), ' ');
+    final parts = normalized.split(' ');
+
+    if (parts.length <= 4) {
+      return normalized;
+    }
+
+    return parts.sublist(0, 4).join(' ');
   }
 
   bool _applyUciMove(chess.Chess game, String uciMove) {

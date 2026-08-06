@@ -62,20 +62,26 @@ class Maia3AndroidMethodChannelEngine implements ChessEngine {
     required List<String> moves,
     required String fen,
     required int elo,
+    List<String>? historyFens,
     double temperature = 1.0,
     double topP = 0.95,
   }) async {
     await _ensureStarted();
 
+    final historyDescription = historyFens == null
+        ? '${moves.length} Halbzüge Replay'
+        : '${historyFens.length} FENs aus Maia-Cache';
+
     _addOutput(
       'Maia3 Android kodiert Position: Elo $elo, '
-      '${moves.length} Halbzüge History.',
+      '$historyDescription.',
     );
 
     final encoded = _encoder.encode(
       startFen: startFen,
       moves: moves,
       fen: fen,
+      historyFens: historyFens,
     );
 
     try {

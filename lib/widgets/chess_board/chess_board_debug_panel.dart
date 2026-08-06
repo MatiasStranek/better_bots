@@ -13,8 +13,6 @@ import '../chess_result_stats_panel.dart';
 class ChessBoardDebugPanel extends StatelessWidget {
   const ChessBoardDebugPanel({
     required this.playerSide,
-    required this.fen,
-    required this.pgn,
     required this.engineOutput,
     required this.isAnalysisMode,
     required this.isAnalysisThinking,
@@ -40,8 +38,6 @@ class ChessBoardDebugPanel extends StatelessWidget {
   });
 
   final PlayerSide playerSide;
-  final String fen;
-  final String pgn;
   final String engineOutput;
   final bool isAnalysisMode;
   final bool isAnalysisThinking;
@@ -110,42 +106,7 @@ class ChessBoardDebugPanel extends StatelessWidget {
           const SizedBox(height: 4),
           SelectableText(engineOutput),
         ],
-        const SizedBox(height: 16),
-        _LabeledSelectableBlock(
-          label: 'FEN:',
-          value: fen,
-        ),
-        const SizedBox(height: 12),
-        _LabeledSelectableBlock(
-          label: 'PGN:',
-          value: pgn,
-        ),
       ],
-    );
-  }
-}
-
-class _LabeledSelectableBlock extends StatelessWidget {
-  const _LabeledSelectableBlock({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-          SelectableText(value),
-        ],
-      ),
     );
   }
 }

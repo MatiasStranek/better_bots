@@ -8,6 +8,7 @@ import '../models/bot_opening_move.dart';
 import '../models/bot_profile.dart';
 import '../models/bot_personality.dart';
 import '../models/engine_strength_mode.dart';
+import '../models/maia_training_progress.dart';
 import '../models/player_side.dart';
 import '../objectbox.g.dart';
 import 'entities/better_bots_app_state_entity.dart';
@@ -704,6 +705,128 @@ class BetterBotsDatabase {
       personaCandidateCount: normalizedCandidateCount,
       cpLossUciSwitchFullMoveNumber: normalizedSwitch,
     );
+  }
+
+  MaiaTrainingSummary maiaTrainingSummary() {
+    final box = _trainingCounterBox;
+    final entities = box?.getAll() ?? const <TrainingCounterEntity>[];
+    final regularEntities = entities.where(_isRegularTrainingCounter).toList();
+    final entitiesByHash = <String, TrainingCounterEntity>{
+      for (final entity in regularEntities) entity.keyHash: entity,
+    };
+
+    final profileProgress = <String, MaiaProfileTrainingProgress>{};
+    var maiaTotal = 0;
+    var maiaWhite = 0;
+    var maiaBlack = 0;
+
+    for (final profile in BotProfile.maia3Profiles) {
+      final completions = <BotOpeningMove, MaiaSideCompletion>{};
+      var totalTrained = 0;
+      var trainedWhite = 0;
+      var trainedBlack = 0;
+
+      for (final opening in BotOpeningMove.trainingOpenings) {
+        final key = buildTrainingCounterKey(
+          strengthMode: EngineStrengthMode.cpLossElo,
+          skillLevel: 0,
+          uciElo: 1320,
+          cpLossElo: profile.rating,
+          cpLossUciSwitchFullMoveNumber: 11,
+          effectiveOpeningMove: opening,
+          personalitySourceName: 'bot',
+          effectivePersonalityName: profile.displayName,
+          personaCandidateCount: -1,
+          activeBotProfile: profile,
+        );
+        final entity = entitiesByHash[key.keyHash];
+
+        completions[opening] = MaiaSideCompletion(
+          white: (entity?.wonWhiteCount ?? 0) > 0,
+          black: (entity?.wonBlackCount ?? 0) > 0,
+        );
+
+        totalTrained += entity?.trainedCount ?? 0;
+        trainedWhite += entity?.trainedWhiteCount ?? 0;
+        trainedBlack += entity?.trainedBlackCount ?? 0;
+      }
+
+      final progress = MaiaProfileTrainingProgress(
+        profile: profile,
+        openingCompletions: Map.unmodifiable(completions),
+        totalTrained: totalTrained,
+        trainedWhite: trainedWhite,
+        trainedBlack: trainedBlack,
+      );
+
+      profileProgress[profile.id] = progress;
+      maiaTotal += totalTrained;
+      maiaWhite += trainedWhite;
+      maiaBlack += trainedBlack;
+    }
+
+    final allTraining = _trainingTotalsFromEntities(regularEntities);
+
+    return MaiaTrainingSummary(
+      profileProgress: Map.unmodifiable(profileProgress),
+      allTraining: allTraining,
+      maiaTraining: TrainingTotalsSnapshot(
+        total: maiaTotal,
+        white: maiaWhite,
+        black: maiaBlack,
+      ),
+    );
+  }
+
+  TrainingCounterSnapshot totalTrainingCounterSnapshot() {
+    final entities = _trainingCounterBox?.getAll() ??
+        const <TrainingCounterEntity>[];
+    final totals = _trainingTotalsFromEntities(
+      entities.where(_isRegularTrainingCounter),
+    );
+
+    return TrainingCounterSnapshot(
+      keyHash: '__better_bots_total_training__',
+      wonCount: 0,
+      lostCount: 0,
+      drawCount: 0,
+      trainedCount: totals.total,
+      wonWhiteCount: 0,
+      wonBlackCount: 0,
+      lostWhiteCount: 0,
+      lostBlackCount: 0,
+      drawWhiteCount: 0,
+      drawBlackCount: 0,
+      trainedWhiteCount: totals.white,
+      trainedBlackCount: totals.black,
+    );
+  }
+
+  TrainingTotalsSnapshot _trainingTotalsFromEntities(
+    Iterable<TrainingCounterEntity> entities,
+  ) {
+    var total = 0;
+    var white = 0;
+    var black = 0;
+
+    for (final entity in entities) {
+      total += entity.trainedCount;
+      white += entity.trainedWhiteCount;
+      black += entity.trainedBlackCount;
+    }
+
+    return TrainingTotalsSnapshot(total: total, white: white, black: black);
+  }
+
+  bool _isRegularTrainingCounter(TrainingCounterEntity entity) {
+    if (entity.keyHash.startsWith('__better_bots_')) {
+      return false;
+    }
+
+    return entity.strengthModeName != 'playFromHere' &&
+        entity.strengthModeName != 'playFromHereMarker' &&
+        entity.strengthModeName != 'playFromHereSession' &&
+        entity.strengthModeName != 'soloModeMarker';
   }
 
   TrainingCounterEntity? _findCounterByHash(String keyHash) {

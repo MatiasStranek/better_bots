@@ -11,6 +11,7 @@ import '../models/board_annotation.dart';
 import '../models/player_side.dart';
 import 'chess_board/chess_board_controls.dart';
 import 'chess_board/chess_board_debug_panel.dart';
+import 'chess_board/chess_board_game_info_panel.dart';
 import 'chess_board/chess_board_grid.dart';
 import 'chess_board/chess_status_text.dart';
 import 'chess_move_list_panel.dart';
@@ -449,7 +450,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
   }
 
   Future<void> _confirmSoloModeChange() async {
-    if (_controller.isAnalysisMode || _controller.isBotThinking) {
+    if (_controller.isAnalysisMode ||
+        _controller.isBotThinking ||
+        _controller.isRandomUnwonTrainingActive) {
       return;
     }
 
@@ -655,8 +658,6 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
       children: [
         ChessBoardDebugPanel(
           playerSide: _controller.playerSide,
-          fen: _controller.fen,
-          pgn: _controller.pgn,
           engineOutput: _controller.engineOutput,
           isAnalysisMode: _controller.isAnalysisMode,
           isAnalysisThinking: _controller.isAnalysisThinking,
@@ -685,19 +686,30 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
               _controller.analysisUsedDuringCurrentGame,
           trainedOnly: _controller.isPlayFromHerePositionLoaded,
         ),
+        const SizedBox(height: 16),
+        ChessBoardGameInfoPanel(
+          skillLevel: _controller.skillLevel,
+          uciElo: _controller.uciElo,
+          cpLossElo: _controller.cpLossElo,
+          cpLossUciSwitchFullMoveNumber:
+              _controller.cpLossUciSwitchFullMoveNumber,
+          strengthMode: _controller.strengthMode,
+          botOpeningMove: _controller.botOpeningMove,
+          effectiveBotOpeningMove: _controller.effectiveBotOpeningMove,
+          botPersonalitySource: _controller.botPersonalitySource,
+          effectiveBotPersonalitySource:
+              _controller.effectiveBotPersonalitySource,
+          botPersonality: _controller.botPersonality,
+          effectiveBotPersonality: _controller.effectiveBotPersonality,
+          fritz19Personality: _controller.fritz19Personality,
+          effectiveFritz19Personality:
+              _controller.effectiveFritz19Personality,
+          personaCandidateCount: _controller.personaCandidateCount,
+          activeBotProfile: _controller.activeBotProfile,
+          isSoloMode: _controller.isSoloMode,
+          playFromHereFen: _controller.displayedPlayFromHereFen,
+        ),
         const SizedBox(height: 12),
-        if (_controller.displayedPlayFromHereFen != null) ...[
-          Text(
-            'FEN-ID: ${_controller.displayedPlayFromHereFen}',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFFFA726),
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -735,7 +747,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
             ),
             OutlinedButton.icon(
               onPressed:
-                  _controller.isAnalysisMode || _controller.isBotThinking
+                  _controller.isAnalysisMode ||
+                          _controller.isBotThinking ||
+                          _controller.isRandomUnwonTrainingActive
                       ? null
                       : _confirmSoloModeChange,
               style: _controller.isSoloMode

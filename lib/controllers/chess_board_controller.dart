@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../engine/chess_engine.dart';
 import '../engine/chess_engine_factory.dart';
 import '../engine/maia3_android_method_channel_engine.dart';
+import '../engine/maia3_android_position_encoder.dart';
 import '../engine/maia3_windows_uci_engine.dart';
 import '../data/better_bots_database.dart';
 import '../data/entities/better_bots_app_state_entity.dart';
@@ -25,6 +26,7 @@ import '../models/bot_personality_source.dart';
 import '../models/engine_analysis_line.dart';
 import '../models/engine_strength_mode.dart';
 import '../models/fritz19_personality.dart';
+import '../models/maia_training_progress.dart';
 import '../models/player_side.dart';
 import '../models/premove_queue.dart';
 
@@ -141,6 +143,35 @@ class ChessBoardController extends ChangeNotifier {
   /// Diese Liste wird ausschließlich beim normalen Spiel fortgeschrieben und
   /// niemals aus der Analyse-Session zurückkopiert.
   final List<BoardMove> _normalGameMoves = [];
+  int _normalGameHistoryRevision = 0;
+
+  /// Bereits erzeugte Anzeigeeinträge der normalen Hauptvariante.
+  ///
+  /// Früher wurde die komplette Partie bei jedem UI-Rebuild erneut abgespielt
+  /// und nach jedem Halbzug das wachsende PGN ausgewertet. Der Cache wird bei
+  /// echten Partieänderungen aktualisiert und beim bloßen Review nicht
+  /// verändert.
+  final List<ChessMoveListEntry> _mainLineMoveEntriesCache = [];
+  List<ChessMoveListEntry> _mainLineMoveEntriesSnapshot = const [];
+  String _mainLineMoveEntriesCacheStartFen = _defaultStartFen;
+  int _mainLineMoveEntriesCacheSourcePlyCount = 0;
+  int _mainLineMoveEntriesCacheRevision = 0;
+
+  /// PGN der laufenden normalen Partie. Es ändert sich nur durch echte
+  /// Partieänderungen und muss deshalb nicht bei jedem UI-Rebuild neu erzeugt
+  /// werden.
+  String _normalGamePgnCache = '-';
+  int _normalGamePgnCachePlyCount = 0;
+  String _normalGamePgnCacheStartFen = _defaultStartFen;
+  int _normalGamePgnCacheRevision = 0;
+
+  /// Separater Maia-Ringpuffer mit höchstens acht echten Brettstellungen.
+  ///
+  /// Die vollständige Zugliste bleibt weiterhin die Quelle für PGN, Review,
+  /// Speicherung und Analyse. Maia erhält dagegen direkt diese bereits
+  /// gepflegten FEN-Schnappschüsse und muss die komplette Partie nicht vor
+  /// jedem Botzug erneut abspielen.
+  final List<String> _maiaPositionHistoryFens = <String>[_defaultStartFen];
 
   /// Halbzug-Index der normalen Partie, der gerade im Brett betrachtet wird.
   /// `null` bedeutet: Live-Stellung am Ende der laufenden Partie.
@@ -201,12 +232,22 @@ class ChessBoardController extends ChangeNotifier {
       return effectiveBotOpeningMove;
     }
 
-    if (pendingBotSettings.botOpeningMove != BotOpeningMove.random) {
-      return pendingBotSettings.botOpeningMove;
+    final pendingOpening = pendingBotSettings.botOpeningMove;
+
+    if (!pendingOpening.isRandomMode) {
+      return pendingOpening;
+    }
+
+    if (pendingOpening == BotOpeningMove.randomUnwon) {
+      return effectiveBotOpeningMove;
     }
 
     if (pendingBotSettings.selectedOpeningMoves.isNotEmpty) {
       return pendingBotSettings.selectedOpeningMoves.first;
+    }
+
+    if (pendingOpening == BotOpeningMove.randomAll) {
+      return BotOpeningMove.trainingOpenings.first;
     }
 
     return BotOpeningMove.realOpenings.first;
@@ -363,6 +404,10 @@ class ChessBoardController extends ChangeNotifier {
 
   bool get normalSettingsLockedByBotProfile => draftBotProfile != null;
 
+  bool get isRandomUnwonTrainingActive {
+    return _botOpeningMove == BotOpeningMove.randomUnwon;
+  }
+
   bool get isBotThinking => _isBotThinking;
 
   String get engineOutput => _engineOutput;
@@ -486,8 +531,8 @@ class ChessBoardController extends ChangeNotifier {
       return analysisPgn;
     }
 
-    final currentPgn = _game.pgn();
-    return currentPgn.isEmpty ? '-' : currentPgn;
+    _ensureNormalGamePresentationCachesCurrent(this);
+    return _normalGamePgnCache;
   }
 
   /// PGN der Position, die gerade wirklich auf dem Brett angezeigt wird.
@@ -571,7 +616,7 @@ class ChessBoardController extends ChangeNotifier {
   }
 
   void newGame(PlayerSide side) {
-    if (isAnalysisMode) {
+    if (isAnalysisMode || isRandomUnwonTrainingActive) {
       return;
     }
 
@@ -585,6 +630,11 @@ class ChessBoardController extends ChangeNotifier {
 
   void restartGame() {
     if (isAnalysisMode) {
+      return;
+    }
+
+    if (isRandomUnwonTrainingActive) {
+      _controllerRestartRandomUnwonTraining(this);
       return;
     }
 
@@ -784,7 +834,3 @@ class ChessBoardController extends ChangeNotifier {
     return _controllerLoadFenPosition(this, fenInput);
   }
 }
-
-
-
-

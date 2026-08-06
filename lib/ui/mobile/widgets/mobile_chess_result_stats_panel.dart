@@ -8,16 +8,22 @@ class MobileChessResultStatsPanel extends StatelessWidget {
     super.key,
     required this.counter,
     this.trainedOnly = false,
+    this.trainedCounterOverride,
+    this.trainedTitle = 'Trainiert',
   });
 
   final TrainingCounterSnapshot counter;
   final bool trainedOnly;
+  final TrainingCounterSnapshot? trainedCounterOverride;
+  final String trainedTitle;
 
   @override
   Widget build(BuildContext context) {
     return ChessResultStatsPanel(
       counter: counter,
       trainedOnly: trainedOnly,
+      trainedCounterOverride: trainedCounterOverride,
+      trainedTitle: trainedTitle,
     );
   }
 }

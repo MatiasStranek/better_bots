@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/better_bots_database.dart';
 import '../../models/bot_opening_move.dart';
 import '../../models/bot_profile.dart';
 import '../../models/bot_personality.dart';
 import '../../models/bot_personality_source.dart';
 import '../../models/engine_strength_mode.dart';
 import '../../models/fritz19_personality.dart';
+import '../../models/maia_training_progress.dart';
 import '../../models/player_side.dart';
+import '../maia_completion_fill.dart';
 
 const Color _analysisButtonForeground = Color(0xFFFF9800);
 const Color _dialogAccentBlue = Color(0xFF2E5F93);
@@ -179,8 +182,8 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   String get _openingButtonText {
-    if (botOpeningMove == BotOpeningMove.random) {
-      return 'Zufällig: ${effectiveBotOpeningMove.label}';
+    if (botOpeningMove.isRandomMode) {
+      return '${botOpeningMove.label}: ${effectiveBotOpeningMove.label}';
     }
 
     return botOpeningMove.label;
@@ -485,7 +488,67 @@ class ChessBoardControls extends StatelessWidget {
     );
   }
 
+  MaiaSideCompletion _completionForOpeningSelection(
+    MaiaProfileTrainingProgress? progress,
+    BotOpeningMove openingMode,
+    List<BotOpeningMove> selectedMoves,
+  ) {
+    if (progress == null) {
+      return const MaiaSideCompletion.none();
+    }
+
+    if (openingMode == BotOpeningMove.random && selectedMoves.length >= 2) {
+      return progress.completionForAll(selectedMoves);
+    }
+
+    return switch (openingMode) {
+      BotOpeningMove.random => progress.openingsCompletion,
+      BotOpeningMove.randomAll || BotOpeningMove.randomUnwon =>
+        progress.allIdsCompletion,
+      _ => progress.completionFor(openingMode),
+    };
+  }
+
+  Future<bool> _confirmRandomUnwonSelection(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Zufällig Ungewonnen starten?'),
+              content: const Text(
+                'Die nächste noch ungewonnene Kombination bestimmt automatisch '
+                'Eröffnung und Spielfarbe. Das Brett wird sofort neu gestartet. '
+                'Die beiden Neue-Partie-Schaltflächen bleiben bis zum Ende '
+                'dieser Auswahl gesperrt.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abbrechen'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Starten'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+  }
+
   Future<void> _showOpeningDialog(BuildContext context) async {
+    final targetProfile = draftBotProfile;
+    final loadedProfile = draftBotProfile?.id == activeBotProfile?.id
+        ? activeBotProfile
+        : null;
+    final summary = BetterBotsDatabase.instance.maiaTrainingSummary();
+    final progress = loadedProfile == null
+        ? null
+        : summary.forProfile(loadedProfile);
+    final targetProgress = targetProfile == null
+        ? null
+        : summary.forProfile(targetProfile);
     final localSelectedOpeningMoves = List<BotOpeningMove>.from(
       draftSelectedOpeningMoves,
     );
@@ -559,6 +622,8 @@ class ChessBoardControls extends StatelessWidget {
                                   return _selectableTextButton(
                                     isSelected: isOpeningSelected(move),
                                     label: move.label,
+                                    completion: progress?.completionFor(move) ??
+                                        const MaiaSideCompletion.none(),
                                     onPressed: () {
                                       setDialogState(() {
                                         if (localSelectedOpeningMoves.isEmpty &&
@@ -611,7 +676,10 @@ class ChessBoardControls extends StatelessWidget {
                       children: [
                         _selectableTextButton(
                           isSelected: isOpeningSelected(BotOpeningMove.none),
-                          label: 'Ohne Eröffnung',
+                          label: BotOpeningMove.none.label,
+                          completion:
+                              progress?.completionFor(BotOpeningMove.none) ??
+                                  const MaiaSideCompletion.none(),
                           onPressed: () {
                             setDialogState(() {
                               selectOtherOpening(BotOpeningMove.none);
@@ -621,13 +689,52 @@ class ChessBoardControls extends StatelessWidget {
                         ),
                         _selectableTextButton(
                           isSelected: isOpeningSelected(BotOpeningMove.random),
-                          label: 'Zufällig',
+                          label: BotOpeningMove.random.label,
+                          completion: progress?.openingsCompletion ??
+                              const MaiaSideCompletion.none(),
                           onPressed: () {
                             setDialogState(() {
                               selectOtherOpening(BotOpeningMove.random);
                             });
                             onBotOpeningMoveChanged(BotOpeningMove.random);
                           },
+                        ),
+                        _selectableTextButton(
+                          isSelected:
+                              isOpeningSelected(BotOpeningMove.randomAll),
+                          label: BotOpeningMove.randomAll.label,
+                          completion: progress?.allIdsCompletion ??
+                              const MaiaSideCompletion.none(),
+                          onPressed: () {
+                            setDialogState(() {
+                              selectOtherOpening(BotOpeningMove.randomAll);
+                            });
+                            onBotOpeningMoveChanged(BotOpeningMove.randomAll);
+                          },
+                        ),
+                        _selectableTextButton(
+                          isSelected:
+                              isOpeningSelected(BotOpeningMove.randomUnwon),
+                          label: BotOpeningMove.randomUnwon.label,
+                          completion: progress?.allIdsCompletion ??
+                              const MaiaSideCompletion.none(),
+                          onPressed: targetProfile == null ||
+                                  (targetProgress?.allIdsCompletion.both ?? false)
+                              ? null
+                              : () async {
+                                  final confirmed =
+                                      await _confirmRandomUnwonSelection(
+                                    context,
+                                  );
+                                  if (!confirmed || !context.mounted) {
+                                    return;
+                                  }
+
+                                  onBotOpeningMoveChanged(
+                                    BotOpeningMove.randomUnwon,
+                                  );
+                                  Navigator.of(context).pop();
+                                },
                         ),
                       ],
                     ),
@@ -650,13 +757,37 @@ class ChessBoardControls extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const TabBar(
+                      TabBar(
                         labelColor: _dialogAccentBlue,
                         unselectedLabelColor: Colors.black54,
                         indicatorColor: _dialogAccentBlue,
                         tabs: [
-                          Tab(text: 'Eröffnungen'),
-                          Tab(text: 'Sonstiges'),
+                          Tab(
+                            child: SizedBox.expand(
+                              child: MaiaCompletionFill(
+                                completion: progress?.openingsCompletion ??
+                                    const MaiaSideCompletion.none(),
+                                borderRadius: BorderRadius.circular(8),
+                                opacity: 0.36,
+                                child: const Center(
+                                  child: Text('Eröffnungen'),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Tab(
+                            child: SizedBox.expand(
+                              child: MaiaCompletionFill(
+                                completion: progress?.allIdsCompletion ??
+                                    const MaiaSideCompletion.none(),
+                                borderRadius: BorderRadius.circular(8),
+                                opacity: 0.36,
+                                child: const Center(
+                                  child: Text('Sonstiges'),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -1070,6 +1201,8 @@ class ChessBoardControls extends StatelessWidget {
   }
 
   Future<void> _showBotsDialog(BuildContext context) async {
+    final summary = BetterBotsDatabase.instance.maiaTrainingSummary();
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -1104,6 +1237,9 @@ class ChessBoardControls extends StatelessWidget {
                         isSelected: normalSettingsLockedByBotProfile &&
                             draftBotProfile?.id == profile.id,
                         label: profile.displayName,
+                        completion: summary
+                            .forProfile(profile)
+                            .allIdsCompletion,
                         onPressed: () {
                           onBotProfileSelected(profile);
                           Navigator.pop(dialogContext);
@@ -1152,33 +1288,40 @@ class ChessBoardControls extends StatelessWidget {
   Widget _selectableTextButton({
     required bool isSelected,
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
+    MaiaSideCompletion completion = const MaiaSideCompletion.none(),
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? _dialogAccentBlue.withAlpha(26)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+      child: MaiaCompletionFill(
+        completion: completion,
+        borderRadius: BorderRadius.circular(12),
+        opacity: 0.42,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             color: isSelected
-                ? _dialogAccentBlue.withAlpha(120)
+                ? _dialogAccentBlue.withAlpha(26)
                 : Colors.transparent,
-          ),
-        ),
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            alignment: Alignment.centerLeft,
-            foregroundColor: _dialogAccentBlue,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? _dialogAccentBlue.withAlpha(120)
+                  : Colors.transparent,
             ),
           ),
-          child: Text(label),
+          child: TextButton(
+            onPressed: onPressed,
+            style: TextButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              foregroundColor: _dialogAccentBlue,
+              disabledForegroundColor: Colors.black38,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            child: Text(label),
+          ),
         ),
       ),
     );
@@ -1215,6 +1358,20 @@ class ChessBoardControls extends StatelessWidget {
     final normalControlsEnabled = !isBotThinking && !isAnalysisMode;
     final settingsControlsEnabled =
         normalControlsEnabled && !normalSettingsLockedByBotProfile;
+    final maiaSummary = BetterBotsDatabase.instance.maiaTrainingSummary();
+    final activeProgress = activeBotProfile != null &&
+            draftBotProfile?.id == activeBotProfile?.id
+        ? maiaSummary.forProfile(activeBotProfile!)
+        : null;
+    final openingCompletion = _completionForOpeningSelection(
+      activeProgress,
+      botOpeningMove,
+      selectedOpeningMoves,
+    );
+    final botCompletion = activeProgress?.allIdsCompletion ??
+        const MaiaSideCompletion.none();
+    final randomUnwonActive =
+        botOpeningMove == BotOpeningMove.randomUnwon;
 
     final personalityButtonColor =
         effectiveBotPersonality.isAbstract ? Colors.orange : null;
@@ -1229,11 +1386,15 @@ class ChessBoardControls extends StatelessWidget {
           runSpacing: 8,
           children: [
             ElevatedButton(
-              onPressed: isAnalysisMode ? null : () => onNewGame(PlayerSide.white),
+              onPressed: isAnalysisMode || randomUnwonActive
+                  ? null
+                  : () => onNewGame(PlayerSide.white),
               child: const Text('Ich spiele Weiß'),
             ),
             ElevatedButton(
-              onPressed: isAnalysisMode ? null : () => onNewGame(PlayerSide.black),
+              onPressed: isAnalysisMode || randomUnwonActive
+                  ? null
+                  : () => onNewGame(PlayerSide.black),
               child: const Text('Ich spiele Schwarz'),
             ),
             ElevatedButton(
@@ -1287,10 +1448,16 @@ class ChessBoardControls extends StatelessWidget {
                   : null,
               child: Text(_uciSwitchButtonText),
             ),
-            ElevatedButton(
-              onPressed:
-                  normalControlsEnabled ? () => _showOpeningDialog(context) : null,
-              child: Text(_openingButtonText),
+            MaiaCompletionFill(
+              completion: openingCompletion,
+              borderRadius: BorderRadius.circular(20),
+              opacity: 0.32,
+              child: ElevatedButton(
+                onPressed: normalControlsEnabled
+                    ? () => _showOpeningDialog(context)
+                    : null,
+                child: Text(_openingButtonText),
+              ),
             ),
             ElevatedButton(
               onPressed: settingsControlsEnabled
@@ -1307,11 +1474,17 @@ class ChessBoardControls extends StatelessWidget {
                   : null,
               child: Text(_candidateButtonText),
             ),
-            ElevatedButton.icon(
-              onPressed:
-                  normalControlsEnabled ? () => _showBotsDialog(context) : null,
-              icon: const Icon(Icons.smart_toy),
-              label: Text(_botsButtonText),
+            MaiaCompletionFill(
+              completion: botCompletion,
+              borderRadius: BorderRadius.circular(20),
+              opacity: 0.32,
+              child: ElevatedButton.icon(
+                onPressed: normalControlsEnabled
+                    ? () => _showBotsDialog(context)
+                    : null,
+                icon: const Icon(Icons.smart_toy),
+                label: Text(_botsButtonText),
+              ),
             ),
           ],
         ),

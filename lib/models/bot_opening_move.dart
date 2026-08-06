@@ -1,6 +1,8 @@
 enum BotOpeningMove {
   none(label: 'Ohne Eröffnung', whiteUci: null, blackUci: null),
-  random(label: 'Zufällig', whiteUci: null, blackUci: null),
+  random(label: 'Zufällige Eröffnungen', whiteUci: null, blackUci: null),
+  randomAll(label: 'Zufällig', whiteUci: null, blackUci: null),
+  randomUnwon(label: 'Zufällig Ungewonnen', whiteUci: null, blackUci: null),
 
   a4a5(label: 'a4 || a5', whiteUci: 'a2a4', blackUci: 'a7a5'),
   b4b5(label: 'b4 || b5', whiteUci: 'b2b4', blackUci: 'b7b5'),
@@ -36,12 +38,20 @@ enum BotOpeningMove {
   final String? blackUci;
 
   bool get isRealOpening {
-    return this != BotOpeningMove.none && this != BotOpeningMove.random;
+    return whiteUci != null && blackUci != null;
+  }
+
+  bool get isRandomMode {
+    return this == BotOpeningMove.random ||
+        this == BotOpeningMove.randomAll ||
+        this == BotOpeningMove.randomUnwon;
   }
 
   static List<BotOpeningMove> get realOpenings {
-    return values
-        .where((move) => move.isRealOpening)
-        .toList();
+    return values.where((move) => move.isRealOpening).toList();
+  }
+
+  static List<BotOpeningMove> get trainingOpenings {
+    return <BotOpeningMove>[BotOpeningMove.none, ...realOpenings];
   }
 }

@@ -8,22 +8,12 @@ const int _cpLossUciSwitchMaxElo = 3100;
 
 void _controllerStart(ChessBoardController controller) {
   controller._engineSubscription ??= controller._engine.output.listen((line) {
-    if (controller._isDisposed) {
-      return;
-    }
-
-    controller._engineOutput = line;
-    controller.notifyListeners();
+    _controllerHandleEngineOutput(controller, line);
   });
 
   controller._botProfileEngineSubscription ??=
       controller._botProfileEngine.output.listen((line) {
-    if (controller._isDisposed) {
-      return;
-    }
-
-    controller._engineOutput = line;
-    controller.notifyListeners();
+    _controllerHandleEngineOutput(controller, line);
   });
 
   _controllerRestorePersistedStateIfNeeded(controller);
@@ -32,6 +22,34 @@ void _controllerStart(ChessBoardController controller) {
   if (!controller.isGameOver && !controller.isPlayersTurn) {
     unawaited(_controllerMakeBotMoveIfNeeded(controller));
   }
+}
+
+void _controllerHandleEngineOutput(
+  ChessBoardController controller,
+  String line,
+) {
+  if (controller._isDisposed) {
+    return;
+  }
+
+  controller._engineOutput = line;
+
+  if (_isHighFrequencyStockfishInfoLine(line)) {
+    // Die Engine wertet diese Zeilen weiterhin vollständig intern aus. Sie
+    // dürfen nur nicht für jede Tiefen-/MultiPV-Zeile die komplette Flutter-
+    // Oberfläche neu bauen. Spätestens bestmove bzw. der ausgewählte Botzug
+    // löst wieder ein reguläres sichtbares Update aus.
+    return;
+  }
+
+  controller.notifyListeners();
+}
+
+bool _isHighFrequencyStockfishInfoLine(String line) {
+  final normalized = line.trim();
+
+  return normalized.startsWith('info ') ||
+      normalized.startsWith('ANDROID STOCKFISH << info ');
 }
 
 Future<void> _controllerMakeBotMoveIfNeeded(
@@ -204,27 +222,33 @@ Future<String> _selectMoveWithActiveBotProfile({
   required BotProfile profile,
 }) async {
   final botEngine = controller._botProfileEngine;
-  final moveHistory = controller._normalGameMoves
-      .map((move) => move.toString())
-      .toList(growable: false);
+
+  _ensureMaiaPositionHistoryCurrent(controller);
+
+  final historyFens = List<String>.of(
+    controller._maiaPositionHistoryFens,
+    growable: false,
+  );
 
   String botMove;
 
   if (botEngine is Maia3WindowsUciEngine) {
     botMove = await botEngine.getBestMoveFromGame(
       startFen: controller._normalGameStartFen,
-      moves: moveHistory,
+      moves: const <String>[],
       fen: controller._game.fen,
       elo: profile.rating,
+      historyFens: historyFens,
       temperature: profile.defaultTemperature,
       topP: profile.defaultTopP,
     );
   } else if (botEngine is Maia3AndroidMethodChannelEngine) {
     botMove = await botEngine.getBestMoveFromGame(
       startFen: controller._normalGameStartFen,
-      moves: moveHistory,
+      moves: const <String>[],
       fen: controller._game.fen,
       elo: profile.rating,
+      historyFens: historyFens,
       temperature: profile.defaultTemperature,
       topP: profile.defaultTopP,
     );
@@ -480,14 +504,24 @@ String? _getForcedOpeningMove(ChessBoardController controller) {
 }
 
 BotOpeningMove _resolveSelectedOpening(ChessBoardController controller) {
-  if (controller._botOpeningMove != BotOpeningMove.random) {
-    return controller._botOpeningMove;
+  final openingMode = controller._botOpeningMove;
+
+  if (!openingMode.isRandomMode) {
+    return openingMode;
   }
 
-  controller._resolvedRandomOpeningMove ??=
-      controller._selectedOpeningMoves.length >= 2
-          ? _randomOpeningMoveFromSelection(controller._selectedOpeningMoves)
-          : _randomOpeningMove();
+  if (openingMode == BotOpeningMove.randomUnwon) {
+    return controller._resolvedRandomOpeningMove ?? BotOpeningMove.none;
+  }
+
+  controller._resolvedRandomOpeningMove ??= switch (openingMode) {
+    BotOpeningMove.random => controller._selectedOpeningMoves.length >= 2
+        ? _randomOpeningMoveFromSelection(controller._selectedOpeningMoves)
+        : _randomOpeningMove(),
+    BotOpeningMove.randomAll =>
+      _randomOpeningMoveFromTrainingIds(BotOpeningMove.trainingOpenings),
+    _ => BotOpeningMove.none,
+  };
 
   return controller._resolvedRandomOpeningMove!;
 }
@@ -509,6 +543,22 @@ BotOpeningMove _randomOpeningMoveFromSelection(
 
   openings.shuffle();
 
+  return openings.first;
+}
+
+BotOpeningMove _randomOpeningMoveFromTrainingIds(
+  List<BotOpeningMove> openingMoves,
+) {
+  final openings = openingMoves
+      .where((openingMove) =>
+          openingMove == BotOpeningMove.none || openingMove.isRealOpening)
+      .toList();
+
+  if (openings.isEmpty) {
+    return BotOpeningMove.none;
+  }
+
+  openings.shuffle();
   return openings.first;
 }
 

@@ -7,6 +7,8 @@ class ChessResultStatsPanel extends StatelessWidget {
     super.key,
     this.counter = const TrainingCounterSnapshot.zero(),
     this.trainedOnly = false,
+    this.trainedCounterOverride,
+    this.trainedTitle = 'Trainiert',
   });
 
   static const Color wonColor = Color(0xFF55C878);
@@ -16,17 +18,20 @@ class ChessResultStatsPanel extends StatelessWidget {
 
   final TrainingCounterSnapshot counter;
   final bool trainedOnly;
+  final TrainingCounterSnapshot? trainedCounterOverride;
+  final String trainedTitle;
 
   bool get _hasWonWithBothColors {
     return counter.wonWhiteCount >= 1 && counter.wonBlackCount >= 1;
   }
 
   List<ChessResultStatData> get _stats {
+    final trainedCounter = trainedCounterOverride ?? counter;
     final trained = ChessResultStatData(
-      title: 'Trainiert',
-      value: '${counter.trainedCount}',
-      whiteCount: counter.trainedWhiteCount,
-      blackCount: counter.trainedBlackCount,
+      title: trainedTitle,
+      value: '${trainedCounter.trainedCount}',
+      whiteCount: trainedCounter.trainedWhiteCount,
+      blackCount: trainedCounter.trainedBlackCount,
       titleColor: trainedColor,
     );
 

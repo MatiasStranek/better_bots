@@ -1,5 +1,8 @@
 part of chess_board_controller;
 
+const int _maiaPositionHistoryLength =
+    Maia3AndroidPositionEncoder.historyLength;
+
 BoardHighlights _controllerHighlights(ChessBoardController controller) {
   final analysisSession = controller._analysisSession;
 
@@ -142,6 +145,7 @@ void _controllerSetSoloMode(
 ) {
   if (controller.isAnalysisMode ||
       controller._isBotThinking ||
+      controller.isRandomUnwonTrainingActive ||
       controller._isSoloMode == enabled) {
     return;
   }
@@ -222,6 +226,9 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
     _controllerResolveRandomOpeningMove(controller);
   }
 
+  _markNormalGameHistoryChanged(controller);
+  _clearNormalGamePresentationCaches(controller);
+  _resetMaiaPositionHistory(controller, controller._game.fen);
   _controllerResolveRandomPersonalities(controller);
   _controllerRefreshTrainingCounterSnapshot(controller);
   _safeNotify(controller);
@@ -236,6 +243,11 @@ void _controllerSetBotOpeningMove(
   BotOpeningMove openingMove,
 ) {
   if (controller._isBotThinking || controller.isAnalysisMode) {
+    return;
+  }
+
+  if (openingMove == BotOpeningMove.randomUnwon) {
+    _controllerStartRandomUnwonTraining(controller);
     return;
   }
 
@@ -331,13 +343,102 @@ void _controllerApplyOpeningSelection(ChessBoardController controller) {
 }
 
 void _controllerResetResolvedOpeningMove(ChessBoardController controller) {
+  if (controller._botOpeningMove == BotOpeningMove.randomUnwon) {
+    return;
+  }
+
   controller._resolvedRandomOpeningMove = null;
 }
 
 void _controllerResolveRandomOpeningMove(ChessBoardController controller) {
-  if (controller._botOpeningMove == BotOpeningMove.random) {
+  if (controller._botOpeningMove.isRandomMode) {
     _resolveSelectedOpening(controller);
   }
+}
+
+void _controllerStartRandomUnwonTraining(
+  ChessBoardController controller,
+) {
+  _controllerApplyPendingBotSettings(controller);
+  _controllerApplyPendingBotProfile(controller);
+
+  final profile = controller._activeBotProfile;
+
+  if (profile == null) {
+    return;
+  }
+
+  if (controller._isSoloMode) {
+    controller._isSoloMode = false;
+    BetterBotsDatabase.instance.saveSoloModeEnabled(false);
+  }
+
+  controller
+    .._playFromHereFen = null
+    .._playFromHerePositionLoaded = false
+    .._botOpeningMove = BotOpeningMove.randomUnwon
+    .._resolvedRandomOpeningMove = null
+    .._openingLogicAllowed = true;
+  controller._selectedOpeningMoves.clear();
+  BetterBotsDatabase.instance.clearPlayFromHereMarker();
+  BetterBotsDatabase.instance.clearPlayFromHereSession();
+
+  _controllerRestartRandomUnwonTraining(controller);
+}
+
+void _controllerRestartRandomUnwonTraining(
+  ChessBoardController controller,
+) {
+  if (controller.isAnalysisMode || controller._isBotThinking) {
+    return;
+  }
+
+  _controllerApplyPendingBotSettings(controller);
+  _controllerApplyPendingBotProfile(controller);
+
+  if (controller._botOpeningMove != BotOpeningMove.randomUnwon) {
+    _controllerNewGame(controller, controller._playerSide);
+    return;
+  }
+
+  final profile = controller._activeBotProfile;
+
+  if (profile == null) {
+    _controllerFinishRandomUnwonTraining(controller);
+    return;
+  }
+
+  final progress = BetterBotsDatabase.instance
+      .maiaTrainingSummary()
+      .forProfile(profile);
+  final targets = List<MaiaTrainingTarget>.from(progress.unwonTargets)
+    ..shuffle();
+
+  if (targets.isEmpty) {
+    _controllerFinishRandomUnwonTraining(controller);
+    return;
+  }
+
+  final target = targets.first;
+
+  controller
+    .._botOpeningMove = BotOpeningMove.randomUnwon
+    .._resolvedRandomOpeningMove = target.opening
+    .._openingLogicAllowed = true;
+  controller._selectedOpeningMoves.clear();
+
+  _controllerNewGame(controller, target.playerSide);
+}
+
+void _controllerFinishRandomUnwonTraining(
+  ChessBoardController controller,
+) {
+  controller
+    .._botOpeningMove = BotOpeningMove.randomAll
+    .._resolvedRandomOpeningMove = null
+    .._openingLogicAllowed = true;
+  controller._selectedOpeningMoves.clear();
+  _controllerNewGame(controller, controller._playerSide);
 }
 
 bool _controllerShouldQueueBotSettings(ChessBoardController controller) {
@@ -1220,9 +1321,21 @@ void _recordNormalGameMove(
       ? null
       : promotion.toLowerCase();
 
-  controller._normalGameMoves.add(
-    BoardMove(from: from, to: to, promotion: normalizedPromotion),
+  final move = BoardMove(
+    from: from,
+    to: to,
+    promotion: normalizedPromotion,
   );
+
+  controller._normalGameMoves.add(move);
+  _markNormalGameHistoryChanged(controller);
+  _refreshNormalGamePgnCache(controller);
+  _appendMainLineMoveEntryForCurrentGame(controller, move);
+
+  // Der Zug ist zu diesem Zeitpunkt bereits erfolgreich auf [_game]
+  // ausgeführt. Deshalb kann die neue Maia-Stellung direkt übernommen werden,
+  // ohne die Partie erneut vom Start aus abzuspielen.
+  _appendMaiaPositionHistoryFen(controller, controller._game.fen);
 }
 
 void _resetNormalGameHistoryFromCurrentFen(
@@ -1231,6 +1344,119 @@ void _resetNormalGameHistoryFromCurrentFen(
 ) {
   controller._normalGameStartFen = fen;
   controller._normalGameMoves.clear();
+  _markNormalGameHistoryChanged(controller);
+  _clearNormalGamePresentationCaches(controller);
+  _resetMaiaPositionHistory(controller, fen);
+}
+
+void _resetMaiaPositionHistory(
+  ChessBoardController controller,
+  String fen,
+) {
+  final normalizedFen = _normalizeMaiaHistoryFen(fen);
+
+  controller._maiaPositionHistoryFens
+    ..clear()
+    ..add(normalizedFen);
+}
+
+void _appendMaiaPositionHistoryFen(
+  ChessBoardController controller,
+  String fen,
+) {
+  final history = controller._maiaPositionHistoryFens;
+
+  history.add(_normalizeMaiaHistoryFen(fen));
+
+  while (history.length > _maiaPositionHistoryLength) {
+    history.removeAt(0);
+  }
+}
+
+void _rebuildMaiaPositionHistory(ChessBoardController controller) {
+  final replayGame = chess.Chess();
+  var loaded = false;
+
+  try {
+    loaded = replayGame.load(
+      _normalizeMaiaHistoryFen(controller._normalGameStartFen),
+    );
+  } catch (_) {
+    loaded = false;
+  }
+
+  if (!loaded) {
+    _resetMaiaPositionHistory(controller, controller._game.fen);
+    return;
+  }
+
+  _resetMaiaPositionHistory(controller, replayGame.fen);
+
+  for (final move in controller._normalGameMoves) {
+    final moved = _applyBoardMoveToChessGame(replayGame, move);
+
+    if (!moved) {
+      _resetMaiaPositionHistory(controller, controller._game.fen);
+      return;
+    }
+
+    _appendMaiaPositionHistoryFen(controller, replayGame.fen);
+  }
+
+  if (_maiaHistoryFenPositionKey(replayGame.fen) !=
+      _maiaHistoryFenPositionKey(controller._game.fen)) {
+    // Sicherheitsfallback für beschädigte oder inkonsistente gespeicherte
+    // Partien. Maia erhält dann wenigstens die aktuelle Stellung korrekt.
+    _resetMaiaPositionHistory(controller, controller._game.fen);
+  }
+}
+
+void _ensureMaiaPositionHistoryCurrent(
+  ChessBoardController controller,
+) {
+  final history = controller._maiaPositionHistoryFens;
+  final currentFen = _normalizeMaiaHistoryFen(controller._game.fen);
+  final currentPositionKey = _maiaHistoryFenPositionKey(currentFen);
+
+  if (history.isNotEmpty &&
+      _maiaHistoryFenPositionKey(history.last) == currentPositionKey) {
+    return;
+  }
+
+  // Dieser Pfad ist nur eine Absicherung für Laden/Migration oder eine künftig
+  // neu hinzukommende echte Partieänderung. Im normalen Spiel wird der Cache
+  // nach jedem legalen Halbzug direkt aktualisiert.
+  _rebuildMaiaPositionHistory(controller);
+
+  final rebuiltHistory = controller._maiaPositionHistoryFens;
+  final rebuiltLastPositionKey = rebuiltHistory.isEmpty
+      ? null
+      : _maiaHistoryFenPositionKey(rebuiltHistory.last);
+
+  if (rebuiltLastPositionKey != currentPositionKey) {
+    _resetMaiaPositionHistory(controller, currentFen);
+  }
+}
+
+String _normalizeMaiaHistoryFen(String fen) {
+  final normalized = fen.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+  if (normalized.isEmpty || normalized == 'startpos') {
+    return _defaultStartFen;
+  }
+
+  return normalized;
+}
+
+String _maiaHistoryFenPositionKey(String fen) {
+  final normalized = _normalizeMaiaHistoryFen(fen);
+  final parts = normalized.split(' ');
+
+  if (parts.length <= 4) {
+    return normalized;
+  }
+
+  return parts.sublist(0, 4).join(' ');
 }
 
 void _safeNotify(ChessBoardController controller) {
@@ -1244,6 +1470,3 @@ void _safeNotify(ChessBoardController controller) {
 
   controller.notifyListeners();
 }
-
-
-
