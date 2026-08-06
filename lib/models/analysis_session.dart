@@ -278,7 +278,10 @@ class AnalysisSession {
       return false;
     }
 
-    final cachedLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+    final cachedLines = aggregate.rankedTopLines(
+      targetDepth: targetDepth,
+      sideToMove: analysisGame.turn,
+    );
     return cachedLines.isNotEmpty &&
         _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth);
   }
@@ -287,7 +290,10 @@ class AnalysisSession {
     final aggregate = _analysisAggregatesByFen[fen];
 
     if (aggregate != null && aggregate.completedRuns > 0) {
-      final cachedLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+      final cachedLines = aggregate.rankedTopLines(
+        targetDepth: targetDepth,
+        sideToMove: analysisGame.turn,
+      );
 
       if (cachedLines.isNotEmpty &&
           _linesReachedTargetDepth(cachedLines, targetDepth: targetDepth)) {
@@ -336,7 +342,10 @@ class AnalysisSession {
     );
 
     aggregate.addRun(sortedLines);
-    topLines = aggregate.rankedTopLines(targetDepth: targetDepth);
+    topLines = aggregate.rankedTopLines(
+      targetDepth: targetDepth,
+      sideToMove: analysisGame.turn,
+    );
     return true;
   }
 
@@ -709,12 +718,16 @@ class _PositionAnalysisAggregate {
     completedRuns += 1;
   }
 
-  List<EngineAnalysisLine> rankedTopLines({required int targetDepth}) {
+  List<EngineAnalysisLine> rankedTopLines({
+    required int targetDepth,
+    required chess.Color sideToMove,
+  }) {
+    final scoreSign = sideToMove == chess.Color.WHITE ? 1.0 : -1.0;
     final rankedMoves = _movesByUci.values.toList(growable: false)
       ..sort((left, right) {
-        final scoreOrder = right.averageNormalizedScore.compareTo(
-          left.averageNormalizedScore,
-        );
+        final leftRankingScore = left.averageNormalizedScore * scoreSign;
+        final rightRankingScore = right.averageNormalizedScore * scoreSign;
+        final scoreOrder = rightRankingScore.compareTo(leftRankingScore);
 
         if (scoreOrder != 0) {
           return scoreOrder;
