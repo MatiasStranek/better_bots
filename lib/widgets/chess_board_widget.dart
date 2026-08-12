@@ -569,6 +569,18 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
         return KeyEventResult.handled;
       }
 
+      if (defaultTargetPlatform == TargetPlatform.windows &&
+          event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        _controller.jumpAnalysisToStart();
+        return KeyEventResult.handled;
+      }
+
+      if (defaultTargetPlatform == TargetPlatform.windows &&
+          event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        _controller.jumpAnalysisToEnd();
+        return KeyEventResult.handled;
+      }
+
       if (event.logicalKey == LogicalKeyboardKey.escape) {
         _controller.toggleAnalysisMode();
         return KeyEventResult.handled;
@@ -588,6 +600,24 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
     if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
       if (_controller.canNavigateMainLineForward) {
         _controller.stepMainLineForward();
+      }
+
+      return KeyEventResult.handled;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.windows &&
+        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_controller.canNavigateMainLineBack) {
+        _controller.jumpMainLineToStart();
+      }
+
+      return KeyEventResult.handled;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.windows &&
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_controller.canNavigateMainLineForward) {
+        _controller.jumpMainLineToEnd();
       }
 
       return KeyEventResult.handled;
