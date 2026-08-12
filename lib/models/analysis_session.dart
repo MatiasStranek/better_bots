@@ -61,6 +61,24 @@ class AnalysisSession {
     return _branchStartPly != null;
   }
 
+  /// Synchronisiert die Hauptvariante mit der inzwischen weitergespielten
+  /// Partie, ohne die bereits gesammelten Analyse-Aggregate zu verwerfen.
+  /// Temporäre Analysezweige werden beim erneuten Öffnen bewusst verlassen;
+  /// ihre FEN-basierten Aggregate bleiben jedoch im Cache erhalten.
+  void syncMainLine({
+    required List<BoardMove> moves,
+    required int initialPly,
+  }) {
+    _analysisMoves
+      ..clear()
+      ..addAll(moves);
+    _clearBranch();
+    currentPly = initialPly.clamp(0, _analysisMoves.length).toInt();
+    _rebuildCurrentPosition();
+    restoreCompletedLinesForCurrentFen();
+    isAnalyzing = false;
+  }
+
   List<BoardMove> get analysisMoves {
     return List.unmodifiable(_activeMoves);
   }

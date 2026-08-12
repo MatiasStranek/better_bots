@@ -166,6 +166,11 @@ void _controllerNewGame(ChessBoardController controller, PlayerSide side) {
     return;
   }
 
+  // Ein echter Spiel-Neustart definiert die Lebensdauer des temporären
+  // Analyse-Caches. Das umfasst Restart, Restart mit Counter sowie neue
+  // Partien mit Weiß/Schwarz und die Trainings-Restarts.
+  _controllerClearRetainedAnalysisSession(controller);
+
   controller._searchGeneration++;
 
   _controllerApplyPendingBotSettings(controller);

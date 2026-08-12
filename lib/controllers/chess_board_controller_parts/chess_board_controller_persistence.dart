@@ -3,6 +3,17 @@ part of chess_board_controller;
 const String _persistedOpeningSelectionPrefix = 'selection:';
 const String _persistedBotProfilePrefix = 'botProfile:';
 
+int _defaultAnalysisRepeatRequestCountForPlatform() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      return 2;
+    case TargetPlatform.windows:
+      return 10;
+    default:
+      return 1;
+  }
+}
+
 void _controllerRestorePersistedStateIfNeeded(
   ChessBoardController controller,
 ) {
@@ -24,13 +35,25 @@ void _controllerRestorePersistedStateIfNeeded(
       persistedPlayFromHereSessionFen ?? legacyPlayFromHereSessionFen;
   final soloModeEnabled =
       BetterBotsDatabase.instance.loadSoloModeEnabled();
+  final persistedAnalysisRepeatRequestCount =
+      BetterBotsDatabase.instance.loadAnalysisRepeatRequestCount();
+  final analysisRepeatRequestCount =
+      persistedAnalysisRepeatRequestCount ??
+          _defaultAnalysisRepeatRequestCountForPlatform();
 
   controller
+    .._analysisRepeatRequestCount = analysisRepeatRequestCount
     .._isSoloMode = soloModeEnabled
     .._playFromHereFen = playFromHereMarker?.fen
     .._playFromHerePositionLoaded =
         playFromHereSessionFen != null &&
         playFromHereSessionFen.trim().isNotEmpty;
+
+  if (persistedAnalysisRepeatRequestCount == null) {
+    BetterBotsDatabase.instance.saveAnalysisRepeatRequestCount(
+      analysisRepeatRequestCount,
+    );
+  }
 
   if (persistedPlayFromHereSessionFen == null &&
       legacyPlayFromHereSessionFen != null &&

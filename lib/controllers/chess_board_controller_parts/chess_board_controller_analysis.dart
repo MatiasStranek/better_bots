@@ -301,6 +301,7 @@ void _controllerSetAnalysisRepeatRequestCount(
   }
 
   controller._analysisRepeatRequestCount = normalized;
+  BetterBotsDatabase.instance.saveAnalysisRepeatRequestCount(normalized);
   _safeNotify(controller);
 }
 
@@ -381,6 +382,12 @@ void _controllerCancelAnalysisRepeat(ChessBoardController controller) {
   unawaited(controller._analysisEngine.cancelSearch());
 }
 
+void _controllerClearRetainedAnalysisSession(
+  ChessBoardController controller,
+) {
+  controller._retainedAnalysisSession = null;
+}
+
 void _controllerToggleAnalysisMode(ChessBoardController controller) {
   if (controller._analysisSession == null) {
     if (!controller.canStartAnalysisMode) {
@@ -406,7 +413,6 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
   controller._searchGeneration++;
   controller._analysisGeneration++;
   controller
-    .._analysisRepeatRequestCount = 1
     .._analysisRepeatActive = false
     .._analysisRepeatRunsPending = 0
     .._analysisRepeatRemaining = 0
@@ -423,15 +429,31 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
   }
 
   try {
-    controller._analysisSession = AnalysisSession(
-      startFen: controller._normalGameStartFen,
-      initialMoves: controller._normalGameMoves,
-      initialPly: initialPly,
-    )..statusText = controller._normalGameMoves.isEmpty
-        ? 'Analysemodus aktiv. Startposition übernommen.'
-        : 'Analysemodus aktiv. Ganze Partie geladen: '
-            '${controller._normalGameMoves.length} Halbzüge verfügbar. '
-            'Start bei Halbzug $initialPly.';
+    final retainedSession = controller._retainedAnalysisSession;
+
+    if (retainedSession != null &&
+        retainedSession.startFen.trim() ==
+            controller._normalGameStartFen.trim()) {
+      retainedSession.syncMainLine(
+        moves: controller._normalGameMoves,
+        initialPly: initialPly,
+      );
+      controller._analysisSession = retainedSession;
+    } else {
+      controller._retainedAnalysisSession = null;
+      controller._analysisSession = AnalysisSession(
+        startFen: controller._normalGameStartFen,
+        initialMoves: controller._normalGameMoves,
+        initialPly: initialPly,
+      );
+    }
+
+    controller._analysisSession!.statusText =
+        controller._normalGameMoves.isEmpty
+            ? 'Analysemodus aktiv. Startposition übernommen.'
+            : 'Analysemodus aktiv. Ganze Partie geladen: '
+                '${controller._normalGameMoves.length} Halbzüge verfügbar. '
+                'Start bei Halbzug $initialPly.';
   } catch (e) {
     controller._analysisSession = null;
     controller._normalReviewPlyBeforeAnalysis = null;
@@ -448,6 +470,22 @@ void _controllerStartAnalysisMode(ChessBoardController controller) {
 void _controllerStopAnalysisMode(ChessBoardController controller) {
   controller._analysisGeneration++;
   _controllerCancelAnalysisRepeatState(controller);
+
+  final session = controller._analysisSession;
+
+  if (session != null) {
+    // Nur die laufende/unvollständige Anzeige verwerfen. Bereits vollständig
+    // gespeicherte xN-Aggregate bleiben für dieselbe Partie erhalten.
+    if (session.completedAnalysisCountForCurrentFen > 0) {
+      session.restoreCompletedLinesForCurrentFen(targetDepth: _analysisDepth);
+    } else {
+      session.clearTopLines();
+    }
+
+    session.isAnalyzing = false;
+    controller._retainedAnalysisSession = session;
+  }
+
   controller._analysisSession = null;
   controller._analysisSearchQueued = false;
   controller._selectedSquare = null;
@@ -901,14 +939,33 @@ Future<void> _runQueuedAnalysis(ChessBoardController controller) async {
               : _maxAnalysisDepth(displayLines)
                   .clamp(0, _analysisDepth)
                   .toInt();
-          session
-            ..statusText = displayLines.isEmpty
-                ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
-                : runWasSaved
-                    ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
-                    : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe '
-                        '${_maxAnalysisDepth(displayLines)}.'
-            ..isAnalyzing = false;
+
+          final automaticTargetRuns =
+              controller._analysisRepeatRequestCount.clamp(1, 1000).toInt();
+          final automaticRunsRemaining = runWasSaved
+              ? automaticTargetRuns - 1
+              : 0;
+
+          if (automaticRunsRemaining > 0) {
+            controller
+              .._analysisRepeatActive = true
+              .._analysisRepeatRunsPending = automaticRunsRemaining
+              .._analysisRepeatRemaining = automaticRunsRemaining;
+            session
+              ..statusText =
+                  'Analyse 1/$automaticTargetRuns gespeichert. '
+                  'NeuAnalyse 2/$automaticTargetRuns startet ab Tiefe 0.'
+              ..isAnalyzing = true;
+          } else {
+            session
+              ..statusText = displayLines.isEmpty
+                  ? 'Analyse aktiv. Keine Engine-Linie verfügbar.'
+                  : runWasSaved
+                      ? 'Analyse aktiv. Tiefe $_analysisDepth gespeichert.'
+                      : 'Analyse aktiv. ${displayLines.length} Linien bis Tiefe '
+                          '${_maxAnalysisDepth(displayLines)}.'
+              ..isAnalyzing = false;
+          }
 
           _safeNotify(controller);
         }

@@ -199,7 +199,7 @@ class _AnalysisLinesView extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Noch ${isAnalysisRepeatActive ? analysisRepeatRemaining : 1}',
+                    'Noch ${isAnalysisRepeatActive ? analysisRepeatRemaining : analysisRepeatRequestCount}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w800,
                           fontFeatures: const [FontFeature.tabularFigures()],

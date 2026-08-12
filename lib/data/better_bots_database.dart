@@ -107,6 +107,8 @@ class BetterBotsDatabase {
       '__better_bots_play_from_here_session_v1__';
   static const String _soloModeMarkerKeyHash =
       '__better_bots_solo_mode_marker_v1__';
+  static const String _analysisRepeatCountKeyHash =
+      '__better_bots_analysis_repeat_count_v1__';
 
   static final BetterBotsDatabase instance = BetterBotsDatabase._();
 
@@ -335,6 +337,59 @@ class BetterBotsDatabase {
       trainedWhiteCount: entity.trainedWhiteCount,
       trainedBlackCount: entity.trainedBlackCount,
     );
+  }
+
+  int? loadAnalysisRepeatRequestCount() {
+    final entity = _findCounterByHash(_analysisRepeatCountKeyHash);
+
+    if (entity == null) {
+      return null;
+    }
+
+    final value = entity.trainedCount;
+    if (value < 1 || value > 1000) {
+      return null;
+    }
+
+    return value;
+  }
+
+  void saveAnalysisRepeatRequestCount(int value) {
+    final box = _trainingCounterBox;
+
+    if (box == null) {
+      return;
+    }
+
+    final normalized = value.clamp(1, 1000).toInt();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = _findCounterByHash(_analysisRepeatCountKeyHash) ??
+        TrainingCounterEntity(
+          keyHash: _analysisRepeatCountKeyHash,
+          canonicalKey: 'analysisRepeatCount',
+          strengthModeName: 'analysisRepeatCount',
+          strengthValue: -1,
+          effectiveOpeningName: 'analysisRepeatCount',
+          personalitySourceName: 'analysisRepeatCount',
+          effectivePersonalityName: 'analysisRepeatCount',
+          personaCandidateCount: -1,
+          cpLossUciSwitchFullMoveNumber: -1,
+          createdAtMillis: now,
+        );
+
+    entity
+      ..canonicalKey = 'analysisRepeatCount'
+      ..strengthModeName = 'analysisRepeatCount'
+      ..strengthValue = -1
+      ..effectiveOpeningName = 'analysisRepeatCount'
+      ..personalitySourceName = 'analysisRepeatCount'
+      ..effectivePersonalityName = 'analysisRepeatCount'
+      ..personaCandidateCount = -1
+      ..cpLossUciSwitchFullMoveNumber = -1
+      ..trainedCount = normalized
+      ..updatedAtMillis = now;
+
+    box.put(entity);
   }
 
   bool loadSoloModeEnabled() {

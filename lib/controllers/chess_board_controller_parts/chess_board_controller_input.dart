@@ -182,6 +182,8 @@ Future<bool> _controllerLoadFenPosition(
     return false;
   }
 
+  _controllerClearRetainedAnalysisSession(controller);
+
   controller
     .._openingLogicAllowed = false
     .._resolvedRandomOpeningMove = null
@@ -285,6 +287,8 @@ Future<bool> _controllerLoadPgnGame(
     _safeNotify(controller);
     return false;
   }
+
+  _controllerClearRetainedAnalysisSession(controller);
 
   controller._normalGameStartFen =
       startFen.isEmpty ? _defaultStartFen : startFen;

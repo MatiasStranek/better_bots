@@ -123,6 +123,14 @@ class ChessBoardController extends ChangeNotifier {
   int _searchGeneration = 0;
 
   AnalysisSession? _analysisSession;
+
+  // Temporärer Analyse-Cache der laufenden Partie. Beim Schließen des
+  // Analysemodus bleibt die Session hier erhalten, damit bereits gemittelte
+  // Tiefe-20-Läufe beim erneuten Öffnen derselben Partie weiter verfügbar
+  // sind. Ein echter Partie-Reset bzw. das Laden einer neuen Stellung löscht
+  // diesen Cache gezielt.
+  AnalysisSession? _retainedAnalysisSession;
+
   int _analysisGeneration = 0;
   bool _analysisSearchInFlight = false;
   bool _analysisSearchQueued = false;

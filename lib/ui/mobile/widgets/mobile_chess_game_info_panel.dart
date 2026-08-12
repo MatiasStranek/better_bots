@@ -298,8 +298,9 @@ class _MobileAnalysisRepeatPanel extends StatelessWidget {
                   child: _MobileRepeatProgressControls(
                     depth: analysisRepeatCurrentDepth,
                     targetDepth: analysisTargetDepth,
-                    remaining:
-                        isAnalysisRepeatActive ? analysisRepeatRemaining : 1,
+                    remaining: isAnalysisRepeatActive
+                        ? analysisRepeatRemaining
+                        : analysisRepeatRequestCount,
                     onCancel: onCancelAnalysisRepeat,
                   ),
                 ),
