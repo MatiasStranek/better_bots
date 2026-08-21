@@ -26,9 +26,8 @@ class ChessMoveListPanel extends StatefulWidget {
   static const Color _panelBackground = Color(0xFF101722);
   static const Color _panelBorder = Color(0xFF2B3A4E);
   static const Color _accent = Color(0xFFAEDBFF);
-  static const Color _selectedBackground = Color(0xFF285B8E);
-  static const Color _analyzedBackground = Color(0xFF1E5635);
-  static const Color _selectedAnalyzedBackground = Color(0xFF4FC978);
+  static const Color _selectionBorder = Color(0xFF5C9DFF);
+  static const Color _analyzedTextColor = Color(0xFF74E39A);
 
 }
 
@@ -310,33 +309,39 @@ class _MoveCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isAnalyzed
-        ? (isSelected
-              ? ChessMoveListPanel._selectedAnalyzedBackground
-              : ChessMoveListPanel._analyzedBackground)
-        : (isSelected
-              ? ChessMoveListPanel._selectedBackground
-              : Colors.white.withAlpha(14));
+    final textColor = isAnalyzed
+        ? ChessMoveListPanel._analyzedTextColor
+        : (isSelected ? Colors.white : Colors.white.withAlpha(220));
 
     return Material(
-      color: backgroundColor,
+      color: Colors.white.withAlpha(14),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
           height: 32,
           alignment: textAlign == TextAlign.center
               ? Alignment.center
               : Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? ChessMoveListPanel._selectionBorder
+                  : Colors.transparent,
+              width: 2,
+            ),
+          ),
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: textAlign,
             style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white.withAlpha(220),
+              color: textColor,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
             ),
