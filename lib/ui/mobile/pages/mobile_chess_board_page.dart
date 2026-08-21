@@ -383,6 +383,8 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 analysisLines: _controller.analysisLines,
                 completedAnalysisRunCount:
                     _controller.completedAnalysisRunCount,
+                completedMainLineAnalysisPlies:
+                    _controller.completedMainLineAnalysisPlies,
                 analysisTargetDepth: _controller.analysisTargetDepth,
                 isAnalysisRepeatActive: _controller.isAnalysisRepeatActive,
                 analysisRepeatCurrentDepth:
@@ -400,6 +402,8 @@ class _MobileChessBoardPageState extends State<MobileChessBoardPage> {
                 onDecrementAnalysisRepeatCount:
                     _controller.decrementAnalysisRepeatRequestCount,
                 trainingCounter: _controller.trainingCounterSnapshot,
+                currentPositionPlayerDepth:
+                    _controller.currentPositionPlayerDepth,
                 isPlayFromHereActive: _controller.isPlayFromHereActive,
                 displayedPlayFromHereFen:
                     _controller.displayedPlayFromHereFen,

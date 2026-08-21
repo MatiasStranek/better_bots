@@ -34,6 +34,7 @@ class ChessBoardDebugPanel extends StatelessWidget {
     required this.trainingCounter,
     required this.analysisUsedDuringCurrentGame,
     required this.trainedOnly,
+    this.currentDepth,
     super.key,
   });
 
@@ -59,6 +60,7 @@ class ChessBoardDebugPanel extends StatelessWidget {
   final TrainingCounterSnapshot trainingCounter;
   final bool analysisUsedDuringCurrentGame;
   final bool trainedOnly;
+  final int? currentDepth;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +78,7 @@ class ChessBoardDebugPanel extends StatelessWidget {
           counter: trainingCounter,
           analysisUsedDuringCurrentGame: analysisUsedDuringCurrentGame,
           trainedOnly: trainedOnly,
+          currentDepth: currentDepth,
         ),
         const SizedBox(height: 12),
         if (isAnalysisMode)

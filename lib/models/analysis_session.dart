@@ -16,6 +16,7 @@ class AnalysisSession {
     }
 
     _analysisMoves.addAll(initialMoves);
+    _rebuildMainLineFenCache();
     currentPly = (initialPly ?? _analysisMoves.length)
         .clamp(0, _analysisMoves.length)
         .toInt();
@@ -36,6 +37,12 @@ class AnalysisSession {
   /// Hauptvariante der übernommenen Partie. Diese Liste wird durch temporäre
   /// Analysezweige nicht mehr überschrieben.
   final List<BoardMove> _analysisMoves = [];
+
+  /// FEN jeder Hauptlinien-Stellung: Index 0 ist die Startstellung, danach
+  /// folgt jeweils die Stellung nach dem entsprechenden Halbzug. Dadurch kann
+  /// die Zugliste den vorhandenen Analyse-Cache abfragen, ohne bei jedem
+  /// UI-Rebuild die komplette Partie erneut abspielen zu müssen.
+  final List<String> _mainLineFens = [];
 
   /// Temporärer Zweig ab [_branchStartPly]. Der Zweig lebt nur innerhalb der
   /// Analyse-Session und wird verworfen, sobald man zurück bis zum Abzweigpunkt
@@ -72,6 +79,7 @@ class AnalysisSession {
     _analysisMoves
       ..clear()
       ..addAll(moves);
+    _rebuildMainLineFenCache();
     _clearBranch();
     currentPly = initialPly.clamp(0, _analysisMoves.length).toInt();
     _rebuildCurrentPosition();
@@ -287,6 +295,20 @@ class AnalysisSession {
 
   int get completedAnalysisCountForCurrentFen {
     return _analysisAggregatesByFen[fen]?.completedRuns ?? 0;
+  }
+
+  Set<int> get completedMainLineAnalysisPlies {
+    final completedPlies = <int>{};
+
+    for (var ply = 0; ply < _mainLineFens.length; ply += 1) {
+      final aggregate = _analysisAggregatesByFen[_mainLineFens[ply]];
+
+      if (aggregate != null && aggregate.completedRuns > 0) {
+        completedPlies.add(ply);
+      }
+    }
+
+    return Set<int>.unmodifiable(completedPlies);
   }
 
   bool hasCompletedLinesForCurrentFen({int targetDepth = 20}) {
@@ -679,6 +701,36 @@ class AnalysisSession {
     return typeText == 'k' ||
         typeText.endsWith('.k') ||
         typeText.contains('king');
+  }
+
+  void _rebuildMainLineFenCache() {
+    final replayGame = chess.Chess();
+    final loaded = replayGame.load(startFen);
+
+    if (!loaded) {
+      throw StateError('Analyse-Start-FEN konnte nicht erneut geladen werden.');
+    }
+
+    _mainLineFens
+      ..clear()
+      ..add(replayGame.fen);
+
+    for (final move in _analysisMoves) {
+      final moveData = <String, String>{'from': move.from, 'to': move.to};
+      final promotion = move.promotion;
+
+      if (promotion != null && promotion.isNotEmpty) {
+        moveData['promotion'] = promotion;
+      }
+
+      final moved = replayGame.move(moveData);
+
+      if (!moved) {
+        throw StateError('Analysezug konnte nicht rekonstruiert werden: $move');
+      }
+
+      _mainLineFens.add(replayGame.fen);
+    }
   }
 
   void _rebuildCurrentPosition() {

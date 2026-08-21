@@ -9,17 +9,20 @@ class ChessResultStatsPanel extends StatelessWidget {
     this.trainedOnly = false,
     this.trainedCounterOverride,
     this.trainedTitle = 'Trainiert',
+    this.currentDepth,
   });
 
   static const Color wonColor = Color(0xFF55C878);
   static const Color lostColor = Color(0xFFFF5A5A);
   static const Color drawColor = Color(0xFF9A9A9A);
   static const Color trainedColor = Color(0xFFFFA726);
+  static const Color currentDepthColor = Color(0xFF63C7FF);
 
   final TrainingCounterSnapshot counter;
   final bool trainedOnly;
   final TrainingCounterSnapshot? trainedCounterOverride;
   final String trainedTitle;
+  final int? currentDepth;
 
   bool get _hasWonWithBothColors {
     return counter.wonWhiteCount >= 1 && counter.wonBlackCount >= 1;
@@ -36,6 +39,20 @@ class ChessResultStatsPanel extends StatelessWidget {
     );
 
     if (trainedOnly) {
+      final depth = currentDepth;
+      if (depth != null) {
+        return [
+          ChessResultStatData(
+            title: 'Aktuelle Depth',
+            value: '$depth',
+            whiteCount: depth,
+            blackCount: 0,
+            titleColor: currentDepthColor,
+          ),
+          trained,
+        ];
+      }
+
       return [trained];
     }
 
@@ -87,18 +104,24 @@ class ChessResultStatsTextView extends StatelessWidget {
     this.counter = const TrainingCounterSnapshot.zero(),
     required this.analysisUsedDuringCurrentGame,
     this.trainedOnly = false,
+    this.currentDepth,
   });
 
   final TrainingCounterSnapshot counter;
   final bool analysisUsedDuringCurrentGame;
   final bool trainedOnly;
+  final int? currentDepth;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChessResultStatsPanel(counter: counter, trainedOnly: trainedOnly),
+        ChessResultStatsPanel(
+          counter: counter,
+          trainedOnly: trainedOnly,
+          currentDepth: currentDepth,
+        ),
         const SizedBox(height: 8),
         _AnalysisUsageBadge(
           analysisUsedDuringCurrentGame: analysisUsedDuringCurrentGame,

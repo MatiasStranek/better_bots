@@ -496,6 +496,10 @@ class ChessBoardController extends ChangeNotifier {
     return _analysisSession?.completedAnalysisCountForCurrentFen ?? 0;
   }
 
+  Set<int> get completedMainLineAnalysisPlies {
+    return _analysisSession?.completedMainLineAnalysisPlies ?? const <int>{};
+  }
+
   int get analysisTargetDepth => _analysisDepth;
 
   int get analysisRepeatRequestCount => _analysisRepeatRequestCount;
@@ -515,6 +519,20 @@ class ChessBoardController extends ChangeNotifier {
   bool get isNormalReviewMode => _controllerIsNormalReviewMode(this);
 
   int get currentMainLinePly => _controllerCurrentMainLinePly(this);
+
+  int get currentPositionPlayerDepth {
+    final ply = currentMainLinePly;
+    if (ply <= 0) {
+      return 0;
+    }
+
+    final fenFields = _normalGameStartFen.trim().split(RegExp(r'\s+'));
+    final startsWithWhiteToMove =
+        fenFields.length < 2 || fenFields[1].toLowerCase() == 'w';
+    final playerMovesFirst = startsWithWhiteToMove == playerIsWhite;
+
+    return playerMovesFirst ? ((ply + 1) ~/ 2) : (ply ~/ 2);
+  }
 
   int get mainLinePlyCount => _normalGameMoves.length;
 

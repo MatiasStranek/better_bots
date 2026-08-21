@@ -10,12 +10,14 @@ class MobileChessResultStatsPanel extends StatelessWidget {
     this.trainedOnly = false,
     this.trainedCounterOverride,
     this.trainedTitle = 'Trainiert',
+    this.currentDepth,
   });
 
   final TrainingCounterSnapshot counter;
   final bool trainedOnly;
   final TrainingCounterSnapshot? trainedCounterOverride;
   final String trainedTitle;
+  final int? currentDepth;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +26,7 @@ class MobileChessResultStatsPanel extends StatelessWidget {
       trainedOnly: trainedOnly,
       trainedCounterOverride: trainedCounterOverride,
       trainedTitle: trainedTitle,
+      currentDepth: currentDepth,
     );
   }
 }

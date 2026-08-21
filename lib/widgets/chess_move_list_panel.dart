@@ -9,6 +9,7 @@ class ChessMoveListPanel extends StatefulWidget {
     required this.selectedPly,
     required this.isReviewMode,
     required this.isAnalysisMode,
+    required this.analyzedPlies,
     required this.onMoveSelected,
   });
 
@@ -16,6 +17,7 @@ class ChessMoveListPanel extends StatefulWidget {
   final int selectedPly;
   final bool isReviewMode;
   final bool isAnalysisMode;
+  final Set<int> analyzedPlies;
   final Future<void> Function(int ply) onMoveSelected;
 
   @override
@@ -25,6 +27,8 @@ class ChessMoveListPanel extends StatefulWidget {
   static const Color _panelBorder = Color(0xFF2B3A4E);
   static const Color _accent = Color(0xFFAEDBFF);
   static const Color _selectedBackground = Color(0xFF285B8E);
+  static const Color _analyzedBackground = Color(0xFF1E5635);
+  static const Color _selectedAnalyzedBackground = Color(0xFF4FC978);
 
 }
 
@@ -68,6 +72,8 @@ class _ChessMoveListPanelState extends State<ChessMoveListPanel> {
             const SizedBox(height: 10),
             _StartPositionTile(
               isSelected: widget.selectedPly == 0,
+              isAnalyzed:
+                  widget.isAnalysisMode && widget.analyzedPlies.contains(0),
               onTap: () => widget.onMoveSelected(0),
             ),
             const SizedBox(height: 8),
@@ -97,6 +103,8 @@ class _ChessMoveListPanelState extends State<ChessMoveListPanel> {
                           return _MoveListRow(
                             row: row,
                             selectedPly: widget.selectedPly,
+                            isAnalysisMode: widget.isAnalysisMode,
+                            analyzedPlies: widget.analyzedPlies,
                             onMoveSelected: widget.onMoveSelected,
                           );
                         },
@@ -195,10 +203,12 @@ class _HeaderBadge extends StatelessWidget {
 class _StartPositionTile extends StatelessWidget {
   const _StartPositionTile({
     required this.isSelected,
+    required this.isAnalyzed,
     required this.onTap,
   });
 
   final bool isSelected;
+  final bool isAnalyzed;
   final VoidCallback onTap;
 
   @override
@@ -206,6 +216,7 @@ class _StartPositionTile extends StatelessWidget {
     return _MoveCell(
       text: 'Startstellung',
       isSelected: isSelected,
+      isAnalyzed: isAnalyzed,
       onTap: onTap,
       textAlign: TextAlign.center,
     );
@@ -216,11 +227,15 @@ class _MoveListRow extends StatelessWidget {
   const _MoveListRow({
     required this.row,
     required this.selectedPly,
+    required this.isAnalysisMode,
+    required this.analyzedPlies,
     required this.onMoveSelected,
   });
 
   final _MoveRowData row;
   final int selectedPly;
+  final bool isAnalysisMode;
+  final Set<int> analyzedPlies;
   final Future<void> Function(int ply) onMoveSelected;
 
   @override
@@ -251,6 +266,8 @@ class _MoveListRow extends StatelessWidget {
                 : _MoveCell(
                     text: whiteMove.san,
                     isSelected: selectedPly == whiteMove.ply,
+                    isAnalyzed:
+                        isAnalysisMode && analyzedPlies.contains(whiteMove.ply),
                     onTap: () {
                       onMoveSelected(whiteMove.ply);
                     },
@@ -263,6 +280,8 @@ class _MoveListRow extends StatelessWidget {
                 : _MoveCell(
                     text: blackMove.san,
                     isSelected: selectedPly == blackMove.ply,
+                    isAnalyzed:
+                        isAnalysisMode && analyzedPlies.contains(blackMove.ply),
                     onTap: () {
                       onMoveSelected(blackMove.ply);
                     },
@@ -278,21 +297,29 @@ class _MoveCell extends StatelessWidget {
   const _MoveCell({
     required this.text,
     required this.isSelected,
+    required this.isAnalyzed,
     required this.onTap,
     this.textAlign = TextAlign.left,
   });
 
   final String text;
   final bool isSelected;
+  final bool isAnalyzed;
   final VoidCallback onTap;
   final TextAlign textAlign;
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = isAnalyzed
+        ? (isSelected
+              ? ChessMoveListPanel._selectedAnalyzedBackground
+              : ChessMoveListPanel._analyzedBackground)
+        : (isSelected
+              ? ChessMoveListPanel._selectedBackground
+              : Colors.white.withAlpha(14));
+
     return Material(
-      color: isSelected
-          ? ChessMoveListPanel._selectedBackground
-          : Colors.white.withAlpha(14),
+      color: backgroundColor,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,

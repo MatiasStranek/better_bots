@@ -90,6 +90,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.analysisUsedDuringCurrentGame,
     required this.analysisLines,
     required this.completedAnalysisRunCount,
+    required this.completedMainLineAnalysisPlies,
     required this.analysisTargetDepth,
     required this.isAnalysisRepeatActive,
     required this.analysisRepeatCurrentDepth,
@@ -102,6 +103,7 @@ class MobileChessBoardLayout extends StatefulWidget {
     required this.onIncrementAnalysisRepeatCount,
     required this.onDecrementAnalysisRepeatCount,
     required this.trainingCounter,
+    required this.currentPositionPlayerDepth,
     required this.isPlayFromHereActive,
     required this.displayedPlayFromHereFen,
     required this.onPastePgn,
@@ -217,6 +219,7 @@ class MobileChessBoardLayout extends StatefulWidget {
   final bool analysisUsedDuringCurrentGame;
   final List<EngineAnalysisLine> analysisLines;
   final int completedAnalysisRunCount;
+  final Set<int> completedMainLineAnalysisPlies;
   final int analysisTargetDepth;
   final bool isAnalysisRepeatActive;
   final int analysisRepeatCurrentDepth;
@@ -229,6 +232,7 @@ class MobileChessBoardLayout extends StatefulWidget {
   final VoidCallback onIncrementAnalysisRepeatCount;
   final VoidCallback onDecrementAnalysisRepeatCount;
   final TrainingCounterSnapshot trainingCounter;
+  final int currentPositionPlayerDepth;
   final bool isPlayFromHereActive;
   final String? displayedPlayFromHereFen;
   final Future<bool> Function(String text) onPastePgn;
@@ -521,6 +525,8 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 entries: widget.mainLineMoveEntries,
                 selectedPly: widget.currentMainLinePly,
                 onMoveSelected: widget.onMainLineMoveSelected,
+                isAnalysisMode: widget.isAnalysisMode,
+                analyzedPlies: widget.completedMainLineAnalysisPlies,
                 isAnalysisBranchActive: widget.isAnalysisBranchActive,
               ),
             ),
@@ -532,6 +538,10 @@ class _MobileChessBoardLayoutState extends State<MobileChessBoardLayout> {
                 height: _resultStatsHeight,
                 child: MobileChessResultStatsPanel(
                   counter: widget.trainingCounter,
+                  currentDepth: widget.displayedPlayFromHereFen?.trim().isNotEmpty ??
+                          false
+                      ? widget.currentPositionPlayerDepth
+                      : null,
                   trainedCounterOverride: widget.activeBotProfile == null &&
                           !widget.isSoloMode &&
                           (widget.displayedPlayFromHereFen?.trim().isEmpty ??

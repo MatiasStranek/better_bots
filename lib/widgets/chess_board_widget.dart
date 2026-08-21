@@ -715,6 +715,9 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
           analysisUsedDuringCurrentGame:
               _controller.analysisUsedDuringCurrentGame,
           trainedOnly: _controller.isPlayFromHerePositionLoaded,
+          currentDepth: _controller.isPlayFromHerePositionLoaded
+              ? _controller.currentPositionPlayerDepth
+              : null,
         ),
         const SizedBox(height: 16),
         ChessBoardGameInfoPanel(
@@ -856,6 +859,7 @@ class _ChessBoardWidgetState extends State<ChessBoardWidget>
         selectedPly: _controller.currentMainLinePly,
         isReviewMode: _controller.isNormalReviewMode,
         isAnalysisMode: _controller.isAnalysisMode,
+        analyzedPlies: _controller.completedMainLineAnalysisPlies,
         onMoveSelected: _controller.jumpToMainLinePly,
       ),
     );

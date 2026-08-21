@@ -8,6 +8,8 @@ class MobileChessMoveStrip extends StatefulWidget {
     required this.entries,
     required this.selectedPly,
     required this.onMoveSelected,
+    this.isAnalysisMode = false,
+    this.analyzedPlies = const <int>{},
     this.isAnalysisBranchActive = false,
     this.height = 54,
   });
@@ -15,6 +17,8 @@ class MobileChessMoveStrip extends StatefulWidget {
   final List<ChessMoveListEntry> entries;
   final int selectedPly;
   final Future<void> Function(int ply) onMoveSelected;
+  final bool isAnalysisMode;
+  final Set<int> analyzedPlies;
   final bool isAnalysisBranchActive;
   final double height;
 
@@ -220,6 +224,9 @@ class _MobileChessMoveStripState extends State<MobileChessMoveStrip> {
                         padding: EdgeInsets.zero,
                         child: _MoveStripChip(
                           token: tokens[index],
+                          isAnalyzed: widget.isAnalysisMode &&
+                              tokens[index].ply != null &&
+                              widget.analyzedPlies.contains(tokens[index].ply),
                           isAnalysisBranchActive:
                               widget.isAnalysisBranchActive,
                           onTap: tokens[index].ply == null
@@ -263,16 +270,19 @@ class _EmptyMoveStrip extends StatelessWidget {
 class _MoveStripChip extends StatelessWidget {
   const _MoveStripChip({
     required this.token,
+    required this.isAnalyzed,
     required this.isAnalysisBranchActive,
     required this.onTap,
   });
 
   final _MoveStripToken token;
+  final bool isAnalyzed;
   final bool isAnalysisBranchActive;
   final VoidCallback? onTap;
 
   static const Color _accentColor = Color(0xFF5C9DFF);
   static const Color _branchColor = Color(0xFF9A9A9A);
+  static const Color _selectedAnalyzedTextColor = Color(0xFF74E39A);
 
   @override
   Widget build(BuildContext context) {
@@ -310,9 +320,11 @@ class _MoveStripChip extends StatelessWidget {
           child: Text(
             token.text,
             style: _MobileChessMoveStripState._moveTextStyle.copyWith(
-              color: token.isCurrentMove
-                  ? Colors.white
-                  : Colors.white.withAlpha(220),
+              color: isAnalyzed
+                  ? _selectedAnalyzedTextColor
+                  : (token.isCurrentMove
+                      ? Colors.white
+                      : Colors.white.withAlpha(220)),
             ),
           ),
         ),
