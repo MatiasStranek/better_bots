@@ -79,6 +79,7 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
 
   String? _annotationDragStartSquare;
   String? _annotationDragCurrentSquare;
+  bool _pieceDragActive = false;
 
   BorderRadius get _boardBorderRadius {
     if (defaultTargetPlatform != TargetPlatform.windows) {
@@ -98,6 +99,10 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
   }
 
   void _handlePointerDown(PointerDownEvent event, double boardSize) {
+    if (_cancelActivePieceDragOnSecondaryButton(event)) {
+      return;
+    }
+
     if (_isPrimaryMouseButton(event.buttons)) {
       widget.onClearAnnotations?.call();
       return;
@@ -124,6 +129,10 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
   }
 
   void _handlePointerMove(PointerMoveEvent event, double boardSize) {
+    if (_cancelActivePieceDragOnSecondaryButton(event)) {
+      return;
+    }
+
     if (!widget.annotationModeEnabled ||
         _annotationDragStartSquare == null ||
         !_isSecondaryMouseButton(event.buttons)) {
@@ -174,6 +183,35 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
 
   void _handlePointerCancel(PointerCancelEvent event) {
     _resetAnnotationDragPreview();
+  }
+
+  void _handlePieceDragStarted(String square) {
+    _pieceDragActive = true;
+    widget.onPieceDragStarted(square);
+  }
+
+  void _handlePieceDragEnded() {
+    if (!_pieceDragActive) {
+      return;
+    }
+
+    _pieceDragActive = false;
+    widget.onPieceDragEnded();
+  }
+
+  bool _cancelActivePieceDragOnSecondaryButton(PointerEvent event) {
+    if (!_pieceDragActive || !_isSecondaryMouseButton(event.buttons)) {
+      return false;
+    }
+
+    // Ein Rechtsklick während eines laufenden Drags soll sich wie ein
+    // abgebrochener/ungültiger Drop verhalten. Das Pointer-Cancel beendet
+    // Flutter's aktiven Draggable sofort; der lokale Abschluss-Handler ist
+    // idempotent und räumt die Brettauswahl nur einmal auf.
+    GestureBinding.instance.cancelPointer(event.pointer);
+    _handlePieceDragEnded();
+    _resetAnnotationDragPreview();
+    return true;
   }
 
   void _resetAnnotationDragPreview() {
@@ -244,8 +282,8 @@ class _ChessBoardGridState extends State<ChessBoardGrid> {
                       legalTargetsFromSquare: widget.legalTargetsFromSquare,
                       onSquareTap: widget.onSquareTap,
                       onMove: widget.onMove,
-                      onPieceDragStarted: widget.onPieceDragStarted,
-                      onPieceDragEnded: widget.onPieceDragEnded,
+                      onPieceDragStarted: _handlePieceDragStarted,
+                      onPieceDragEnded: _handlePieceDragEnded,
                     );
                   },
                 ),
